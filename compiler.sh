@@ -1,16 +1,16 @@
 #!/bin/bash
 
-if [ ! -d build ]; then
-    mkdir build
+if [ ! -d pyffmpeg/build ]; then
+    mkdir pyffmpeg/build
 else
-    rm -rf build/*
+    rm -rf pyffmpeg/build/*
 fi
 
 
 ffmpeg_base_dir=/home/cuichengyu/FFmpeg-n4.4.1
 
-cd build
-cmake .. \
+cd pyffmpeg/build
+cmake ../.. \
     -DPYTHON_INCLUDE_DIRS=$(python -c "from distutils.sysconfig import get_python_inc; print(get_python_inc())")  \
     -DPYTHON_LIBRARIES=$(python -c "import distutils.sysconfig as sysconfig; print(sysconfig.get_config_var('LIBDIR') + '/' + sysconfig.get_config_var('LDLIBRARY'))") \
     -DFFMPEG_INCLUDE_DIRS=${ffmpeg_base_dir}

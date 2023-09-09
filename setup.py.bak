@@ -1,0 +1,128 @@
+# -*- coding=utf-8 -*-
+# Library: py-ffmpeg
+# Author: dongrixinyu
+# License: MIT
+# Email: dongrixinyu.89@163.com
+# Github: https://github.com/dongrixinyu/py-ffmpeg
+# Description: a simple Python wrapper for FFmpeg.'
+# Website: http://www.jionlp.com
+
+
+import os
+import re
+import sys
+import setuptools
+
+
+if sys.platform == 'linux':
+    from setuptools import Extension
+    from distutils.command.build_ext import build_ext as _build_ext
+
+
+    class build_ext(_build_ext):
+
+        def finalize_options(self):
+            _build_ext.finalize_options(self)
+            __builtins__.__NUMPY_SETUP__ = False
+
+            # to include ffmpeg *.h & *.c and *.so files
+            self.include_dirs.append('/home/cuichengyu/FFmpeg-n4.4.1')
+            import subprocess as sp
+            ffmpeg_so_names = ['avformat', 'avcodec', 'avutil', 'avfilter', 'avdevice', 'swresample', 'swscale']
+            ffmpeg_so_paths = [sp.check_output("find /usr -name lib{}.so".format(file_name),
+                                               shell=True).decode().strip()
+                               for file_name in ffmpeg_so_names]
+
+            self.libraries = ffmpeg_so_paths
+
+        def build_extension(self, ext):
+            self._ctypes = isinstance(ext, CTypes)
+            return super().build_extension(ext)
+
+        def get_export_symbols(self, ext):
+            if self._ctypes:
+                return ext.export_symbols
+            return super().get_export_symbols(ext)
+
+        def get_ext_filename(self, ext_name):
+            if self._ctypes:
+                return ext_name + '.so'
+            return super().get_ext_filename(ext_name)
+
+
+    class CTypes(Extension):
+        pass
+
+
+# get version tag
+DIR_PATH = os.path.dirname(os.path.abspath(__file__))
+__version__ = None
+
+# with open(os.path.join(DIR_PATH, 'README.md'), 'r', encoding='utf-8') as f:
+#     readme_lines = f.readlines()
+#     version_pattern = re.compile('badge/version-(\d\.\d+\.\d+)-')
+#     for line in readme_lines:
+#         result = version_pattern.search(line)
+#         if result is not None:
+#             __version__ = result.group(1)
+
+#     LONG_DOC = '\n'.join(readme_lines)
+
+if __version__ is None:
+    __version__ = '1.0.0'
+
+with open(os.path.join(DIR_PATH, 'requirements.txt'),
+          'r', encoding='utf-8') as f:
+    requirements = f.readlines()
+
+
+def setup_package():
+
+    if sys.platform == 'linux':
+        extensions = [
+            Extension(
+                'py-ffmpeg.build.libinterfaceAPI',
+                ['py-ffmpeg/interfaceAPI.c', 'py-ffmpeg/extractFrame.c'],
+                language='c'),
+            # Extension(
+            #     'jiojio.jiojio_cpp.build.libcwsFeatureExtractor',
+            #     ['jiojio/jiojio_cpp/cwsFeatureExtractor.c'],
+            #     language='c'),
+
+        ]
+    else:
+        extensions = None
+
+    # this line could be dismissed
+    # extensions = None
+    setuptools.setup(
+        name='pyffmpeg',
+        version=__version__,
+        author='dongrixinyu',
+        author_email='dongrixinyu.89@163.com',
+        description='py-ffmpeg: a simple Python wrapper for FFmpeg',
+        long_description_content_type='text/markdown',
+        url='https://github.com/dongrixinyu/py-ffmpeg',
+        packages=setuptools.find_packages(),
+        package_data={
+            '': ['*.txt', '*.pkl', '*.npz', '*.zip',
+                 '*.json', '*.c', '*.h']
+        },
+        include_package_data=True,
+        classifiers=[
+            'Programming Language :: Python :: 3',
+            'License :: OSI Approved :: GNU General Public License v3 (GPLv3)',
+            'Operating System :: Ubuntu',
+            'Topic :: Audio & Video Stream Processing',
+            'Topic :: FFmpeg',
+        ],
+        install_requires=requirements,
+        ext_modules=extensions,
+        zip_safe=False,
+        cmdclass={'build_ext': build_ext} if sys.platform == 'linux' else {},
+        # setup_requires=['numpy'],
+    )
+
+
+if __name__ == '__main__':
+    setup_package()

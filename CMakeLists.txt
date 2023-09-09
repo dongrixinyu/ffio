@@ -39,8 +39,8 @@ include_directories(${FFMPEG_LIBRARIES})
 include_directories(/usr/include)
 
 add_library(interfaceAPI SHARED
-            ${PROJECT_SOURCE_DIR}/interfaceAPI.c
-            ${PROJECT_SOURCE_DIR}/extractFrame.c)
+            ${PROJECT_SOURCE_DIR}/pyffmpeg/interfaceAPI.c
+            ${PROJECT_SOURCE_DIR}/pyffmpeg/extractFrame.c)
 
 target_link_libraries(interfaceAPI
     ${PYTHON_LIBRARIES}
