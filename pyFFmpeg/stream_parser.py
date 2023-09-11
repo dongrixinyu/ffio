@@ -1,9 +1,9 @@
 # -*- coding=utf-8 -*-
-# Library: py-ffmpeg
+# Library: pyFFmpeg
 # Author: dongrixinyu
 # License: MIT
 # Email: dongrixinyu.89@163.com
-# Github: https://github.com/dongrixinyu/py-ffmpeg
+# Github: https://github.com/dongrixinyu/pyFFmpeg
 # Description: a simple Python wrapper for FFmpeg.'
 # Website: http://www.jionlp.com
 
@@ -32,6 +32,9 @@ lib_interface_api.getWidth.restype = ctypes.c_int
 lib_interface_api.getHeight.argtypes = [ctypes.c_void_p]
 lib_interface_api.getHeight.restype = ctypes.c_int
 
+lib_interface_api.getAverageFPS.argtypes = [ctypes.c_void_p]
+lib_interface_api.getAverageFPS.restype = ctypes.c_float
+
 lib_interface_api.getOneFrame.argtypes = [ctypes.c_void_p]
 lib_interface_api.getOneFrame.restype = ctypes.py_object
 
@@ -39,7 +42,7 @@ lib_interface_api.getOneFrame.restype = ctypes.py_object
 class StreamParser(object):
     """StreamParser: """
     def __init__(self, stream_path):
-        
+
         self.stream_path = stream_path
         # the input stream must be in byte format
         try:
@@ -56,10 +59,25 @@ class StreamParser(object):
 
         self.stream_video_width = lib_interface_api.getWidth(self.streamObj)
         self.stream_video_height = lib_interface_api.getHeight(self.streamObj)
-        print("stream width: {}, height: {}".format(
-            self.stream_video_width, self.stream_video_height))
+        self.stream_video_average_fps = lib_interface_api.getAverageFPS(self.streamObj)
+        print("stream width: {}, height: {}, average fps: {}".format(
+            self.stream_video_width, self.stream_video_height,
+            self.stream_video_average_fps))
 
         self.frame_number = 0
+
+    @property
+    def width(self):
+        return self.stream_video_width
+
+    @property
+    def height(self):
+        return self.stream_video_height
+
+    @property
+    def fps(self):
+        return self.stream_video_average_fps
+
 
     def get_one_frame(self, image_format='numpy'):
         """ image_format: numpy, Image, base64, None
@@ -84,5 +102,3 @@ class StreamParser(object):
 
         elif image_format == 'base64':
             return None
-
-

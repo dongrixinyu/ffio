@@ -34,6 +34,8 @@ typedef struct StreamObj {
 
     int timebaseNum;  // to compute the fps of the stream, duration / Den
     int timebaseDen;
+    int framerateNum;
+    int framerateDen;
 
     AVFormatContext *videoFormatContext;
     AVCodecContext *videoCodecContext;

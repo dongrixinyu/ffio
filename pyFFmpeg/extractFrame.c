@@ -5,6 +5,7 @@ StreamObj *newStreamObj() {
     StreamObj *streamObj = NULL;
     streamObj = (StreamObj *)malloc(sizeof(StreamObj));
     if (streamObj == NULL) {
+        printf("out of memory. failed to new a StreamObj.\n");
         return NULL;
     }
 
@@ -14,6 +15,8 @@ StreamObj *newStreamObj() {
     streamObj->streamHeight = 0;
     streamObj->timebaseNum = 0;   // to compute the fps of the stream, Num / Den
     streamObj->timebaseDen = 0;
+    streamObj->framerateNum = 0;
+    streamObj->framerateDen = 0;
 
     streamObj->videoPacket = NULL;
     streamObj->videoFrame = NULL;
@@ -128,6 +131,8 @@ int Init(StreamObj *streamObj, const char *streamPath) {
     streamObj->timebaseDen = streamObj->videoFormatContext->streams[videoStreamID]->time_base.den;
     streamObj->streamWidth = streamObj->videoCodecContext->width;
     streamObj->streamHeight = streamObj->videoCodecContext->height;
+    streamObj->framerateNum = streamObj->videoFormatContext->streams[videoStreamID]->avg_frame_rate.num;
+    streamObj->framerateDen = streamObj->videoFormatContext->streams[videoStreamID]->avg_frame_rate.den;
 
     // just print the stream info on the screen
     av_dump_format(streamObj->videoFormatContext, videoStreamID, streamObj->streamPath, 0);

@@ -11,6 +11,7 @@ void *init(const char *sourceStreamPath);
 
 int getWidth(void *streamObj);
 int getHeight(void *streamObj);
+float getAverageFPS(void *StreamObj);
 
 int getFPS(void *streamObj);
 

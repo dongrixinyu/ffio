@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.0)
 
 # a simple python wrapper for ffmpeg,
 # aiming to facilitate computer-vision processing.
-project(pyffmpeg)
+project(pyFFmpeg)
 
 add_compile_options(-O3)
 
@@ -39,8 +39,8 @@ include_directories(${FFMPEG_LIBRARIES})
 include_directories(/usr/include)
 
 add_library(interfaceAPI SHARED
-            ${PROJECT_SOURCE_DIR}/pyffmpeg/interfaceAPI.c
-            ${PROJECT_SOURCE_DIR}/pyffmpeg/extractFrame.c)
+            ${PROJECT_SOURCE_DIR}/pyFFmpeg/interfaceAPI.c
+            ${PROJECT_SOURCE_DIR}/pyFFmpeg/extractFrame.c)
 
 target_link_libraries(interfaceAPI
     ${PYTHON_LIBRARIES}

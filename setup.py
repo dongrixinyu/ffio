@@ -1,9 +1,9 @@
 # -*- coding=utf-8 -*-
-# Library: py-ffmpeg
+# Library: pyFFmpeg
 # Author: dongrixinyu
 # License: MIT
 # Email: dongrixinyu.89@163.com
-# Github: https://github.com/dongrixinyu/py-ffmpeg
+# Github: https://github.com/dongrixinyu/pyFFmpeg
 # Description: a simple Python wrapper for FFmpeg.'
 # Website: http://www.jionlp.com
 
@@ -28,13 +28,13 @@ def setup_package():
     # this line could be dismissed
     # extensions = None
     setuptools.setup(
-        name='pyffmpeg',
+        name='pyFFmpeg',
         version=__version__,
         author='dongrixinyu',
         author_email='dongrixinyu.89@163.com',
-        description='py-ffmpeg: a simple Python wrapper for FFmpeg',
+        description='pyFFmpeg: a simple Python wrapper for FFmpeg',
         # long_description_content_type='text/markdown',
-        url='https://github.com/dongrixinyu/py-ffmpeg',
+        url='https://github.com/dongrixinyu/pyFFmpeg',
         packages=setuptools.find_packages(),
         package_data={
             '': ['*.txt', '*.pkl', '*.npz', '*.zip',

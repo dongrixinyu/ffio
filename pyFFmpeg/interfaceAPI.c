@@ -29,6 +29,16 @@ int getHeight(void *streamObj)
     return height;
 }
 
+float getAverageFPS(void *streamObj){
+    StreamObj *curStreamObj = (StreamObj *)streamObj;
+
+    int framerateNum = curStreamObj->framerateNum;
+    int framerateDen = curStreamObj->framerateDen;
+
+    float fps = (float)framerateNum / framerateDen;
+    return fps;
+}
+
 PyObject *getOneFrame(void *streamObj)
 {
     int ret;
