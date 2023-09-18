@@ -48,7 +48,8 @@ PyObject *getOneFrame(void *streamObj)
 
     PyObject *outputImageBuffer = PyBytes_FromStringAndSize(
         (char *) curStreamObj->outputImage, curStreamObj->imageSize);
-
+    // PyObject *outputImageBuffer = PyList_New(0);
     return outputImageBuffer;
-    // return curStreamObj->outputImage; // return the result RGB image bytes
+
+    // return (char *)curStreamObj->outputImage; // return the result RGB image bytes
 }

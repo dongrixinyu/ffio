@@ -37,6 +37,7 @@ lib_interface_api.getAverageFPS.restype = ctypes.c_float
 
 lib_interface_api.getOneFrame.argtypes = [ctypes.c_void_p]
 lib_interface_api.getOneFrame.restype = ctypes.py_object
+# lib_interface_api.getOneFrame.restype = ctypes.c_int
 
 
 class StreamParser(object):
@@ -64,6 +65,12 @@ class StreamParser(object):
             self.stream_video_width, self.stream_video_height,
             self.stream_video_average_fps))
 
+        self.stream_buffer_size = self.stream_video_height * self.stream_video_width * 3
+        # self.image_buffer = ctypes.create_string_buffer(
+        #     b"\0", self.stream_buffer_size)
+        print("image buffer size = {} * {} * 3 = {}".format(
+            self.stream_video_width, self.stream_video_height, 3, self.stream_buffer_size))
+
         self.frame_number = 0
 
     @property
@@ -84,6 +91,9 @@ class StreamParser(object):
         """
 
         frame_bytes = lib_interface_api.getOneFrame(self.streamObj)
+
+        # pdb.set_trace()
+        # frame_bytes = self.image_buffer.raw
         self.frame_number += 1
 
         if image_format is None:

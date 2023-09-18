@@ -7,6 +7,7 @@
 #define API
 #endif
 
+
 void *init(const char *sourceStreamPath);
 
 int getWidth(void *streamObj);
