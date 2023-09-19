@@ -7,9 +7,14 @@
 #define API
 #endif
 
+void *newStreamObject();
 
-void *init(const char *sourceStreamPath);
+void *deleteStreamObject(void *streamObj);
 
+void *init(void *streamObj, const char *sourceStreamPath);
+void *finalize(void *streamObj);
+
+int getStreamState(void *streamObj);
 int getWidth(void *streamObj);
 int getHeight(void *streamObj);
 float getAverageFPS(void *StreamObj);

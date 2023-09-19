@@ -9,8 +9,8 @@ StreamObj *newStreamObj()
         return NULL;
     }
 
-    // streamObj->streamPath = {0}; // the path of mp4 or rtmp, rtsp
-    streamObj->streamID = -1; // which stream index to parse in the video
+    streamObj->streamStateFlag = 0; // 0 means close, 1 means stream context has been opened
+    streamObj->streamID = -1;       // which stream index to parse in the video
     streamObj->streamWidth = 0;
     streamObj->streamHeight = 0;
     streamObj->framerateNum = 0; // to compute the fps of the stream, Num / Den
@@ -19,9 +19,9 @@ StreamObj *newStreamObj()
 
     streamObj->videoFormatContext = NULL;
     streamObj->videoCodecContext = NULL;
-    streamObj->videoDict = NULL;
     streamObj->videoPacket = NULL;
     streamObj->videoFrame = NULL;
+    streamObj->videoRGBFrame = NULL;
     streamObj->swsContext = NULL;
 
     streamObj->frameNum = -1; // the current number of the video stream
@@ -30,6 +30,8 @@ StreamObj *newStreamObj()
     streamObj->outputImage = NULL; // the extracted frame
 
     streamObj->clicker = NULL;
+
+    return streamObj;
 }
 
 int save_rgb_to_file(StreamObj *streamObj, int frame_num)
@@ -79,8 +81,8 @@ int ConvertYUV2RBG(
     }
 
     ret = sws_scale(
-        swsContextObj,
-        (const uint8_t *const)inputFrame->data, inputFrame->linesize, 0, inputFrame->height,
+        swsContextObj, (const uint8_t *const)inputFrame->data,
+        inputFrame->linesize, 0, inputFrame->height,
         RGBFrame->data, RGBFrame->linesize);
     if (ret < 0)
     {
@@ -89,10 +91,11 @@ int ConvertYUV2RBG(
     }
 
     // save_rgb_to_file(frame, frame_num);
+
     // print log once every 20 frames
     if (frameNum % 20 == 0)
     {
-        av_log(NULL, AV_LOG_INFO, "Successfully read one frame %d!\n", frameNum);
+        av_log(NULL, AV_LOG_INFO, "Successfully read one frame, num = %d!\n", frameNum);
     }
 
     // av_frame_unref(RGBFrame);
@@ -116,8 +119,8 @@ static int interrupt_callback(void *p)
 
 void av_log_pyFFmpeg_callback(void *avClass, int level, const char *fmt, va_list vl)
 {
-    if (level > AV_LOG_INFO)
-    { // set level
+    if (level > AV_LOG_INFO) // set level
+    {
         return;
     }
 
@@ -138,35 +141,40 @@ void av_log_pyFFmpeg_callback(void *avClass, int level, const char *fmt, va_list
     strftime(fileNameBuffer, 9, "%Y%m%d", info);
 
     char fileName[200];
-    // clog.txt.20230918
 
-    // const char *logDir = "/home/cuichengyu/.cache/";
-    const char *homedir;
+    // add log info
+    const char *homeDir;
+    struct passwd *pw = getpwuid(getuid());
+    homeDir = pw->pw_dir;
 
-    if ((homedir = getenv("HOME")) == NULL)
-    {
-        homedir = getpwuid(getuid())->pw_dir;
-    }
-    sprintf(fileName, "%s/clog.txt.%s", homedir, fileNameBuffer); // copy the stream Path to be processed
+    // const char *homedir = getpwuid(getuid())->pw_dir;
+
+    // get the pid of the current process
+    pid_t pid = getpid();
+
+    sprintf(fileName, "%s/.cache/pyFFmpeg/clog-%d.txt.%s",
+            homeDir, pid, fileNameBuffer); // copy the log file path
+
+    // printf("full path: %s\n", fileName);
 
     FILE *fp = fopen(fileName, "a");
     if (fp != NULL)
     {
         if (level == 8)
         {
-            fprintf(fp, "%s %s %s", buffer, "FATAL", bPrint.str);
+            fprintf(fp, "【%s】 %s %s", buffer, "FATAL", bPrint.str);
         }
         else if (level == 16)
         {
-            fprintf(fp, "%s %s %s", buffer, "ERROR", bPrint.str);
+            fprintf(fp, "【%s】 %s %s", buffer, "ERROR", bPrint.str);
         }
         else if (level == 24)
         {
-            fprintf(fp, "%s %s %s", buffer, "WARNING", bPrint.str);
+            fprintf(fp, "【%s】 %s %s", buffer, "WARNING", bPrint.str);
         }
         else if (level == 32)
         {
-            fprintf(fp, "%s %s %s", buffer, "INFO", bPrint.str);
+            fprintf(fp, "【%s】 %s %s", buffer, "INFO", bPrint.str);
             // fprintf(fp, "%s", bPrint.str);
         }
 
@@ -178,7 +186,7 @@ void av_log_pyFFmpeg_callback(void *avClass, int level, const char *fmt, va_list
         fclose(fp);
         fp = NULL;
     }
-    printf("log: %d, %s", level, bPrint.str);
+    printf("%s", bPrint.str);
 
     av_bprint_finalize(&bPrint, NULL);
 };
@@ -186,6 +194,13 @@ void av_log_pyFFmpeg_callback(void *avClass, int level, const char *fmt, va_list
 /**
  *  read the video context info
  *
+ *  ret: int
+ *      0 means successfully start a video stream
+ *      1 means failing to open the input stream
+ *      2 means can not find the stream info
+ *      3 means can not process params to context
+ *      4 means can not open codec context
+ *      5 means failing to allocate memory for swsContext
  */
 int Init(StreamObj *streamObj, const char *streamPath)
 {
@@ -203,7 +218,7 @@ int Init(StreamObj *streamObj, const char *streamPath)
 
     ret = avformat_open_input(
         &streamObj->videoFormatContext, streamObj->streamPath,
-        NULL, &(streamObj->videoDict));
+        NULL, NULL);
     if (ret < 0)
     {
         av_log(NULL, AV_LOG_INFO, "can not open stream path `%s`\n", streamObj->streamPath);
@@ -212,6 +227,7 @@ int Init(StreamObj *streamObj, const char *streamPath)
             avformat_close_input(&streamObj->videoFormatContext);
         }
         streamObj->videoFormatContext = NULL;
+
         return 1;
     }
     else
@@ -221,23 +237,38 @@ int Init(StreamObj *streamObj, const char *streamPath)
     }
 
     ret = avformat_find_stream_info(streamObj->videoFormatContext, NULL);
+    if (ret < 0)
+    {
+        av_log(NULL, AV_LOG_INFO, "%s\n", "can not find stream info");
+        return 2;
+    }
 
     streamObj->videoCodec = NULL;
     int videoStreamID = av_find_best_stream(
         streamObj->videoFormatContext, AVMEDIA_TYPE_VIDEO, -1, -1, &streamObj->videoCodec, 0);
+    av_log(NULL, AV_LOG_INFO, "video stream number is %d.\n", videoStreamID);
 
     streamObj->videoCodecContext = avcodec_alloc_context3(NULL);
     ret = avcodec_parameters_to_context(
-        streamObj->videoCodecContext, streamObj->videoFormatContext->streams[videoStreamID]->codecpar);
+        streamObj->videoCodecContext,
+        streamObj->videoFormatContext->streams[videoStreamID]->codecpar);
+    if (ret < 0)
+    {
+        av_log(NULL, AV_LOG_INFO, "%s\n", "can not process params to context.");
+        return 3;
+    }
 
     streamObj->videoCodec = avcodec_find_decoder(streamObj->videoCodecContext->codec_id);
 
     ret = avcodec_open2(streamObj->videoCodecContext, streamObj->videoCodec, NULL);
+    if (ret < 0)
+    {
+        av_log(NULL, AV_LOG_INFO, "%s\n", "can not open codec context.");
+        return 4;
+    }
 
     // set params for decoder
     streamObj->streamID = videoStreamID;
-    // streamObj->timebaseNum = streamObj->videoFormatContext->streams[videoStreamID]->time_base.num;
-    // streamObj->timebaseDen = streamObj->videoFormatContext->streams[videoStreamID]->time_base.den;
     streamObj->framerateNum = streamObj->videoFormatContext->streams[videoStreamID]->avg_frame_rate.num;
     streamObj->framerateDen = streamObj->videoFormatContext->streams[videoStreamID]->avg_frame_rate.den;
     streamObj->streamWidth = streamObj->videoCodecContext->width;
@@ -276,14 +307,17 @@ int Init(StreamObj *streamObj, const char *streamPath)
             streamObj->videoCodecContext->width, streamObj->videoCodecContext->height, OUTPUT_PIX_FMT,
             SWS_BICUBIC, NULL, NULL, NULL);
         if (streamObj->swsContext == NULL)
-            return 0;
+            return 5;  // failed to allocate memory for swsContext
     }
 
+    streamObj->streamStateFlag = 1;
     return 0;
 }
 
-int unInit(StreamObj *streamObj)
+StreamObj *unInit(StreamObj *streamObj)
 {
+    streamObj->streamStateFlag = 0; // stream has been closed.
+
     if (streamObj->clicker)
     {
         free(streamObj->clicker);
@@ -340,6 +374,8 @@ int unInit(StreamObj *streamObj)
     memset(streamObj->streamPath, '0', 300);
 
     av_log(NULL, AV_LOG_INFO, "%s", "finished unref this video stream context\n");
+
+    return streamObj;
 }
 
 int decodeFrame(StreamObj *streamObj)
@@ -467,6 +503,18 @@ int decodeFrame(StreamObj *streamObj)
     return 1;
 }
 
+/**
+ * to get one frame from the stream
+ *
+ *
+ * ret: int
+ *     0 means getting a frame successfully.
+ *     1 means the stream has been to the end
+ *     -5 means timeout to get the next packet, need to exit this function
+ *     -1 means other error concerning avcodec_receive_frame.
+ *     -2 means other error concerning av_read_frame.
+ *     -4 means packet mismatch & unable to seek to the next packet.
+ */
 int decodeOneFrame(StreamObj *streamObj)
 {
     int ret;
@@ -478,12 +526,11 @@ int decodeOneFrame(StreamObj *streamObj)
         {
             av_log(NULL, AV_LOG_INFO, "%s", "# to the end of the video stream.\n");
             return 1;
-            // break;
         }
 
         // av_log(NULL, AV_LOG_INFO, "read a packet %d.\n", streamObj->streamEnd);
 
-        streamObj->clicker->lasttime = time(NULL);                                  // to get the currect frame info before av_read_frame
+        streamObj->clicker->lasttime = time(NULL);                                  // get the currect time before av_read_frame
         ret = av_read_frame(streamObj->videoFormatContext, streamObj->videoPacket); // read a packet
 
         // av_log(NULL, AV_LOG_INFO, "read a packet. end, get stream id: %d, expected id: %d, ret: %d, EOF: %d\n",
@@ -496,11 +543,16 @@ int decodeOneFrame(StreamObj *streamObj)
             if (ret == -5) // -5 means timeout, need to exit this function
             {
                 av_log(NULL, AV_LOG_WARNING,
-                       "timeout to wating for the next packet data, ret = %d.\n", ret);
+                       "timeout to waiting for the next packet data, ret = %d.\n", ret);
                 return -5;
             }
-
-            av_log(NULL, AV_LOG_WARNING, "# Only accept packet from streamID: %d.\n", streamObj->streamID);
+            else if (ret == -1094995529) {
+                av_log(NULL, AV_LOG_WARNING,
+                       "Packet mismatch, unable to seek the next packet. ret: %d.\n", ret);
+                return -4;
+            }
+                av_log(NULL, AV_LOG_WARNING, "Only accept packet from streamID: %d, ret: %d, eof: %d.\n",
+                       streamObj->streamID, ret, AVERROR_EOF);
             continue;
         }
 
@@ -522,7 +574,6 @@ int decodeOneFrame(StreamObj *streamObj)
                 {
                     // to the end of the stream
                     streamObj->streamEnd = 1;
-                    // break;
                     return 1;
                 }
                 else if (ret >= 0)
@@ -545,7 +596,7 @@ int decodeOneFrame(StreamObj *streamObj)
                 {
                     av_log(NULL, AV_LOG_ERROR, "%s", "other error concerning receive frame.\n");
 
-                    return 1;
+                    return -1;
                 }
             }
         }
@@ -586,7 +637,7 @@ int decodeOneFrame(StreamObj *streamObj)
                 {
                     // to the end of the video stream
                     streamObj->streamEnd = 1;
-                    break;
+                    return 1;
                 }
                 else if (ret >= 0)
                 {
@@ -610,14 +661,14 @@ int decodeOneFrame(StreamObj *streamObj)
                 {
                     av_log(NULL, AV_LOG_ERROR, "%s", "unknown error 1.\n");
 
-                    return 1;
+                    return -1;
                 }
             }
         }
         else
         {
             av_log(NULL, AV_LOG_ERROR, "%s", "unknown error 2.\n");
-            return 1;
+            return -2;
         }
     }
 
@@ -647,6 +698,9 @@ int main()
 
     printf("start waiting to get frame.\n");
     // sleep(60);
+    if (ret != 0 ) {
+        return 1;
+    }
 
     start_time = clock();
     int count = 0;
@@ -669,7 +723,7 @@ int main()
     end_time = clock();
     printf("read one frame cost time=%f\n", (double)(end_time - start_time) / CLOCKS_PER_SEC);
 
-    ret = unInit(curStreamObj);
+    curStreamObj = unInit(curStreamObj);
 
     printf("finished 1st period\n");
     sleep(60);
@@ -698,7 +752,7 @@ int main()
 
     end_time = clock();
     printf("read one frame cost time=%f\n", (double)(end_time - start_time) / CLOCKS_PER_SEC);
-    ret = unInit(curStreamObj);
+    curStreamObj = unInit(curStreamObj);
 
     return 0;
 }

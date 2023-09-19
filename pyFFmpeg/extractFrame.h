@@ -1,5 +1,7 @@
 #include <stdio.h>
 #include <unistd.h>
+#include <sys/types.h>
+#include <pwd.h>
 // #include "libavutil/avconfig.h"
 
 #ifndef BYTE
@@ -36,8 +38,11 @@ typedef struct Clicker
 
 static int interrupt_callback(void *p);
 
+void av_log_pyFFmpeg_callback(void *avClass, int level, const char *fmt, va_list vl);
+
 typedef struct StreamObj
 {
+    int streamStateFlag;  // to indicate that if the stream has been opened successfully
     char streamPath[300]; // the path of mp4 or rtmp, rtsp
     int streamID;         // which stream index to parse in the video
     int streamWidth;
@@ -47,7 +52,6 @@ typedef struct StreamObj
     int framerateNum; // to compute the fps of the stream, duration / Den
     int framerateDen;
 
-    AVDictionary *videoDict; // control info
     AVFormatContext *videoFormatContext;
     AVCodecContext *videoCodecContext;
     AVPacket *videoPacket;
@@ -68,6 +72,8 @@ typedef struct StreamObj
 StreamObj *newStreamObj();
 
 int Init(StreamObj *streamObj, const char *streamPath);
+
+StreamObj *unInit(StreamObj *streamObj);
 
 /** decode one frame from the online video
  *

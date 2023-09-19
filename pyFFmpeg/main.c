@@ -74,7 +74,7 @@ int ConvertYUV2RBG(AVFrame *inputFrame, unsigned char *outputImage,
 
     ret = av_frame_get_buffer(frame, 1);
     if (ret != 0) {
-        printf("no memory for frame data buffer.\n", NULL);
+        printf("%s\n", "no memory for frame data buffer.");
     }
 
     ret = sws_scale(
@@ -87,7 +87,7 @@ int ConvertYUV2RBG(AVFrame *inputFrame, unsigned char *outputImage,
         return 0;
     }
 
-    save_rgb_to_file(frame, frame_num);
+    // save_rgb_to_file(frame, frame_num);
     printf("Successfully read one frame %d!\n", frame_num);
     av_frame_unref(frame);
 
@@ -102,7 +102,8 @@ int main()
     int height, width;
     int time_base_num, time_base_den;
 
-    const char *sourcePath = "rtmp://live.uavcmlc.com:1935/live/DEV02001044?token=003caf430efb";
+    // const char *sourcePath = "rtmp://live.uavcmlc.com:1935/live/DEV02001044?token=003caf430efb";
+    const char *sourcePath = "rtmp://live.demo.uavcmlc.com:1935/live/DEV02001270?token=03c7986c15e0";
 
     AVFormatContext *sourceContext = avformat_alloc_context();
     ret = avformat_open_input(&sourceContext, sourcePath, NULL, NULL);
@@ -155,7 +156,7 @@ int main()
         {
             // 仅处理该条视频流的包
             av_packet_unref(videoPacket);
-            printf("# didnt accept audio packet.\n");
+            // printf("# didnt accept audio packet.\n");
             continue;
         }
 
