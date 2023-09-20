@@ -1,14 +1,17 @@
-# pyffmpeg
-A simple Python wrapper for FFmpeg with .so files
+# pyFFmpeg
 
-- This repo is to provide an easy way for Python user to grab frames from a video stream. You do not need to tackle many complex audio-video problems concerning ffmpeg any more.
+<img src="https://img.shields.io/badge/version-1.0.1-green" />
+
+A simple Python wrapper for FFmpeg.
+
+- This repo is to provide an easy way for Python users to grab frames from a video stream. You do not need to tackle many complex audio-video problems concerning ffmpeg any more.
 
 
 # Installation
 
 ## Pre-Installation-requirements
 
-- gcc, cmake tools etc.
+- gcc, make, cmake tools etc.
 - ffmpeg should been installed correctly.
 - A Python intepreter with version>3.6
 
@@ -26,7 +29,7 @@ $ pip install -e .
 
 ## Installation method 2:
 
-This method is still in progress.
+This method is still in progress and not implemented now.
 
 - dockerfile build
 ```
@@ -54,7 +57,7 @@ frame = stream_obj.get_one_frame(image_format='numpy')
 
 ```
 
-- The `test.py` file provides a complete version of how to decode an online video stream.
+- The `test.py` file provides a complete version of how to decode an online video stream continually.
 
 
 # Reference
