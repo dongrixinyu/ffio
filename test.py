@@ -1,3 +1,6 @@
+# Strongly recommend to use this piece of code in a sub-process.
+# Cause decoding an online video stream consumes about 100M memory and 40% CPU.
+
 import os
 import pdb
 import time
@@ -5,9 +8,7 @@ import ctypes
 
 import pyFFmpeg
 
-dir_path = "/home/cuichengyu/test_images"
 
-stream_path = "rtmp://live.uavcmlc.com:1935/live/DEV02001044?token=003caf430efb"
 stream_path = "rtmp://live.demo.uavcmlc.com:1935/live/DEV02001270?token=03c7986c15e0"
 
 stream_state = False  # to control whether to restart the stream context
@@ -17,7 +18,7 @@ while True:
     while True:
         print('init ... ')
         stream_obj = pyFFmpeg.StreamParser(stream_path)
-        if stream_obj.stream_state == 1:
+        if stream_obj.stream_state is True:
             # it means that the stream context has been opened successfully.
             # otherwise, the stream can not be reached,
             # probably the path is wrong or stream is empty
@@ -44,4 +45,3 @@ while True:
     # you have to release the memory containing stream context manually
     stream_obj.release_memory()
     print('successfully release memory of stream context.')
-    # del stream_obj
