@@ -93,7 +93,7 @@ int ConvertYUV2RBG(
     // save_rgb_to_file(frame, frame_num);
 
     // print log once every 20 frames
-    if (frameNum % 20 == 0)
+    if (frameNum % PRINT_FRAME_GAP == 0)
     {
         av_log(NULL, AV_LOG_INFO, "Successfully read one frame, num = %d!\n", frameNum);
     }
@@ -524,7 +524,7 @@ int decodeOneFrame(StreamObj *streamObj)
     {
         if (streamObj->streamEnd == 1)
         {
-            av_log(NULL, AV_LOG_INFO, "%s", "# to the end of the video stream.\n");
+            av_log(NULL, AV_LOG_INFO, "%s", "It's been to the end of the video stream.\n");
             return 1;
         }
 
@@ -532,6 +532,7 @@ int decodeOneFrame(StreamObj *streamObj)
 
         streamObj->clicker->lasttime = time(NULL);                                  // get the currect time before av_read_frame
         ret = av_read_frame(streamObj->videoFormatContext, streamObj->videoPacket); // read a packet
+        printf("### successfully read one packet.\n");
 
         // av_log(NULL, AV_LOG_INFO, "read a packet. end, get stream id: %d, expected id: %d, ret: %d, EOF: %d\n",
         //    streamObj->videoPacket->stream_index, streamObj->streamID, ret, AVERROR_EOF);
@@ -546,13 +547,20 @@ int decodeOneFrame(StreamObj *streamObj)
                        "timeout to waiting for the next packet data, ret = %d.\n", ret);
                 return -5;
             }
-            else if (ret == -1094995529) {
+            else if (ret < 0) {
                 av_log(NULL, AV_LOG_WARNING,
-                       "Packet mismatch, unable to seek the next packet. ret: %d.\n", ret);
+                       "Probably Packet mismatch, unable to seek the next packet. ret: %d.\n", ret);
                 return -4;
             }
-                av_log(NULL, AV_LOG_WARNING, "Only accept packet from streamID: %d, ret: %d, eof: %d.\n",
-                       streamObj->streamID, ret, AVERROR_EOF);
+            else{
+                if (streamObj->frameNum % (PRINT_FRAME_GAP * 2) == 0)
+                {
+                    av_log(NULL, AV_LOG_WARNING,
+                           "Only accept packet from streamID: %d, ret: %d, eof: %d.\n",
+                           streamObj->streamID, ret, AVERROR_EOF);
+                }
+            }
+
             continue;
         }
 

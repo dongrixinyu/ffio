@@ -12,6 +12,7 @@ import pdb
 import time
 import ctypes
 
+__version__ = '1.0.1'
 
 HOME_DIR = os.path.expanduser('~')
 LOG_DIR = os.path.join(HOME_DIR, '.cache/pyFFmpeg')
