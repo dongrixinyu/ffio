@@ -4,7 +4,7 @@
 
 A simple Python wrapper for FFmpeg.
 
-- This repo is to provide an easy way for Python users to grab frames from a video stream. You do not need to tackle many complex audio-video problems concerning ffmpeg any more.
+- This repo is to provide an easy way for Python users to grab frames from a video stream. You do not need to tackle many complex audio-video problems concerning FFmpeg any more.
 
 
 # Installation
@@ -12,8 +12,8 @@ A simple Python wrapper for FFmpeg.
 ## Pre-Installation-requirements
 
 - gcc, make, cmake tools etc.
-- ffmpeg should been installed correctly.
-- A Python intepreter with version>3.6
+- ffmpeg>=4.2.0 should been installed correctly.
+- A Python>=3.7 intepreter
 
 ## Installation method 1:
 
@@ -44,10 +44,12 @@ $ docker build .
 ```
 import pyFFmpeg
 
-# to build a stream context.
+# to build and initialize a stream context.
+stream_path = 'rtmp://ip:port/xxxx'
+stream_path = 'xxxx.mp4'
 stream_obj = pyFFmpeg.StreamParser(stream_path)
 
-# stream_state indicats if the stream context has been built successfully.
+# stream_state indicates if the stream context has been built and initialized successfully.
 print(stream_obj.stream_state)
 
 # to get an RGB frame in various format.
@@ -57,7 +59,7 @@ frame = stream_obj.get_one_frame(image_format='numpy')
 
 ```
 
-- The `test.py` file provides a complete version of how to decode an online video stream continually.
+- The [`test.py`](https://github.com/dongrixinyu/pyFFmpeg/blob/main/test.py) file provides a complete version of how to decode an online video stream continually.
 
 
 # Reference

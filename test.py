@@ -3,8 +3,6 @@
 
 import os
 import pdb
-import time
-import ctypes
 
 import pyFFmpeg
 
