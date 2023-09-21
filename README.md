@@ -9,13 +9,43 @@ A simple Python wrapper for FFmpeg.
 
 # Installation
 
-## Pre-Installation-requirements
+We provide 2 methods to install pyFFmpeg.
+
+## 1. Docker
+
+You can first pull this repo via git, and then build a docker with all libs installed.
+
+```
+$ git clone https://github.com/dongrixinyu/pyFFmpeg
+$ cd pyFFmpeg
+$ docker build -t dongrixinyu/pyffmpeg:1.0 .
+$ docker run -it dongrixinyu/pyffmpeg:1.0 /bin/bash  # run into the container.
+$ (in docker) python
+```
+
+and then you can type these scripts in the `Python Console`:
+```python
+>>> import pyFFmpeg
+>>> stream_obj = pyFFmpeg.StreamParser('rtmp://ip:port/xxxx')
+>>> print(stream_obj.width, stream_obj.height, stream_obj.fps)
+```
+
+**Or**, you can pull image from docker hub.(Not implemented now)
+```
+docker pull dongrixinyu/pyffmpeg:1.0
+```
+
+## 2. Install pyFFmpeg by yourself
+
+This method is a little bit difficult if you are not familiar with GCC and compilation. But if you can configure `ffmpeg, python include path, dynamic library path` smoothly, just take a try.
+
+#### Pre-Installation-requirements
 
 - gcc, make, cmake tools etc.
 - ffmpeg>=4.2.0 should been installed correctly.
-- A Python>=3.7 intepreter
+- Python>=3.7
 
-## Installation method 1:
+#### Installation method 1:
 
 This repo is now still in experiment and may not be that stable, so I recommend you to install pyFFmpeg in method 1:
 
@@ -23,19 +53,10 @@ This repo is now still in experiment and may not be that stable, so I recommend 
 ```
 $ git clone https://github.com/dongrixinyu/pyFFmpeg
 $ cd pyFFmpeg
-$ ./compile.sh
+$ ./compiler.sh  # you should config paths according to your system environment.
 $ pip install -e .
 ```
 
-## Installation method 2:
-
-This method is still in progress and not implemented now.
-
-- dockerfile build
-```
-$ git clone https://github.com/dongrixinyu/pyFFmpeg
-$ docker build .
-```
 
 # Usage
 
