@@ -61,3 +61,7 @@ RUN apt install cmake git -y
 WORKDIR /root
 RUN git clone https://github.com/dongrixinyu/pyFFmpeg
 WORKDIR /root/pyFFmpeg
+RUN ./compiler.sh
+RUN pip install -e .
+
+WORKDIR /workspace
