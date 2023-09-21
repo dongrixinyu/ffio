@@ -13,14 +13,14 @@ We provide 2 methods to install pyFFmpeg.
 
 ## 1. Docker
 
-You can first pull this repo via git, and then build a docker with all libs installed.
+You can first pull this repo via git, and then build a docker with all libs installed. You do not need to configure compilation params any more.
 
 ```
 $ git clone https://github.com/dongrixinyu/pyFFmpeg
 $ cd pyFFmpeg
 $ docker build -t jionlp/pyffmpeg:1.0 .
 $ docker run -it jionlp/pyffmpeg:1.0 /bin/bash  # run into the container.
-$ (in docker) python
+$ (in docker container) python
 ```
 
 and then you can type these scripts in the `Python Console`:
@@ -30,14 +30,14 @@ and then you can type these scripts in the `Python Console`:
 >>> print(stream_obj.width, stream_obj.height, stream_obj.fps)
 ```
 
-**Or**, you can pull image from docker hub.(Not implemented now)
+**Or**, **you can pull image from docker hub**.(recommended)
 ```
 docker pull jionlp/pyffmpeg:1.0
 ```
 
 ## 2. Install pyFFmpeg by yourself
 
-This method is a little bit difficult if you are not familiar with GCC and compilation. But if you can configure `ffmpeg, python include path, dynamic library path` smoothly, just take a try.
+This method is a little bit difficult if you are not familiar with GCC and trivials concerning compilation. But if you can configure `ffmpeg, python include path, dynamic library path` smoothly, just take a try.
 
 #### Pre-Installation-requirements
 
@@ -45,7 +45,7 @@ This method is a little bit difficult if you are not familiar with GCC and compi
 - ffmpeg>=4.2.0 should been installed correctly.
 - Python>=3.7
 
-#### Installation method 1:
+#### Installation method
 
 This repo is now still in experiment and may not be that stable, so I recommend you to install pyFFmpeg in method 1:
 
@@ -53,7 +53,7 @@ This repo is now still in experiment and may not be that stable, so I recommend 
 ```
 $ git clone https://github.com/dongrixinyu/pyFFmpeg
 $ cd pyFFmpeg
-$ ./compiler.sh  # you should config paths according to your system environment.
+$ ./compiler.sh  # you should configure all kinds of paths according to your system environment.
 $ pip install -e .
 ```
 
