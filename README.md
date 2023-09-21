@@ -18,8 +18,8 @@ You can first pull this repo via git, and then build a docker with all libs inst
 ```
 $ git clone https://github.com/dongrixinyu/pyFFmpeg
 $ cd pyFFmpeg
-$ docker build -t dongrixinyu/pyffmpeg:1.0 .
-$ docker run -it dongrixinyu/pyffmpeg:1.0 /bin/bash  # run into the container.
+$ docker build -t jionlp/pyffmpeg:1.0 .
+$ docker run -it jionlp/pyffmpeg:1.0 /bin/bash  # run into the container.
 $ (in docker) python
 ```
 
@@ -32,7 +32,7 @@ and then you can type these scripts in the `Python Console`:
 
 **Or**, you can pull image from docker hub.(Not implemented now)
 ```
-docker pull dongrixinyu/pyffmpeg:1.0
+docker pull jionlp/pyffmpeg:1.0
 ```
 
 ## 2. Install pyFFmpeg by yourself
