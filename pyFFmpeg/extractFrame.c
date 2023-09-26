@@ -528,11 +528,11 @@ int decodeOneFrame(StreamObj *streamObj)
             return 1;
         }
 
-        // av_log(NULL, AV_LOG_INFO, "read a packet %d.\n", streamObj->streamEnd);
+        // av_log(NULL, AV_LOG_INFO, "read one packet %d.\n", streamObj->streamEnd);
 
         streamObj->clicker->lasttime = time(NULL);                                  // get the currect time before av_read_frame
         ret = av_read_frame(streamObj->videoFormatContext, streamObj->videoPacket); // read a packet
-        printf("### successfully read one packet.\n");
+        // av_log(NULL, AV_LOG_DEBUG, "%s", "### successfully read one packet.\n");
 
         // av_log(NULL, AV_LOG_INFO, "read a packet. end, get stream id: %d, expected id: %d, ret: %d, EOF: %d\n",
         //    streamObj->videoPacket->stream_index, streamObj->streamID, ret, AVERROR_EOF);

@@ -20,4 +20,11 @@ LOG_DIR = os.path.join(HOME_DIR, '.cache/pyFFmpeg')
 if not os.path.exists(LOG_DIR):
     os.makedirs(LOG_DIR)
 
+# set logger
+from pyFFmpeg.util.logger import set_logger
+
+logging = set_logger(level='INFO')
+
+
 from pyFFmpeg.stream_parser import StreamParser
+from pyFFmpeg.util import *

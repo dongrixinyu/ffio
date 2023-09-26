@@ -141,7 +141,8 @@ class StreamParser(object):
             elif image_format == 'numpy':
                 # numpy method to convert the result buffer
                 np_buffer = np.frombuffer(frame_bytes, dtype=np.uint8)
-                np_frame = np.reshape(np_buffer, (self.stream_video_width, self.stream_video_height, 3))
+                np_frame = np.reshape(
+                    np_buffer, (self.stream_video_width, self.stream_video_height, 3))
                 return np_frame
 
             elif image_format == 'Image':
@@ -150,7 +151,14 @@ class StreamParser(object):
                 return rgb_image
 
             elif image_format == 'base64':
-                return None
+                np_buffer = np.frombuffer(frame_bytes, dtype=np.uint8)
+                np_frame = np.reshape(
+                    np_buffer, (self.stream_video_width, self.stream_video_height, 3))
+
+                np_image = cv2.imencode('.jpg', np_frame)[1]
+                base64_image_code = str(base64.b64encode(np_image))
+
+                return base64_image_code
 
         elif frame_bytes_type is int:
             if frame_bytes == -5:
@@ -162,7 +170,7 @@ class StreamParser(object):
                 # now you should close the stream context manually
                 return -4
             else:
-                # other errorsf
+                # other errors
                 return 1
 
     def release_memory(self):
@@ -173,3 +181,9 @@ class StreamParser(object):
 
         # delete the object
         self.streamObj = lib_interface_api.deleteStreamObject(self.streamObj)
+
+        self.stream_video_width = 0
+        self.stream_video_height = 0
+        self.stream_video_average_fps = 0
+        self.stream_buffer_size = 0
+        self.frame_number = 0
