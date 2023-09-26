@@ -7,6 +7,7 @@
 # Description: a simple Python wrapper for FFmpeg.'
 # Website: http://www.jionlp.com
 
+
 import os
 import pdb
 import sys
@@ -14,6 +15,8 @@ import time
 import ctypes
 import traceback
 
+import cv2
+import base64
 from PIL import Image
 import numpy as np
 
