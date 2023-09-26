@@ -390,11 +390,11 @@ int decodeFrame(StreamObj *streamObj)
             break;
         }
 
-        ret = av_read_frame(streamObj->videoFormatContext, streamObj->videoPacket); // 读取一个 packet
+        ret = av_read_frame(streamObj->videoFormatContext, streamObj->videoPacket); // read a packet
 
         if (streamObj->videoPacket->stream_index != streamObj->streamID)
         {
-            // 仅处理该条视频流的包
+            // only accept video packets, excluding audio and other packets.
             av_packet_unref(streamObj->videoPacket);
             av_log(NULL, AV_LOG_WARNING, "%s", "# didnt accept audio packet.\n");
             continue;
