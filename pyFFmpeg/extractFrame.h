@@ -9,7 +9,7 @@
 #endif
 
 #define WAIT_FOR_STREAM_TIMEOUT 5
-#define PRINT_FRAME_GAP 20
+#define PRINT_FRAME_GAP 100
 #define OUTPUT_COLOR_BITS 24
 #define OUTPUT_COLOR_BYTES 3 // color space number
 #define OUTPUT_ALIGN_BYTES 1 // byte number per color
