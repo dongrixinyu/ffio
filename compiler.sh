@@ -14,12 +14,16 @@ avutil_header_file_path=`find /usr -name avutil.h`
 avutil_include_path=`dirname ${avutil_header_file_path}`
 ffmpeg_include_path=`dirname ${avutil_include_path}`
 echo "FFMPEG_INCLUDE_PATH: ${ffmpeg_include_path}"
+avutil_lib_file_path=`find /usr -name libavutil.a`
+ffmpeg_lib_dir_path=`dirname ${avutil_lib_file_path}`
+echo "FFMPEG_LIB_DIR_PATH: ${ffmpeg_lib_dir_path}"
 
 cd pyFFmpeg/build
 cmake ../.. \
     -DPYTHON_INCLUDE_DIRS=$(python -c "from distutils.sysconfig import get_python_inc; print(get_python_inc())")  \
     -DPYTHON_LIBRARIES=$(python -c "import distutils.sysconfig as sysconfig; print(sysconfig.get_config_var('LIBDIR') + '/' + sysconfig.get_config_var('LDLIBRARY'))") \
-    -DFFMPEG_INCLUDE_DIRS=${ffmpeg_include_path}
+    -DFFMPEG_INCLUDE_DIRS=${ffmpeg_include_path} \
+    -DFFMPEG_LIB_DIR_PATH=${ffmpeg_lib_dir_path}
     # -DFFMPEG_LIBRARIES=${ffmpeg_base_dir}/lib
 
 make
