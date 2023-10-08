@@ -162,19 +162,19 @@ void av_log_pyFFmpeg_callback(void *avClass, int level, const char *fmt, va_list
     {
         if (level == 8)
         {
-            fprintf(fp, "【%s】 %s %s", buffer, "FATAL", bPrint.str);
+            fprintf(fp, "[ %s ] %s %s", buffer, "FATAL", bPrint.str);
         }
         else if (level == 16)
         {
-            fprintf(fp, "【%s】 %s %s", buffer, "ERROR", bPrint.str);
+            fprintf(fp, "[ %s ] %s %s", buffer, "ERROR", bPrint.str);
         }
         else if (level == 24)
         {
-            fprintf(fp, "【%s】 %s %s", buffer, "WARNING", bPrint.str);
+            fprintf(fp, "[ %s ] %s %s", buffer, "WARNING", bPrint.str);
         }
         else if (level == 32)
         {
-            fprintf(fp, "【%s】 %s %s", buffer, "INFO", bPrint.str);
+            fprintf(fp, "[ %s ] %s %s", buffer, "INFO", bPrint.str);
             // fprintf(fp, "%s", bPrint.str);
         }
 
