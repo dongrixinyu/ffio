@@ -7,6 +7,7 @@ project(pyFFmpeg)
 add_compile_options(-O3)
 
 set(CMAKE_BUILD_TYPE "Release")
+set(CMAKE_PREFIX_PATH ${CMAKE_PREFIX_PATH} ${FFMPEG_LIB_DIR_PATH})
 
 # make sure all the ffmpeg libs are located in the default system lib directories
 # otherwise you need to designate ffmpeg lib path via compile.sh
