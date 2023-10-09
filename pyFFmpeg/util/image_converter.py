@@ -48,6 +48,6 @@ def rawrgb_2_base64(rgb_bytes, width, height):
     np_frame = np.reshape(np_buffer, (width, height, 3))
 
     np_image = cv2.imencode('.jpg', np_frame)[1]
-    base64_image_code = str(base64.b64encode(np_image))
+    base64_image_code = base64.b64encode(np_image).decode()
 
     return base64_image_code
