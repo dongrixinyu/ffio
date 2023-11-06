@@ -20,7 +20,8 @@ def rawrgb_2_numpy(rgb_bytes, width, height):
 
     # numpy method to convert the result buffer
     np_buffer = np.frombuffer(rgb_bytes, dtype=np.uint8)
-    np_frame = np.reshape(np_buffer, (width, height, 3))
+    np_frame = np.reshape(np_buffer, (height, width, 3))
+    # you need to convert RGB\BGR manually according to your needs.
 
     return np_frame
 
@@ -45,9 +46,10 @@ def rawrgb_2_base64(rgb_bytes, width, height):
     # convert rgb frame bytes to base64 format
     # rgb_bytes does not contain width and height info
     np_buffer = np.frombuffer(rgb_bytes, dtype=np.uint8)
-    np_frame = np.reshape(np_buffer, (width, height, 3))
+    np_frame = np.reshape(np_buffer, (height, width, 3))
+    bgr_image = cv2.cvtColor(np_frame, cv2.COLOR_RGB2BGR)
 
-    np_image = cv2.imencode('.jpg', np_frame)[1]
+    np_image = cv2.imencode('.jpg', bgr_image)[1]
     base64_image_code = base64.b64encode(np_image).decode()
 
     return base64_image_code
