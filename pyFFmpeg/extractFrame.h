@@ -24,6 +24,8 @@
 #include "libavutil/opt.h"
 #include "libavutil/bprint.h"
 #include "libavutil/imgutils.h"
+#include "libavutil/time.h"
+#include "libavutil/timestamp.h"
 #include "libswscale/swscale.h"
 // #include "libswresample/swresample.h"
 
@@ -72,6 +74,33 @@ typedef struct StreamObj
 
 StreamObj *newStreamObj();
 
+typedef struct OutputStreamObj
+{
+    // output stream info
+    int outputStreamStateFlag;  // to indicate that if the stream has been opened successfully
+    char outputStreamPath[300]; // the path of mp4 or rtmp, rtsp
+
+    int outputVideoStreamID; // which stream index to parse in the video, default 0.
+    int outputVideoStreamWidth;
+    int outputVideoStreamHeight;
+
+    int outputvideoFramerateNum; // to compute the fps of the stream, duration / Den
+    int outputvideoFramerateDen;
+
+    AVFormatContext *outputVideoFormatContext;
+    AVCodecContext *videoEncoderContext;
+    AVCodec *videoEncoder;
+    AVFrame *videoEncoderFrame;
+    AVPacket *videoPacketOut;
+    AVStream *outputVideoStream;
+
+    AVRational inputVideoTimebase;  // for computing pts and dts
+    AVRational inputFramerate; // input frame rate
+
+} OutputStreamObj;
+
+OutputStreamObj *newOutputStreamObj();
+
 int Init(StreamObj *streamObj, const char *streamPath);
 
 StreamObj *unInit(StreamObj *streamObj);
@@ -86,3 +115,17 @@ int decodeOneFrame(StreamObj *streamObj);
 int decodeFrame(StreamObj *streamObj);
 
 int save_rgb_to_file(StreamObj *streamObj, int frame_num);
+
+int initOutputStream(OutputStreamObj *outputStreamObj,
+    StreamObj *streamObj, const char *outputStreamPath);
+
+OutputStreamObj *unInitOutputStream(OutputStreamObj *outputStreamObj);
+
+/**
+ * encode one frame
+ *
+ * params:
+ *     end_of_stream: (int) indicate if the frame is the last one.
+ *
+ */
+int encodeOneFrame(OutputStreamObj *outputStreamObj, StreamObj *streamObj, int end_of_stream);
