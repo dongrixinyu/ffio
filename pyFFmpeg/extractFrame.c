@@ -289,7 +289,7 @@ int Init(StreamObj *streamObj, const char *streamPath)
 
     streamObj->videoCodec = NULL;
     int videoStreamID = av_find_best_stream(
-        streamObj->videoFormatContext, AVMEDIA_TYPE_VIDEO, -1, -1, &streamObj->videoCodec, 0);
+        streamObj->videoFormatContext, AVMEDIA_TYPE_VIDEO, -1, -1, (const AVCodec **)&streamObj->videoCodec, 0);
     av_log(NULL, AV_LOG_INFO, "video stream number is %d.\n", videoStreamID);
 
     streamObj->videoCodecContext = avcodec_alloc_context3(NULL);
@@ -368,9 +368,27 @@ int initOutputStream(OutputStreamObj *outputStreamObj,
     sprintf(outputStreamObj->outputStreamPath, "%s", outputStreamPath);
 
     // open an output format context
-    // default flv
+    const char *format_name = NULL;
+    if (strstr(outputStreamPath, "rtmp://"))
+    {
+        format_name = "flv";
+    }
+    else if (strstr(outputStreamPath, "srt://"))
+    {
+        format_name = "mpegts";
+    }
+    else if (strstr(outputStreamPath, ".mp4"))
+    {
+        format_name = "mp4";
+    }
+    else
+    {
+        // -3 means the outputStreamPath is illegal.
+        return -3;
+    }
+
     ret = avformat_alloc_output_context2(
-        &(outputStreamObj->outputVideoFormatContext), NULL, "flv", outputStreamPath);
+        &(outputStreamObj->outputVideoFormatContext), NULL, format_name, outputStreamPath);
     if (!outputStreamObj->outputVideoFormatContext)
     {
         av_log(NULL, AV_LOG_INFO, "failed to open an output format context %d \n", AVERROR(ENOMEM));
@@ -389,17 +407,24 @@ int initOutputStream(OutputStreamObj *outputStreamObj,
     // outputStreamObj->outputVideoStream->codecpar->width = streamObj->videoFormatContext->streams[streamObj->streamID]->codecpar->width;
     // outputStreamObj->outputVideoStream->codecpar->height = streamObj->videoFormatContext->streams[streamObj->streamID]->codecpar->height;
     outputStreamObj->outputVideoStream->sample_aspect_ratio = streamObj->videoFormatContext->streams[streamObj->streamID]->sample_aspect_ratio;
+    outputStreamObj->outputVideoStream->avg_frame_rate.num = streamObj->videoFormatContext->streams[streamObj->streamID]->avg_frame_rate.num;
+    outputStreamObj->outputVideoStream->avg_frame_rate.den = streamObj->videoFormatContext->streams[streamObj->streamID]->avg_frame_rate.den;
 
     // copy input stream params to output streams
-    // ret = avcodec_parameters_copy(
-    //     outputStreamObj->outputVideoStream->codecpar,
-    //     streamObj->videoFormatContext->streams[streamObj->streamID]->codecpar);
-    // if (ret < 0)
-    // {
-    //     av_log(NULL, AV_LOG_ERROR, "avcodec_parameters_copy failed %d.\n", ret);
-    //     return ret;
-    // }
-    // outputStreamObj->outputVideoStream->codecpar->codec_tag = 0;
+    ret = avcodec_parameters_copy(
+        outputStreamObj->outputVideoStream->codecpar,
+        streamObj->videoFormatContext->streams[streamObj->streamID]->codecpar);
+    if (ret < 0)
+    {
+        av_log(NULL, AV_LOG_ERROR, "avcodec_parameters_copy failed %d.\n", ret);
+        return ret;
+    }
+    outputStreamObj->outputVideoStream->codecpar->codec_tag = 0;
+
+    // copy metadata
+    av_dict_copy(
+        &outputStreamObj->outputVideoStream->metadata,
+        streamObj->videoFormatContext->streams[streamObj->streamID]->metadata, 0);
 
     // outputStreamObj->videoEncoderFrame = av_frame_alloc();  // 此数据帧较为关键，即输入流的数据帧
     outputStreamObj->videoPacketOut = av_packet_alloc();
@@ -795,7 +820,7 @@ int encodeOneFrame(OutputStreamObj *outputStreamObj, StreamObj *streamObj, int e
         // streamObj->videoPacketOut = av_packet_alloc();
 
         // initialize encoder context
-        outputStreamObj->videoEncoder = avcodec_find_encoder(AV_CODEC_ID_H264);
+        outputStreamObj->videoEncoder = (AVCodec *)avcodec_find_encoder(AV_CODEC_ID_H264);
 
         outputStreamObj->videoEncoderContext = avcodec_alloc_context3(outputStreamObj->videoEncoder);
         outputStreamObj->videoEncoderContext->codec_type = AVMEDIA_TYPE_VIDEO;
@@ -835,6 +860,7 @@ int encodeOneFrame(OutputStreamObj *outputStreamObj, StreamObj *streamObj, int e
         // outputStreamObj->outputVideoStream[outputStreamObj->outputVideoStreamID].codec->codec = outputStreamObj->videoEncoderContext->codec;
         // outputStreamObj->outputVideoStream[outputStreamObj->outputVideoStreamID].codec->codec_type = outputStreamObj->videoEncoderContext->codec_type;
         // outputStreamObj->outputVideoStream[outputStreamObj->outputVideoStreamID].codec->codec_id = outputStreamObj->videoEncoderContext->codec_id;
+
         if (outputStreamObj->outputVideoFormatContext->oformat->flags & AVFMT_GLOBALHEADER) {
             av_log(NULL, AV_LOG_INFO, "%s", "set video GLOBAL_HEADER\n");
             outputStreamObj->videoEncoderContext->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
@@ -860,7 +886,7 @@ int encodeOneFrame(OutputStreamObj *outputStreamObj, StreamObj *streamObj, int e
 
         ret = avcodec_open2(
             outputStreamObj->videoEncoderContext,
-            outputStreamObj->videoEncoder, &codec_options); // &codec_options
+            outputStreamObj->videoEncoder, NULL); // &codec_options
         if (ret < 0)
         {
             av_log(NULL, AV_LOG_INFO, "avcodec_open2 failed %d.\n", ret);
@@ -887,6 +913,9 @@ int encodeOneFrame(OutputStreamObj *outputStreamObj, StreamObj *streamObj, int e
             av_log(NULL, AV_LOG_INFO, "avformat_write_header failed %d.\n", ret);
             return ret;
         }
+
+        printf("\n");
+        av_dump_format(outputStreamObj->outputVideoFormatContext, 0, outputStreamObj->outputStreamPath, 1);
         // outputStreamObj->outputVideoStream->time_base = outputStreamObj->inputVideoTimebase;
     }
 
@@ -979,7 +1008,7 @@ int main()
     const char *sourcePath = "rtmp://live.demo.uavcmlc.com:1935/live/DEV02003179?token=8622d43632a1";
     // const char *sourceStreamPath = "rtmp://live.demo.uavcmlc.com:1935/live/DEV02001270?token=03c7986c15e0";
     // const char *sourceStreamPath = "/home/cuichengyu/github/pyFFmpeg/pyFFmpeg/res1.mp4";
-    const char *sourceStreamPath = "rtmp://192.168.35.30:30107/live/cuichengyu";
+    const char *sourceStreamPath = "rtmp://192.168.35.30:30107/live/cuichengyu4";
 
     clock_t start_time, end_time;
 
