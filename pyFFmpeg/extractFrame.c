@@ -537,7 +537,7 @@ int decodeFrame(StreamObj *streamObj)
  *     -2 means other error concerning av_read_frame.
  *     -4 means packet mismatch & unable to seek to the next packet.
  */
-int decodeOneFrame(StreamObj *streamObj)
+int decodeOneFrame(StreamObj *streamObj, int shmOffset)
 {
     int ret;
     streamObj->streamEnd = 0;
@@ -682,7 +682,11 @@ int decodeOneFrame(StreamObj *streamObj)
                     streamObj->frameNum += 1;
                     streamObj->streamEnd = 1; //  to the end
                     // av_log(NULL, AV_LOG_INFO, "Successfully read 1 frame %d!\n", streamObj->frameNum);
-                    memcpy(streamObj->outputImage, streamObj->videoRGBFrame->data[0], streamObj->imageSize);
+                    if(streamObj->shmEnabled){
+                      memcpy(streamObj->outputImage + shmOffset, streamObj->videoRGBFrame->data[0], streamObj->imageSize);
+                    }else{
+                      memcpy(streamObj->outputImage            , streamObj->videoRGBFrame->data[0], streamObj->imageSize);
+                    }
                     av_frame_unref(streamObj->videoRGBFrame);
 
                     return 0;
@@ -736,7 +740,7 @@ int main()
     int count = 0;
     while (1)
     {
-        ret = decodeOneFrame(curStreamObj);
+        ret = decodeOneFrame(curStreamObj, 0);
         // if (count > 100)
         // {
         //     break;
@@ -767,7 +771,7 @@ int main()
     start_time = clock();
     while (1)
     {
-        ret = decodeOneFrame(curStreamObj);
+        ret = decodeOneFrame(curStreamObj, 0);
         if (count > 300)
         {
             break;

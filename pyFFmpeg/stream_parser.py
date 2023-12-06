@@ -53,6 +53,8 @@ lib_interface_api.getAverageFPS.restype = ctypes.c_float
 
 lib_interface_api.getOneFrame.argtypes = [ctypes.c_void_p]
 lib_interface_api.getOneFrame.restype = ctypes.py_object
+lib_interface_api.getOneFrameToShm.argtypes = [ctypes.c_void_p, ctypes.c_int]
+lib_interface_api.getOneFrameToShm.restype  = ctypes.c_int
 # lib_interface_api.getOneFrame.restype = ctypes.c_int
 
 
@@ -69,11 +71,13 @@ class StreamParser(object):
         start_time = time.time()
         # the input stream must be in byte format
         if shm_name is None:
-            self.streamObj = ctypes.c_void_p(
+            self.shm_enabled = False
+            self.streamObj   = ctypes.c_void_p(
                 lib_interface_api.init(self.streamObj, stream_path.encode(),
                                        False, "".encode(), 0, 0))
         else:
-            self.streamObj = ctypes.c_void_p(
+            self.shm_enabled = True
+            self.streamObj   = ctypes.c_void_p(
                 lib_interface_api.init(self.streamObj, stream_path.encode(),
                                        True, shm_name.encode(), shm_size, shm_offset))
         end_time = time.time()
@@ -183,6 +187,9 @@ class StreamParser(object):
             else:
                 # other errors
                 return 1
+
+    def get_one_frame_to_shm(self, offset=0) -> int:
+        return lib_interface_api.getOneFrameToShm(self.streamObj, offset)
 
     def release_memory(self):
         # have to release memory manually

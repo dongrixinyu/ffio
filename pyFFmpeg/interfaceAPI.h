@@ -23,3 +23,4 @@ float getAverageFPS(void *StreamObj);
 int getFPS(void *streamObj);
 
 PyObject *getOneFrame(void *streamObj);
+int getOneFrameToShm(void *streamObj, int shmOffset);

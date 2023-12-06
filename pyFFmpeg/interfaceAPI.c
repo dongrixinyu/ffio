@@ -85,7 +85,7 @@ PyObject *getOneFrame(void *streamObj)
     int ret;
 
     StreamObj *curStreamObj = (StreamObj *)streamObj;
-    ret = decodeOneFrame(curStreamObj);
+    ret = decodeOneFrame(curStreamObj, 0);
 
     if (ret == 0) {
         PyObject *outputImageBuffer = PyBytes_FromStringAndSize(
@@ -99,4 +99,8 @@ PyObject *getOneFrame(void *streamObj)
     }
 
     // return (char *)curStreamObj->outputImage; // return the result RGB image bytes
+}
+int getOneFrameToShm(void *streamObj, int shmOffset){
+  StreamObj *curStreamObj = (StreamObj *)streamObj;
+  return decodeOneFrame(curStreamObj, shmOffset);
 }

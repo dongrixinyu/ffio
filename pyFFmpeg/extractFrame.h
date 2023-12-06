@@ -88,7 +88,7 @@ StreamObj *unInit(StreamObj *streamObj);
  * 1 means failed, 0 means success.
  * the result is stored at streamObj->outputImage
  */
-int decodeOneFrame(StreamObj *streamObj);
+int decodeOneFrame(StreamObj *streamObj, int shmOffset);
 
 int decodeFrame(StreamObj *streamObj);
 
