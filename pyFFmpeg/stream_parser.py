@@ -152,8 +152,8 @@ class StreamParser(object):
             elif image_format == 'numpy':
                 # numpy method to convert the result buffer
                 np_buffer = np.frombuffer(frame_bytes, dtype=np.uint8)
-                np_frame = np.reshape(
-                    np_buffer, (self.stream_video_width, self.stream_video_height, 3))
+                np_frame  = np.reshape(
+                    np_buffer, (self.stream_video_height, self.stream_video_width, 3))
                 return np_frame
 
             elif image_format == 'Image':
