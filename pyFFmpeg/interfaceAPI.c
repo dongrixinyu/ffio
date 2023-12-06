@@ -18,7 +18,8 @@ void *deleteStreamObject(void *streamObj) {
     return NULL;
 }
 
-void *init(void *streamObj, const char *sourceStreamPath)
+void *init(void *streamObj, const char *sourceStreamPath, const bool enableShm,
+           const char *shmName, const int shmSize, const int shmOffset)
 {
     int ret;
     StreamObj *curStreamObj = (StreamObj *)streamObj;
@@ -26,7 +27,7 @@ void *init(void *streamObj, const char *sourceStreamPath)
     // initialize log callback
     av_log_set_callback(av_log_pyFFmpeg_callback);
 
-    ret = Init(curStreamObj, sourceStreamPath);
+    ret = Init(curStreamObj, sourceStreamPath, enableShm, shmName, shmSize, shmOffset);
     if (ret != 0) // failed to open stream context
     {
         curStreamObj = unInit(curStreamObj);

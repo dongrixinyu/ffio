@@ -202,7 +202,8 @@ void av_log_pyFFmpeg_callback(void *avClass, int level, const char *fmt, va_list
  *      4 means can not open codec context
  *      5 means failing to allocate memory for swsContext
  */
-int Init(StreamObj *streamObj, const char *streamPath)
+int Init(StreamObj *streamObj, const char *streamPath, const bool enableShm,
+         const char *shmName, const int shmSize, const int shmOffset)
 {
     int ret;
 
@@ -294,7 +295,23 @@ int Init(StreamObj *streamObj, const char *streamPath)
     }
 
     streamObj->imageSize = streamObj->streamWidth * streamObj->streamHeight * channelNum;
-    streamObj->outputImage = (unsigned char *)malloc(streamObj->imageSize);
+    if(enableShm){
+      streamObj->shmEnabled = true;
+      streamObj->shmSize    = shmSize;
+      streamObj->shmFd      = shm_open(shmName, O_RDWR, 0666);
+      if(streamObj->shmFd == -1){
+        av_log(NULL, AV_LOG_ERROR, "%s\n", "can not create shm fd.");
+        return 5;
+      }
+      streamObj->outputImage = mmap(0, shmSize, PROT_WRITE, MAP_SHARED, streamObj->shmFd, shmOffset);
+      if(streamObj->outputImage == MAP_FAILED){
+        av_log(NULL, AV_LOG_ERROR, "%s\n", "can not map shm.");
+        return 5;
+      }
+    }else{
+      streamObj->shmEnabled  = false;
+      streamObj->outputImage = (unsigned char *)malloc(streamObj->imageSize);
+    }
     av_log(NULL, AV_LOG_INFO, "stream imagesize: %d\n", streamObj->imageSize);
     streamObj->videoRGBFrame = av_frame_alloc();
 
@@ -361,7 +378,12 @@ StreamObj *unInit(StreamObj *streamObj)
         streamObj->videoFormatContext = NULL;
     }
 
-    free(streamObj->outputImage);
+    if (streamObj->shmEnabled){
+      munmap(streamObj->outputImage, streamObj->shmSize);
+      close(streamObj->shmFd);
+    }else{
+      free(streamObj->outputImage);
+    }
     streamObj->outputImage = NULL;
 
     streamObj->streamID = -1; // which stream index to parse in the video
@@ -699,7 +721,7 @@ int main()
     start_time = clock();
     printf("cur time: %ld\n", start_time);
     StreamObj *curStreamObj = newStreamObj();
-    ret = Init(curStreamObj, sourceStreamPath); // initialize a new stream
+    ret = Init(curStreamObj, sourceStreamPath, false, "", 0, 0); // initialize a new stream
     end_time = clock();
     printf("cur time: %ld\n", end_time);
     printf("initializing cost time=%f\n", (double)(end_time - start_time) / CLOCKS_PER_SEC);
@@ -737,7 +759,7 @@ int main()
     sleep(60);
     // ret = save_rgb_to_file(curStreamObj, 0);
 
-    ret = Init(curStreamObj, sourceStreamPath); // initialize a new stream
+    ret = Init(curStreamObj, sourceStreamPath, false, "", 0, 0); // initialize a new stream
     end_time = clock();
     printf("cur time: %ld\n", end_time);
     printf("initializing cost time=%f\n", (double)(end_time - start_time) / CLOCKS_PER_SEC);

@@ -1,6 +1,9 @@
 #include <stdio.h>
 #include <unistd.h>
+#include <fcntl.h>
+#include <sys/mman.h>
 #include <sys/types.h>
+#include <stdbool.h>
 #include <pwd.h>
 // #include "libavutil/avconfig.h"
 
@@ -65,6 +68,9 @@ typedef struct StreamObj
     int streamEnd; // has already to the end of the stream
 
     unsigned char *outputImage; // the extracted frame
+    bool shmEnabled;
+    int  shmFd;
+    int  shmSize;
 
     struct Clicker *clicker;
 
@@ -72,7 +78,8 @@ typedef struct StreamObj
 
 StreamObj *newStreamObj();
 
-int Init(StreamObj *streamObj, const char *streamPath);
+int Init(StreamObj *streamObj, const char *streamPath, const bool enableShm,
+         const char *shmName, const int shmSize, const int shmOffset);
 
 StreamObj *unInit(StreamObj *streamObj);
 

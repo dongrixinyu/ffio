@@ -44,6 +44,7 @@ add_library(interfaceAPI SHARED
             ${PROJECT_SOURCE_DIR}/pyFFmpeg/extractFrame.c)
 
 target_link_libraries(interfaceAPI
+    rt
     ${PYTHON_LIBRARIES}
     ${FFMPEG_AVUTIL_LIBRARIES}
     ${FFMPEG_AVFILTER_LIBRARIES}

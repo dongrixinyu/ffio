@@ -11,7 +11,8 @@ void *newStreamObject();
 
 void *deleteStreamObject(void *streamObj);
 
-void *init(void *streamObj, const char *sourceStreamPath);
+void *init(void *streamObj, const char *sourceStreamPath, const bool enableShm,
+           const char *shmName, const int shmSize, const int shmOffset);
 void *finalize(void *streamObj);
 
 int getStreamState(void *streamObj);

@@ -32,7 +32,8 @@ lib_interface_api.deleteStreamObject.argtypes = [ctypes.c_void_p]
 lib_interface_api.deleteStreamObject.restype = ctypes.c_void_p
 
 # the source stream path must be in byte format, not Unicode
-lib_interface_api.init.argtypes = [ctypes.c_void_p, ctypes.c_char_p]
+lib_interface_api.init.argtypes = [ctypes.c_void_p, ctypes.c_char_p,
+                                   ctypes.c_bool, ctypes.c_char_p, ctypes.c_int, ctypes.c_int]
 lib_interface_api.init.restype = ctypes.c_void_p
 
 lib_interface_api.finalize.argtypes = [ctypes.c_void_p]
@@ -57,7 +58,8 @@ lib_interface_api.getOneFrame.restype = ctypes.py_object
 
 class StreamParser(object):
     """StreamParser: """
-    def __init__(self, stream_path):
+    def __init__(self, stream_path: str,
+                 shm_name: str = None, shm_size: int = 0, shm_offset: int = 0):
 
         # allocate memory to new a streamObj
         self.streamObj = ctypes.c_void_p(lib_interface_api.newStreamObject())
@@ -66,8 +68,14 @@ class StreamParser(object):
 
         start_time = time.time()
         # the input stream must be in byte format
-        self.streamObj = ctypes.c_void_p(
-            lib_interface_api.init(self.streamObj, stream_path.encode()))
+        if shm_name is None:
+            self.streamObj = ctypes.c_void_p(
+                lib_interface_api.init(self.streamObj, stream_path.encode(),
+                                       False, "".encode(), 0, 0))
+        else:
+            self.streamObj = ctypes.c_void_p(
+                lib_interface_api.init(self.streamObj, stream_path.encode(),
+                                       True, shm_name.encode(), shm_size, shm_offset))
         end_time = time.time()
 
         self.stream_state_flag = lib_interface_api.getStreamState(self.streamObj)
