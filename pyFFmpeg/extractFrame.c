@@ -303,11 +303,12 @@ int Init(StreamObj *streamObj, const char *streamPath, const bool enableShm,
         av_log(NULL, AV_LOG_ERROR, "%s\n", "can not create shm fd.");
         return 5;
       }
-      streamObj->outputImage = mmap(0, shmSize, PROT_WRITE, MAP_SHARED, streamObj->shmFd, shmOffset);
-      if(streamObj->outputImage == MAP_FAILED){
+      streamObj->outputImageShm = mmap(0, shmSize, PROT_WRITE, MAP_SHARED, streamObj->shmFd, shmOffset);
+      if(streamObj->outputImageShm == MAP_FAILED){
         av_log(NULL, AV_LOG_ERROR, "%s\n", "can not map shm.");
         return 5;
       }
+      streamObj->outputImage = (unsigned char *)malloc(streamObj->imageSize);
     }else{
       streamObj->shmEnabled  = false;
       streamObj->outputImage = (unsigned char *)malloc(streamObj->imageSize);
@@ -379,11 +380,13 @@ StreamObj *unInit(StreamObj *streamObj)
     }
 
     if (streamObj->shmEnabled){
-      munmap(streamObj->outputImage, streamObj->shmSize);
-      close(streamObj->shmFd);
+      munmap(streamObj->outputImageShm, streamObj->shmSize);
+      close (streamObj->shmFd);
+      free  (streamObj->outputImage);
     }else{
-      free(streamObj->outputImage);
+      free  (streamObj->outputImage);
     }
+    streamObj->shmEnabled  = false;
     streamObj->outputImage = NULL;
 
     streamObj->streamID = -1; // which stream index to parse in the video
@@ -617,7 +620,7 @@ int decodeOneFrame(StreamObj *streamObj, int shmOffset)
                     //     (double)(end_time - start_time) / CLOCKS_PER_SEC);
                     streamObj->frameNum += 1;
                     streamObj->streamEnd = 1; //  to the end
-                    memcpy(streamObj->outputImage, streamObj->videoRGBFrame->data[0], streamObj->imageSize);
+                    copy_rgb_to_memory(streamObj, shmOffset);
                     av_frame_unref(streamObj->videoRGBFrame);
 
                     return 0;
@@ -682,11 +685,7 @@ int decodeOneFrame(StreamObj *streamObj, int shmOffset)
                     streamObj->frameNum += 1;
                     streamObj->streamEnd = 1; //  to the end
                     // av_log(NULL, AV_LOG_INFO, "Successfully read 1 frame %d!\n", streamObj->frameNum);
-                    if(streamObj->shmEnabled){
-                      memcpy(streamObj->outputImage + shmOffset, streamObj->videoRGBFrame->data[0], streamObj->imageSize);
-                    }else{
-                      memcpy(streamObj->outputImage            , streamObj->videoRGBFrame->data[0], streamObj->imageSize);
-                    }
+                    copy_rgb_to_memory(streamObj, shmOffset);
                     av_frame_unref(streamObj->videoRGBFrame);
 
                     return 0;
@@ -707,6 +706,14 @@ int decodeOneFrame(StreamObj *streamObj, int shmOffset)
     }
 
     return 1;
+}
+int copy_rgb_to_memory(StreamObj *streamObj, int shmOffset){
+  if(streamObj->shmEnabled){
+    memcpy(streamObj->outputImageShm + shmOffset, streamObj->videoRGBFrame->data[0], streamObj->imageSize);
+  }else{
+    memcpy(streamObj->outputImage               , streamObj->videoRGBFrame->data[0], streamObj->imageSize);
+  }
+  return 0;
 }
 
 int main()

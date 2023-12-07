@@ -68,6 +68,7 @@ typedef struct StreamObj
     int streamEnd; // has already to the end of the stream
 
     unsigned char *outputImage; // the extracted frame
+    unsigned char *outputImageShm; // the extracted frame
     bool shmEnabled;
     int  shmFd;
     int  shmSize;
@@ -89,6 +90,7 @@ StreamObj *unInit(StreamObj *streamObj);
  * the result is stored at streamObj->outputImage
  */
 int decodeOneFrame(StreamObj *streamObj, int shmOffset);
+int copy_rgb_to_memory(StreamObj *streamObj, int shmOffset);
 
 int decodeFrame(StreamObj *streamObj);
 
