@@ -1,6 +1,9 @@
 #include <stdio.h>
 #include <unistd.h>
+#include <fcntl.h>
+#include <sys/mman.h>
 #include <sys/types.h>
+#include <stdbool.h>
 #include <pwd.h>
 // #include "libavutil/avconfig.h"
 
@@ -9,7 +12,7 @@
 #endif
 
 #define WAIT_FOR_STREAM_TIMEOUT 5
-#define PRINT_FRAME_GAP 100
+#define PRINT_FRAME_GAP 500
 #define OUTPUT_COLOR_BITS 24
 #define OUTPUT_COLOR_BYTES 3 // color space number
 #define OUTPUT_ALIGN_BYTES 1 // byte number per color
@@ -65,6 +68,10 @@ typedef struct StreamObj
     int streamEnd; // has already to the end of the stream
 
     unsigned char *outputImage; // the extracted frame
+    unsigned char *outputImageShm; // the extracted frame
+    bool shmEnabled;
+    int  shmFd;
+    int  shmSize;
 
     struct Clicker *clicker;
 
@@ -72,7 +79,8 @@ typedef struct StreamObj
 
 StreamObj *newStreamObj();
 
-int Init(StreamObj *streamObj, const char *streamPath);
+int Init(StreamObj *streamObj, const char *streamPath, const bool enableShm,
+         const char *shmName, const int shmSize, const int shmOffset);
 
 StreamObj *unInit(StreamObj *streamObj);
 
@@ -81,7 +89,8 @@ StreamObj *unInit(StreamObj *streamObj);
  * 1 means failed, 0 means success.
  * the result is stored at streamObj->outputImage
  */
-int decodeOneFrame(StreamObj *streamObj);
+int decodeOneFrame(StreamObj *streamObj, int shmOffset);
+int copy_rgb_to_memory(StreamObj *streamObj, int shmOffset);
 
 int decodeFrame(StreamObj *streamObj);
 

@@ -32,7 +32,8 @@ lib_interface_api.deleteStreamObject.argtypes = [ctypes.c_void_p]
 lib_interface_api.deleteStreamObject.restype = ctypes.c_void_p
 
 # the source stream path must be in byte format, not Unicode
-lib_interface_api.init.argtypes = [ctypes.c_void_p, ctypes.c_char_p]
+lib_interface_api.init.argtypes = [ctypes.c_void_p, ctypes.c_char_p,
+                                   ctypes.c_bool, ctypes.c_char_p, ctypes.c_int, ctypes.c_int]
 lib_interface_api.init.restype = ctypes.c_void_p
 
 lib_interface_api.finalize.argtypes = [ctypes.c_void_p]
@@ -52,12 +53,15 @@ lib_interface_api.getAverageFPS.restype = ctypes.c_float
 
 lib_interface_api.getOneFrame.argtypes = [ctypes.c_void_p]
 lib_interface_api.getOneFrame.restype = ctypes.py_object
+lib_interface_api.getOneFrameToShm.argtypes = [ctypes.c_void_p, ctypes.c_int]
+lib_interface_api.getOneFrameToShm.restype  = ctypes.c_int
 # lib_interface_api.getOneFrame.restype = ctypes.c_int
 
 
 class StreamParser(object):
     """StreamParser: """
-    def __init__(self, stream_path):
+    def __init__(self, stream_path: str,
+                 shm_name: str = None, shm_size: int = 0, shm_offset: int = 0):
 
         # allocate memory to new a streamObj
         self.streamObj = ctypes.c_void_p(lib_interface_api.newStreamObject())
@@ -66,8 +70,16 @@ class StreamParser(object):
 
         start_time = time.time()
         # the input stream must be in byte format
-        self.streamObj = ctypes.c_void_p(
-            lib_interface_api.init(self.streamObj, stream_path.encode()))
+        if shm_name is None:
+            self.shm_enabled = False
+            self.streamObj   = ctypes.c_void_p(
+                lib_interface_api.init(self.streamObj, stream_path.encode(),
+                                       False, "".encode(), 0, 0))
+        else:
+            self.shm_enabled = True
+            self.streamObj   = ctypes.c_void_p(
+                lib_interface_api.init(self.streamObj, stream_path.encode(),
+                                       True, shm_name.encode(), shm_size, shm_offset))
         end_time = time.time()
 
         self.stream_state_flag = lib_interface_api.getStreamState(self.streamObj)
@@ -144,8 +156,8 @@ class StreamParser(object):
             elif image_format == 'numpy':
                 # numpy method to convert the result buffer
                 np_buffer = np.frombuffer(frame_bytes, dtype=np.uint8)
-                np_frame = np.reshape(
-                    np_buffer, (self.stream_video_width, self.stream_video_height, 3))
+                np_frame  = np.reshape(
+                    np_buffer, (self.stream_video_height, self.stream_video_width, 3))
                 return np_frame
 
             elif image_format == 'Image':
@@ -175,6 +187,9 @@ class StreamParser(object):
             else:
                 # other errors
                 return 1
+
+    def get_one_frame_to_shm(self, offset=0) -> int:
+        return lib_interface_api.getOneFrameToShm(self.streamObj, offset)
 
     def release_memory(self):
         # have to release memory manually
