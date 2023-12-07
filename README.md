@@ -82,6 +82,38 @@ frame = stream_obj.get_one_frame(image_format='numpy')
 
 - The [`test.py`](https://github.com/dongrixinyu/pyFFmpeg/blob/main/test.py) file provides a complete version of how to decode an online video stream continually.
 
+## Write rgb bytes to SharedMemory
+
+```python
+import numpy as np
+import pyFFmpeg
+from multiprocessing import shared_memory
+
+some_data_bytes = 2 * 4096
+rgb_data_bytes  = 30 * 1080 * 1920 * 3  # 30 frames of 1080p rgb data.
+shm_size = some_data_bytes + rgb_data_bytes
+your_shm = shared_memory.SharedMemory(create=True, size=shm_size)
+
+stream_url = "rtmp://..."
+# If shm contains other than RGB bytes, you can provide an offset as you need.
+# Offset here is the rgb bytes write point relative to 'your_shm'.
+stream_obj = pyFFmpeg.StreamParser(stream_url, your_shm.name, shm_size, shm_offset=some_data_bytes)
+
+rgb_seq   = 1234
+rgb_index = 1234 % 30
+# get_one_frame_to_shm() only returns int values.
+# 0 indicates that the frame was successfully written to shm.
+ret = stream_obj.get_one_frame_to_shm( offset=(rgb_index * 1080 * 1920 * 3) )
+
+# Access rgb data:
+rgbs = np.ndarray((30, 1080, 1920, 3), dtype=np.uint8, buffer=your_shm.buf, offset=some_data_bytes)
+rgbs[rgb_index]
+
+your_shm.close()
+your_shm.unlink()
+stream_obj.release_memory()
+```
+
 
 # Reference
 
