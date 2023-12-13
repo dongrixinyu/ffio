@@ -145,7 +145,7 @@ class StreamParser(object):
                 # numpy method to convert the result buffer
                 np_buffer = np.frombuffer(frame_bytes, dtype=np.uint8)
                 np_frame = np.reshape(
-                    np_buffer, (self.stream_video_width, self.stream_video_height, 3))
+                    np_buffer, (self.stream_video_height, self.stream_video_width, 3))
                 return np_frame
 
             elif image_format == 'Image':
@@ -156,7 +156,7 @@ class StreamParser(object):
             elif image_format == 'base64':
                 np_buffer = np.frombuffer(frame_bytes, dtype=np.uint8)
                 np_frame = np.reshape(
-                    np_buffer, (self.stream_video_width, self.stream_video_height, 3))
+                    np_buffer, (self.stream_video_height, self.stream_video_width, 3))
 
                 np_image = cv2.imencode('.jpg', np_frame)[1]
                 base64_image_code = str(base64.b64encode(np_image))

@@ -1,6 +1,10 @@
 # pyFFmpeg
 
+<p align="left">
 <img src="https://img.shields.io/badge/version-1.0.1-green" />
+<img src="https://img.shields.io/docker/pulls/jionlp/pyffmpeg?color=brightgreen" />
+</p>
+
 
 A simple Python wrapper for FFmpeg.
 
