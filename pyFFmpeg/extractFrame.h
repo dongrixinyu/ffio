@@ -26,6 +26,7 @@
 #include "libavutil/imgutils.h"
 #include "libavutil/time.h"
 #include "libavutil/timestamp.h"
+#include "libavutil/mathematics.h"
 #include "libswscale/swscale.h"
 // #include "libswresample/swresample.h"
 
@@ -87,7 +88,7 @@ typedef struct OutputStreamObj
     int outputvideoFramerateNum; // to compute the fps of the stream, duration / Den
     int outputvideoFramerateDen;
 
-    AVFormatContext *outputVideoFormatContext;
+    AVFormatContext *outputFormatContext;
     AVCodecContext *videoEncoderContext;
     AVCodec *videoEncoder;
     AVFrame *videoEncoderFrame;
@@ -111,8 +112,6 @@ StreamObj *unInit(StreamObj *streamObj);
  * the result is stored at streamObj->outputImage
  */
 int decodeOneFrame(StreamObj *streamObj);
-
-int decodeFrame(StreamObj *streamObj);
 
 int save_rgb_to_file(StreamObj *streamObj, int frame_num);
 

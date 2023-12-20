@@ -69,7 +69,7 @@ OutputStreamObj *newOutputStreamObj()
     outputStreamObj->outputvideoFramerateDen = 0;
 
     // encoder info
-    outputStreamObj->outputVideoFormatContext = NULL;
+    outputStreamObj->outputFormatContext = NULL;
     outputStreamObj->videoEncoderContext = NULL;
     outputStreamObj->videoEncoder = NULL;
     outputStreamObj->videoEncoderFrame = NULL;
@@ -82,7 +82,7 @@ int save_rgb_to_file(StreamObj *streamObj, int frame_num)
 {
     // concatenate file name
     char pic_name[200] = {0};
-    sprintf(pic_name, "./test_images/result_%d.yuv", frame_num);
+    sprintf(pic_name, "/home/cuichengyu/test_images/result_%d.yuv", frame_num);
 
     // write to file
     FILE *fp = NULL;
@@ -134,12 +134,10 @@ int ConvertYUV2RBG(
         return 0;
     }
 
-    // save_rgb_to_file(frame, frame_num);
-
     // print log once every 20 frames
     if (frameNum % PRINT_FRAME_GAP == 0)
     {
-        av_log(NULL, AV_LOG_INFO, "Successfully read one frame, num = %d!\n", frameNum);
+        av_log(NULL, AV_LOG_INFO, "Successfully read one frame, num = %d.\n", frameNum);
     }
 
     // av_frame_unref(RGBFrame);
@@ -360,6 +358,14 @@ int Init(StreamObj *streamObj, const char *streamPath)
 
 /**
  *  initialize video encoder context info
+ *
+ *  ret: int
+ *      0 means successfully start a video stream
+ *      1 means can not denote the right output format
+ *      2 means failed to allocate memory for `avformat_alloc_output_context2`
+ *      3 means avcodec_new_stream failed.
+ *      4 means avcodec_copy_context failed.
+ *
  */
 int initOutputStream(OutputStreamObj *outputStreamObj,
         StreamObj *streamObj, const char *outputStreamPath)
@@ -381,58 +387,220 @@ int initOutputStream(OutputStreamObj *outputStreamObj,
     {
         format_name = "mp4";
     }
+    else if (strstr(outputStreamPath, ".flv")) {
+        format_name = "flv";
+    }
     else
     {
-        // -3 means the outputStreamPath is illegal.
-        return -3;
+        // 1 means the outputStreamPath is illegal.
+        return 1;
     }
 
-    ret = avformat_alloc_output_context2(
-        &(outputStreamObj->outputVideoFormatContext), NULL, format_name, outputStreamPath);
-    if (!outputStreamObj->outputVideoFormatContext)
+
+    if (outputStreamObj->videoEncoderContext == NULL)
     {
-        av_log(NULL, AV_LOG_INFO, "failed to open an output format context %d \n", AVERROR(ENOMEM));
-        return ENOMEM;  // out of memory
+        // initialize codec object
+        const char *codec_name = "libx264";
+        outputStreamObj->videoEncoder = avcodec_find_encoder_by_name(codec_name);
+        if (!outputStreamObj->videoEncoder)
+        {
+            fprintf(stderr, "Codec '%s' not found\n", codec_name);
+            exit(1);
+        }
+
+        // initialize encoder context
+        outputStreamObj->videoEncoderContext = avcodec_alloc_context3(
+            outputStreamObj->videoEncoder);
+
+        outputStreamObj->videoEncoderContext->codec_tag = 0;
+        outputStreamObj->videoEncoderContext->codec_id = AV_CODEC_ID_H264;
+        outputStreamObj->videoEncoderContext->codec_type = AVMEDIA_TYPE_VIDEO;
+        outputStreamObj->videoEncoderContext->bit_rate = 400000;
+
+        outputStreamObj->videoEncoderContext->framerate = outputStreamObj->inputFramerate;
+        outputStreamObj->videoEncoderContext->gop_size = 12;
+        outputStreamObj->videoEncoderContext->max_b_frames = 1;
+        // outputStreamObj->videoEncoderContext->profile = FF_PROFILE_H264_HIGH;
+
+        // // get params from AVFormatContext
+        // ensure frame rate of output is equal to input frame rate.
+        outputStreamObj->inputFramerate = streamObj->videoFormatContext->streams[streamObj->streamID]->avg_frame_rate;
+        outputStreamObj->videoEncoderContext->framerate = outputStreamObj->inputFramerate;
+
+        outputStreamObj->videoEncoderContext->time_base = av_inv_q(outputStreamObj->videoEncoderContext->framerate);
+        outputStreamObj->videoEncoderContext->width = streamObj->videoFormatContext->streams[streamObj->streamID]->codecpar->width;
+        outputStreamObj->videoEncoderContext->height = streamObj->videoFormatContext->streams[streamObj->streamID]->codecpar->height;
+
+        // // get params from AVFrame
+        // outputStreamObj->videoEncoderContext->pix_fmt = streamObj->videoFrame->format;
+        outputStreamObj->videoEncoderContext->pix_fmt = AV_PIX_FMT_YUV420P;
+        // outputStreamObj->videoEncoderContext->color_range = streamObj->videoFrame->color_range;
+        // outputStreamObj->videoEncoderContext->color_primaries = streamObj->videoFrame->color_primaries;
+        // outputStreamObj->videoEncoderContext->color_trc = streamObj->videoFrame->color_trc;
+        // outputStreamObj->videoEncoderContext->colorspace = streamObj->videoFrame->colorspace;
+        // outputStreamObj->videoEncoderContext->chroma_sample_location = streamObj->videoFrame->chroma_location;
+
+        if (outputStreamObj->videoEncoder->id == AV_CODEC_ID_H264)
+            av_opt_set(outputStreamObj->videoEncoderContext->priv_data, "preset", "slow", 0);
+
+        /* 注意，这个 field_order 不同的视频的值是不一样的，这里我写死了。
+         * 因为 本文的视频就是 AV_FIELD_PROGRESSIVE
+         * 生产环境要对不同的视频做处理的
+         */
+        // outputStreamObj->videoEncoderContext->field_order = AV_FIELD_PROGRESSIVE;
+        // AV_FIELD_UNKNOWN;
+        // AV_FIELD_PROGRESSIVE;
+
+        if (strcmp(format_name, "mp4") == 0)
+        {
+        }
+        else if (strcmp(format_name, "flv") == 0)
+        {
+
+            av_log(NULL, AV_LOG_INFO, "%s", "set video GLOBAL_HEADER\n");
+            outputStreamObj->videoEncoderContext->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
+
+        }
+
+        // copy params form video encoder context to stream
+        // ret = avcodec_parameters_from_context(
+        //     outputStreamObj->outputVideoStream->codecpar,
+        //     outputStreamObj->videoEncoderContext);
+        // if (ret < 0)
+        // {
+        //     av_log(NULL, AV_LOG_INFO, "avcodec_parameters_from_context failed %d.\n", ret);
+        //     return ret;
+        // }
+
+        // AVDictionary *codec_options = NULL;
+        // av_dict_set(&codec_options, "profile", "high", 0);
+        // av_dict_set(&codec_options, "preset", "superfast", 0);
+        // av_dict_set(&codec_options, "tune", "zerolatency", 0);
+
+        ret = avcodec_open2(
+            outputStreamObj->videoEncoderContext,
+            outputStreamObj->videoEncoder, NULL); // &codec_options
+        if (ret < 0)
+        {
+            av_log(NULL, AV_LOG_INFO, "avcodec_open2 failed %d.\n", ret);
+            return ret;
+        }
+
+    }
+
+    outputStreamObj->videoPacketOut = av_packet_alloc();
+    outputStreamObj->videoEncoderFrame = av_frame_alloc();
+
+    // initialize frame info
+    outputStreamObj->videoEncoderFrame->format = outputStreamObj->videoEncoderContext->pix_fmt;
+    outputStreamObj->videoEncoderFrame->width = outputStreamObj->videoEncoderContext->width;
+    outputStreamObj->videoEncoderFrame->height = outputStreamObj->videoEncoderContext->height;
+    ret = av_frame_get_buffer(outputStreamObj->videoEncoderFrame, 64);
+    if (ret < 0)
+    {
+        fprintf(stderr, "Could not allocate the video frame data\n");
+        return 9;
+    }
+
+    // initialize output remux object
+    ret = avformat_alloc_output_context2(
+        &(outputStreamObj->outputFormatContext), NULL, format_name, outputStreamPath);
+    if (!outputStreamObj->outputFormatContext)
+    {
+        av_log(NULL, AV_LOG_INFO, "avformat_alloc_output_context2 failed %d \n", AVERROR(ENOMEM));
+        return 2; // out of memory
     }
 
     // add a video stream to the context, streamID default by 0
     outputStreamObj->outputVideoStreamID = 0;
-    outputStreamObj->inputVideoTimebase = streamObj->videoFormatContext->streams[streamObj->streamID]->time_base;
 
-    outputStreamObj->outputVideoStream = avformat_new_stream(
-        outputStreamObj->outputVideoFormatContext, NULL);
-    outputStreamObj->outputVideoStream->time_base = outputStreamObj->inputVideoTimebase;
-
-    // set outputVideoStream width and height
-    // outputStreamObj->outputVideoStream->codecpar->width = streamObj->videoFormatContext->streams[streamObj->streamID]->codecpar->width;
-    // outputStreamObj->outputVideoStream->codecpar->height = streamObj->videoFormatContext->streams[streamObj->streamID]->codecpar->height;
-    outputStreamObj->outputVideoStream->sample_aspect_ratio = streamObj->videoFormatContext->streams[streamObj->streamID]->sample_aspect_ratio;
-    outputStreamObj->outputVideoStream->avg_frame_rate.num = streamObj->videoFormatContext->streams[streamObj->streamID]->avg_frame_rate.num;
-    outputStreamObj->outputVideoStream->avg_frame_rate.den = streamObj->videoFormatContext->streams[streamObj->streamID]->avg_frame_rate.den;
-
-    // copy input stream params to output streams
-    ret = avcodec_parameters_copy(
-        outputStreamObj->outputVideoStream->codecpar,
-        streamObj->videoFormatContext->streams[streamObj->streamID]->codecpar);
-    if (ret < 0)
+    // only build the video stream for the output
+    for (int i = 0; i < 1; i++)
     {
-        av_log(NULL, AV_LOG_ERROR, "avcodec_parameters_copy failed %d.\n", ret);
-        return ret;
+        AVCodecParameters *input_codecpar = streamObj->videoFormatContext->streams[streamObj->streamID]->codecpar;
+        if (input_codecpar->codec_type != AVMEDIA_TYPE_VIDEO)
+        {
+            av_log(NULL, AV_LOG_ERROR, "input_codepar->codec_type is not video %d.\n", -1);
+            ret = -1;
+            goto end;
+        }
+
+        outputStreamObj->outputVideoStream = avformat_new_stream(
+            outputStreamObj->outputFormatContext, NULL);
+        if (!outputStreamObj->outputVideoStream)
+        {
+            av_log(NULL, AV_LOG_ERROR, "avformat_new_stream failed %d.\n", 3);
+            ret = AVERROR_UNKNOWN;
+            ret = 3;
+            goto end;
+        }
+
+        // copy input stream params to output streams
+        // ret = avcodec_parameters_copy(
+        //     outputStreamObj->outputVideoStream->codecpar,
+        //     input_codecpar);
+        ret = avcodec_parameters_from_context(
+            outputStreamObj->outputVideoStream->codecpar,
+            outputStreamObj->videoEncoderContext);
+        if (ret < 0)
+        {
+            av_log(NULL, AV_LOG_ERROR, "avcodec_parameters_copy failed %d.\n", ret);
+            goto end;
+        }
+        // av_dict_copy(
+        //     &(outputStreamObj->outputVideoStream)->metadata,
+        //     streamObj->videoFormatContext->streams[streamObj->streamID]->metadata, 0);
+
+        if (outputStreamObj->outputFormatContext->oformat->flags & AVFMT_GLOBALHEADER)
+        {
+            outputStreamObj->outputVideoStream->codec->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
+        }
+        outputStreamObj->outputVideoStream->codecpar->codec_tag = 0;
     }
-    outputStreamObj->outputVideoStream->codecpar->codec_tag = 0;
+
+    av_dump_format(outputStreamObj->outputFormatContext, 0, outputStreamObj->outputStreamPath, 1);
+    printf("\n");
+
 
     // copy metadata
-    av_dict_copy(
-        &outputStreamObj->outputVideoStream->metadata,
-        streamObj->videoFormatContext->streams[streamObj->streamID]->metadata, 0);
+    // av_dict_copy(
+    //     &outputStreamObj->outputVideoStream->metadata,
+    //     streamObj->videoFormatContext->streams[streamObj->streamID]->metadata, 0);
 
-    // outputStreamObj->videoEncoderFrame = av_frame_alloc();  // 此数据帧较为关键，即输入流的数据帧
-    outputStreamObj->videoPacketOut = av_packet_alloc();
+    // open output file or stream format context
+    if (!(outputStreamObj->outputFormatContext->flags & AVFMT_NOFILE))
+    {
+        ret = avio_open2(
+            &(outputStreamObj->outputFormatContext->pb),
+            outputStreamObj->outputStreamPath,
+            AVIO_FLAG_READ_WRITE,
+            // &(outputStreamObj->outputFormatContext->interrupt_callback),
+            NULL,
+            NULL);
+        if (ret < 0)
+        {
+            av_log(NULL, AV_LOG_INFO, "avio_open2 failed %d.\n", ret);
+            return ret;
+        }
+    }
 
-    // ensure frame rate of output is equal to input frame rate.
-    outputStreamObj->inputFramerate = streamObj->videoFormatContext->streams[streamObj->streamID]->avg_frame_rate;
+    ret = avformat_write_header(outputStreamObj->outputFormatContext, NULL);
+    if (ret < 0)
+    {
+        av_log(NULL, AV_LOG_INFO, "avformat_write_header failed %d.\n", ret);
+        return ret;
+    }
+
+
+
 
     return 0;
+
+end:
+    avformat_free_context(outputStreamObj->outputFormatContext);
+    outputStreamObj->outputFormatContext = NULL;
+
+    return ret;
 }
 
 StreamObj *unInit(StreamObj *streamObj)
@@ -459,7 +627,6 @@ StreamObj *unInit(StreamObj *streamObj)
 
     if (streamObj->videoFrame)
     {
-        // av_frame_unref(streamObj->videoFrame);
         av_frame_free(&(streamObj->videoFrame));
         streamObj->videoFrame = NULL;
     }
@@ -499,131 +666,6 @@ StreamObj *unInit(StreamObj *streamObj)
     return streamObj;
 }
 
-int decodeFrame(StreamObj *streamObj)
-{
-    int ret;
-
-    for (;;)
-    {
-        if (streamObj->streamEnd == 1)
-        {
-            av_log(NULL, AV_LOG_INFO, "%s", "# to the end of the video stream.\n");
-            break;
-        }
-
-        ret = av_read_frame(streamObj->videoFormatContext, streamObj->videoPacket); // read a packet
-
-        if (streamObj->videoPacket->stream_index != streamObj->streamID)
-        {
-            // only accept video packets, excluding audio and other packets.
-            av_packet_unref(streamObj->videoPacket);
-            av_log(NULL, AV_LOG_WARNING, "%s", "# didnt accept audio packet.\n");
-            continue;
-        }
-
-        // av_log(NULL, AV_LOG_ERROR, "AVERROR_EOF: %d, %d\n", AVERROR_EOF, ret);
-        if (AVERROR_EOF == ret)
-        {
-            avcodec_send_packet(streamObj->videoCodecContext, streamObj->videoPacket);
-            av_packet_unref(streamObj->videoPacket);
-
-            for (;;)
-            {
-                ret = avcodec_receive_frame(streamObj->videoCodecContext, streamObj->videoFrame);
-
-                if (ret == AVERROR(EAGAIN))
-                {
-                    // need more AVPacket
-                    break;
-                }
-                else if (ret == AVERROR_EOF)
-                {
-                    // to the end of the stream
-                    streamObj->streamEnd = 1;
-                    break;
-                }
-                else if (ret >= 0)
-                {
-                    ret = ConvertYUV2RBG(
-                        streamObj->videoFrame, streamObj->videoRGBFrame, streamObj->swsContext,
-                        streamObj->outputImage,
-                        streamObj->videoCodecContext, streamObj->frameNum);
-                    // end_time = clock();
-                    // av_log(NULL, AV_LOG_INFO, "read one frame cost time=%f\n",
-                    //     (double)(end_time - start_time) / CLOCKS_PER_SEC);
-                    streamObj->frameNum += 1;
-                    streamObj->streamEnd = 1; //  to the end
-                }
-                else
-                {
-                    av_log(NULL, AV_LOG_ERROR, "%s", "other error.\n");
-
-                    return ret;
-                }
-            }
-        }
-        else if (ret == 0)
-        {
-            while (1)
-            {
-                ret = avcodec_send_packet(streamObj->videoCodecContext, streamObj->videoPacket);
-                if (ret == AVERROR(EAGAIN))
-                {
-                    av_log(NULL, AV_LOG_INFO, "%s",
-                           "Receive_frame and send_packet both returned EAGAIN, which is an API violation.\n");
-                    sleep(0.04); // sleep for about a duration of one frame
-                }
-                else if (ret == 0)
-                {
-                    break;
-                }
-                else if (ret < 0)
-                {
-                    av_log(NULL, AV_LOG_ERROR, "%s", "an unknown error concerning send packet.\n");
-                    break;
-                }
-            }
-
-            av_packet_unref(streamObj->videoPacket);
-
-            for (;;)
-            {
-                ret = avcodec_receive_frame(
-                    streamObj->videoCodecContext, streamObj->videoFrame);
-
-                if (ret == AVERROR(EAGAIN))
-                {
-                    break; // need more AVPacket
-                }
-                else if (ret == AVERROR_EOF)
-                {
-                    // to the end of the video stream
-                    streamObj->streamEnd = 1;
-                    break;
-                }
-                else if (ret >= 0)
-                {
-                    ret = ConvertYUV2RBG(
-                        streamObj->videoFrame, streamObj->videoRGBFrame,
-                        streamObj->swsContext, streamObj->outputImage,
-                        streamObj->videoCodecContext, streamObj->frameNum);
-                    // end_time = clock();
-                    // av_log(NULL, AV_LOG_INFO, "read one frame cost time=%f\n", (double)(end_time - start_time) / CLOCKS_PER_SEC);
-                    streamObj->frameNum += 1;
-                    streamObj->streamEnd = 1; //  to the end
-                }
-                else
-                {
-                    av_log(NULL, AV_LOG_ERROR, "%s", "other error concerning receive frame.\n");
-
-                    return ret;
-                }
-            }
-        }
-    }
-    return 1;
-}
-
 /**
  * to get one frame from the stream
  *
@@ -653,9 +695,8 @@ int decodeOneFrame(StreamObj *streamObj)
         streamObj->clicker->lasttime = time(NULL);                                  // get the currect time before av_read_frame
         ret = av_read_frame(streamObj->videoFormatContext, streamObj->videoPacket); // read a packet
         // av_log(NULL, AV_LOG_DEBUG, "%s", "### successfully read one packet.\n");
-        log_packet(streamObj->videoFormatContext, streamObj->videoPacket, "in");
-        // av_log(NULL, AV_LOG_INFO, "read a packet. end, get stream id: %d, expected id: %d, ret: %d, EOF: %d\n",
-        //    streamObj->videoPacket->stream_index, streamObj->streamID, ret, AVERROR_EOF);
+        // log_packet(streamObj->videoFormatContext, streamObj->videoPacket, "in");
+
         if (streamObj->videoPacket->stream_index != streamObj->streamID)
         {
             // filter unrelated packet
@@ -710,6 +751,7 @@ int decodeOneFrame(StreamObj *streamObj)
                         streamObj->videoFrame, streamObj->videoRGBFrame, streamObj->swsContext,
                         streamObj->outputImage,
                         streamObj->videoCodecContext, streamObj->frameNum);
+
                     // end_time = clock();
                     // av_log(NULL, AV_LOG_INFO, "read one frame cost time=%f\n",
                     //     (double)(end_time - start_time) / CLOCKS_PER_SEC);
@@ -816,148 +858,69 @@ int encodeOneFrame(OutputStreamObj *outputStreamObj, StreamObj *streamObj, int e
 
     if (outputStreamObj->videoEncoderContext == NULL)
     {
-        // initialize packet_out
-        // streamObj->videoPacketOut = av_packet_alloc();
 
-        // initialize encoder context
-        outputStreamObj->videoEncoder = (AVCodec *)avcodec_find_encoder(AV_CODEC_ID_H264);
-
-        outputStreamObj->videoEncoderContext = avcodec_alloc_context3(outputStreamObj->videoEncoder);
-        outputStreamObj->videoEncoderContext->codec_type = AVMEDIA_TYPE_VIDEO;
-        outputStreamObj->videoEncoderContext->bit_rate = 2511836;
-
-        outputStreamObj->videoEncoderContext->framerate = outputStreamObj->inputFramerate;
-        outputStreamObj->videoEncoderContext->gop_size = 12;
-        outputStreamObj->videoEncoderContext->max_b_frames = 12;
-        outputStreamObj->videoEncoderContext->profile = FF_PROFILE_H264_HIGH;
-
-        // get params from AVFormatContext
-        outputStreamObj->videoEncoderContext->time_base = streamObj->videoFormatContext->streams[streamObj->streamID]->time_base;
-        outputStreamObj->videoEncoderContext->width = streamObj->videoFormatContext->streams[streamObj->streamID]->codecpar->width;
-        outputStreamObj->videoEncoderContext->height = streamObj->videoFormatContext->streams[streamObj->streamID]->codecpar->height;
-
-        // get params from AVFrame
-        outputStreamObj->videoEncoderContext->sample_aspect_ratio = streamObj->videoFrame->sample_aspect_ratio;
-        outputStreamObj->outputVideoStream->sample_aspect_ratio = streamObj->videoFrame->sample_aspect_ratio;
-
-        // outputStreamObj->videoEncoderContext->sample_aspect_ratio.num = 1;
-        outputStreamObj->videoEncoderContext->pix_fmt = streamObj->videoFrame->format;
-        outputStreamObj->videoEncoderContext->color_range = streamObj->videoFrame->color_range;
-        outputStreamObj->videoEncoderContext->color_primaries = streamObj->videoFrame->color_primaries;
-        outputStreamObj->videoEncoderContext->color_trc = streamObj->videoFrame->color_trc;
-        outputStreamObj->videoEncoderContext->colorspace = streamObj->videoFrame->colorspace;
-        outputStreamObj->videoEncoderContext->chroma_sample_location = streamObj->videoFrame->chroma_location;
-
-        /* 注意，这个 field_order 不同的视频的值是不一样的，这里我写死了。
-         * 因为 本文的视频就是 AV_FIELD_PROGRESSIVE
-         * 生产环境要对不同的视频做处理的
-         */
-        outputStreamObj->videoEncoderContext->field_order = AV_FIELD_PROGRESSIVE;
-        // AV_FIELD_UNKNOWN;
-        // AV_FIELD_PROGRESSIVE;
-
-        // copy codec from videoEncoderContext to outputVideoFormatContext->VideoStream
-        // outputStreamObj->outputVideoStream[outputStreamObj->outputVideoStreamID].codec->codec = outputStreamObj->videoEncoderContext->codec;
-        // outputStreamObj->outputVideoStream[outputStreamObj->outputVideoStreamID].codec->codec_type = outputStreamObj->videoEncoderContext->codec_type;
-        // outputStreamObj->outputVideoStream[outputStreamObj->outputVideoStreamID].codec->codec_id = outputStreamObj->videoEncoderContext->codec_id;
-
-        if (outputStreamObj->outputVideoFormatContext->oformat->flags & AVFMT_GLOBALHEADER) {
-            av_log(NULL, AV_LOG_INFO, "%s", "set video GLOBAL_HEADER\n");
-            outputStreamObj->videoEncoderContext->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
-            // may cause memory leak
-            outputStreamObj->videoEncoderContext->extradata = streamObj->videoCodecContext->extradata;
-            outputStreamObj->videoEncoderContext->extradata_size = streamObj->videoCodecContext->extradata_size;
-        }
-
-        // copy params form video encoder context to stream
-        ret = avcodec_parameters_from_context(
-            outputStreamObj->outputVideoStream->codecpar,
-            outputStreamObj->videoEncoderContext);
-        if (ret < 0)
-        {
-            av_log(NULL, AV_LOG_INFO, "avcodec_parameters_from_context failed %d.\n", ret);
-            return ret;
-        }
-
-        AVDictionary *codec_options = NULL;
-        av_dict_set(&codec_options, "profile", "high", 0);
-        av_dict_set(&codec_options, "preset", "superfast", 0);
-        av_dict_set(&codec_options, "tune", "zerolatency", 0);
-
-        ret = avcodec_open2(
-            outputStreamObj->videoEncoderContext,
-            outputStreamObj->videoEncoder, NULL); // &codec_options
-        if (ret < 0)
-        {
-            av_log(NULL, AV_LOG_INFO, "avcodec_open2 failed %d.\n", ret);
-            return ret;
-        }
-
-        // open output file or stream format context
-        ret = avio_open2(
-            &(outputStreamObj->outputVideoFormatContext->pb),
-            outputStreamObj->outputStreamPath,
-            AVIO_FLAG_WRITE,
-            // &(outputStreamObj->outputVideoFormatContext->interrupt_callback),
-            NULL,
-            NULL);
-        if (ret < 0)
-        {
-            av_log(NULL, AV_LOG_INFO, "avio_open2 failed %d.\n", ret);
-            return ret;
-        }
-
-        ret = avformat_write_header(outputStreamObj->outputVideoFormatContext, NULL);
-        if (ret < 0)
-        {
-            av_log(NULL, AV_LOG_INFO, "avformat_write_header failed %d.\n", ret);
-            return ret;
-        }
-
-        printf("\n");
-        av_dump_format(outputStreamObj->outputVideoFormatContext, 0, outputStreamObj->outputStreamPath, 1);
-        // outputStreamObj->outputVideoStream->time_base = outputStreamObj->inputVideoTimebase;
     }
 
-    // frame -> encoder context
-    if (end_of_stream == 1) {
-        ret = avcodec_send_frame(
-            outputStreamObj->videoEncoderContext, NULL);
-    } else {
-        ret = avcodec_send_frame(
-            outputStreamObj->videoEncoderContext, streamObj->videoFrame);
+    // make frame data
+    ret = av_frame_make_writable(outputStreamObj->videoEncoderFrame);
+    for (int i = 0; i <= 2; i++) {
+        memcpy(
+            outputStreamObj->videoEncoderFrame->data[i],
+            streamObj->videoFrame->data[i],
+            outputStreamObj->videoEncoderFrame->linesize[i]);
     }
+    outputStreamObj->videoEncoderFrame->pts = streamObj->videoFrame->pts;
+    outputStreamObj->videoEncoderFrame->pkt_dts = streamObj->videoFrame->pts;
+    outputStreamObj->videoEncoderFrame->pkt_pts = streamObj->videoFrame->pts;
 
+    /* send the frame to the encoder */
+    if (outputStreamObj->videoEncoderFrame)
+        printf("---> Send frame %3" PRId64 "\n", outputStreamObj->videoEncoderFrame->pts);
+
+    ret = avcodec_send_frame(
+        outputStreamObj->videoEncoderContext, streamObj->videoFrame);
+    // outputStreamObj->videoEncoderFrame);
     if (ret < 0)
     {
         av_log(NULL, AV_LOG_INFO, "avcodec_send_frame failed %d %d.\n", ret, AVERROR(EINVAL));
         return ret;
     }
 
-    // encoder context -> packet
-    for (;;)
+    while (ret >= 0)
     {
         ret = avcodec_receive_packet(
             outputStreamObj->videoEncoderContext, outputStreamObj->videoPacketOut);
-        if (ret == AVERROR(EAGAIN))
-        {
-            // av_log(NULL, AV_LOG_INFO, "avcodec_receive_pachet need to try again %d\n", ret);
-            // break;
-            return 2;  // try again
+        if (ret == AVERROR(EAGAIN)) {  // -11 means send frame again.
+            // av_log(NULL, AV_LOG_INFO, "avcodec_receive_packet need to try again later %d\n", ret);
+            return 9;
         }
-
-        // 前面没有往 编码器发 NULL, 所以正常情况 ret 不会小于 0
-        if (ret < 0)
+        else if (ret == AVERROR_EOF) // -541478725 means end of file
+        {
+            av_log(NULL, AV_LOG_INFO, "avcodec_receive_packet to the end %d\n", ret);
+            return 9;
+        }
+        else if (ret < 0)
         {
             av_log(NULL, AV_LOG_INFO, "avcodec_receive_packet failed %d.\n", ret);
             return ret;
         }
+
+        printf("---> Receive packet %3" PRId64 " (size=%5d)\n",
+               outputStreamObj->videoPacketOut->pts, outputStreamObj->videoPacketOut->size);
+
         // 编码出 AVPacket ，打印一些信息。
-        av_log(NULL, AV_LOG_INFO, "encoder packet_out size: %d.\n", outputStreamObj->videoPacketOut->size);
-        log_packet(outputStreamObj->outputVideoFormatContext, outputStreamObj->videoPacketOut, "out_1");
+        // av_log(NULL, AV_LOG_INFO, "encoder packet_out size: %d.\n", outputStreamObj->videoPacketOut->size);
+        // log_packet(outputStreamObj->outputFormatContext, outputStreamObj->videoPacketOut, "out_1");
+
         // 设置 AVPacket 的 stream_index ，这样才知道是哪个流的。
         outputStreamObj->videoPacketOut->stream_index = outputStreamObj->outputVideoStream->index;
+
         // 转换 AVPacket 的时间基为 输出流的时间基。
+        // ret = av_rescale_q(
+        //     1,
+        //     outputStreamObj->inputVideoTimebase,
+        //     outputStreamObj->outputVideoStream->time_base);
+        // outputStreamObj->videoPacketOut->pts += ret;
         // outputStreamObj->videoPacketOut->pts = av_rescale_q_rnd(
         //     outputStreamObj->videoPacketOut->pts,          // int
         //     outputStreamObj->inputVideoTimebase,           // AVRational
@@ -974,23 +937,54 @@ int encodeOneFrame(OutputStreamObj *outputStreamObj, StreamObj *streamObj, int e
         //     outputStreamObj->outputVideoStream->time_base, // AVRational
         //     AV_ROUND_NEAR_INF | AV_ROUND_PASS_MINMAX);
 
-        // av_packet_rescale_ts(outputStreamObj->videoPacketOut, in_stream->time_base, out_stream->time_base);
-        outputStreamObj->videoPacketOut->duration = 33;
+        AVStream *inputStream = streamObj->videoFormatContext->streams[streamObj->streamID];
+
+        av_packet_rescale_ts(
+            outputStreamObj->videoPacketOut,
+            inputStream->time_base,
+            outputStreamObj->outputVideoStream->time_base);
+
         outputStreamObj->videoPacketOut->pos = -1;
 
-
-        log_packet(outputStreamObj->outputVideoFormatContext, outputStreamObj->videoPacketOut, "out_2");
+        log_packet(outputStreamObj->outputFormatContext, outputStreamObj->videoPacketOut, "out_2");
+        av_log(NULL, AV_LOG_INFO, "packet info pts: %d, dts: %d, size: %d\n",
+               outputStreamObj->videoPacketOut->pts,
+               outputStreamObj->videoPacketOut->dts,
+               outputStreamObj->videoPacketOut->size);
 
         ret = av_interleaved_write_frame(
-            outputStreamObj->outputVideoFormatContext, outputStreamObj->videoPacketOut);
+            outputStreamObj->outputFormatContext, outputStreamObj->videoPacketOut);
         if (ret < 0)
         {
-            av_log(NULL, AV_LOG_INFO, "av_interleaved_write_frame failed %d.\n", ret);
+            char errbuf[200];
+            av_strerror(ret, errbuf, sizeof(errbuf));
+            av_log(NULL, AV_LOG_INFO, "av_interleaved_write_frame failed %d - %s.\n", ret, errbuf);
             return ret;
         }
-
         av_packet_unref(outputStreamObj->videoPacketOut);
+        av_log(NULL, AV_LOG_INFO, "av_interleaved_write_frame SUCCESSFULLY.\n");
     }
+
+    // frame -> encoder context
+    // if (end_of_stream == 1) {
+    //     ret = avcodec_send_frame(
+    //         outputStreamObj->videoEncoderContext, NULL);
+    // } else {
+    //     ret = avcodec_send_frame(
+    //         outputStreamObj->videoEncoderContext, streamObj->videoFrame);
+    // }
+    // if (ret < 0)
+    // {
+    //     av_log(NULL, AV_LOG_INFO, "avcodec_send_frame failed %d %d.\n", ret, AVERROR(EINVAL));
+    //     return ret;
+    // }
+
+    // encoder context -> packet
+
+    // ret = avcodec_receive_packet(
+    //     outputStreamObj->videoEncoderContext, outputStreamObj->videoPacketOut);
+
+    // av_packet_unref(streamObj->videoPacket);
 
     return 0;
 }
@@ -1000,7 +994,8 @@ int main()
     int err;
     int ret;
     // av_register_all();
-    // avformat_network_init();
+
+    avformat_network_init();
 
     // const char *sourceStreamPath = "rtmp://live.demo.uavcmlc.com:1935/live/DEV02001270?token=03c7986c15e0";
     // const char *sourcePath = "/home/cuichengyu/github/pyFFmpeg/pyFFmpeg/output.mp4";
@@ -1008,7 +1003,7 @@ int main()
     const char *sourcePath = "rtmp://live.demo.uavcmlc.com:1935/live/DEV02003179?token=8622d43632a1";
     // const char *sourceStreamPath = "rtmp://live.demo.uavcmlc.com:1935/live/DEV02001270?token=03c7986c15e0";
     // const char *sourceStreamPath = "/home/cuichengyu/github/pyFFmpeg/pyFFmpeg/res1.mp4";
-    const char *sourceStreamPath = "rtmp://192.168.35.30:30107/live/cuichengyu4";
+    const char *sourceStreamPath = "rtmp://192.168.35.30:30107/live/cuichengyu3";
 
     clock_t start_time, end_time;
 
@@ -1022,7 +1017,9 @@ int main()
     ret = Init(curStreamObj, sourcePath); // initialize a new stream
     end_time = clock();
     printf("initializing decoder cost time=%f\n", (double)(end_time - start_time) / CLOCKS_PER_SEC);
-
+    if (ret != 0) {
+        return 1;
+    }
     sleep(1);
     start_time = clock();
     OutputStreamObj *curOutputStreamObj = newOutputStreamObj();
@@ -1051,9 +1048,18 @@ int main()
             // which means to the end of the file
             file_end = ret;
         }
+        if (ret == -5){
+            av_write_trailer(curOutputStreamObj->outputFormatContext);
+            avio_closep(&curOutputStreamObj->outputFormatContext->pb);
+            return 1;
+        }
+
 
         ret = encodeOneFrame(curOutputStreamObj, curStreamObj, file_end);
-        if (ret < 0) {
+        if (count > 10000) {
+            // write this to finish the mp4 file format
+            av_write_trailer(curOutputStreamObj->outputFormatContext);
+            avio_closep(&curOutputStreamObj->outputFormatContext->pb);
             return 1;
             // break;
         }
