@@ -1,10 +1,10 @@
 # -*- coding=utf-8 -*-
-# Library: pyFFmpeg
+# Library: ffio
 # Author: dongrixinyu
 # License: MIT
 # Email: dongrixinyu.66@gmail.com
-# Github: https://github.com/dongrixinyu/pyFFmpeg
-# Description: a simple Python wrapper for FFmpeg.'
+# Github: https://github.com/dongrixinyu/ffio
+# Description: An easy-to-use Python wrapper for FFmpeg-C-API.
 # Website: http://www.jionlp.com
 
 
@@ -16,7 +16,7 @@ import setuptools
 
 # get version tag
 DIR_PATH = os.path.dirname(os.path.abspath(__file__))
-__version__ = '1.0.1'
+__version__ = '1.0.2'
 
 with open(os.path.join(DIR_PATH, 'requirements.txt'),
           'r', encoding='utf-8') as f:
@@ -28,13 +28,13 @@ def setup_package():
     # this line could be dismissed
     # extensions = None
     setuptools.setup(
-        name='pyFFmpeg',
+        name='ffio',
         version=__version__,
         author='dongrixinyu',
         author_email='dongrixinyu.89@163.com',
-        description='pyFFmpeg: a simple Python wrapper for FFmpeg',
+        description='ffio: An easy-to-use Python wrapper for FFmpeg-C-API.',
         # long_description_content_type='text/markdown',
-        url='https://github.com/dongrixinyu/pyFFmpeg',
+        url='https://github.com/dongrixinyu/ffio',
         packages=setuptools.find_packages(),
         package_data={
             '': ['*.txt', '*.pkl', '*.npz', '*.zip',

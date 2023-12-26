@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 3.0)
 
-# a simple python wrapper for ffmpeg,
+# An easy-to-use Python wrapper for FFmpeg-C-API,
 # aiming to facilitate computer-vision processing.
-project(pyFFmpeg)
+project(ffio)
 
 add_compile_options(-O3)
 
@@ -40,8 +40,10 @@ include_directories(${FFMPEG_LIBRARIES})
 include_directories(/usr/include)
 
 add_library(interfaceAPI SHARED
-            ${PROJECT_SOURCE_DIR}/pyFFmpeg/interfaceAPI.c
-            ${PROJECT_SOURCE_DIR}/pyFFmpeg/extractFrame.c)
+            ${PROJECT_SOURCE_DIR}/ffio/ffio_c/interfaceAPI.c
+            ${PROJECT_SOURCE_DIR}/ffio/ffio_c/extractFrame.c
+            ${PROJECT_SOURCE_DIR}/ffio/ffio_c/insertFrame.c
+            ${PROJECT_SOURCE_DIR}/ffio/ffio_c/ffio_util.c)
 
 target_link_libraries(interfaceAPI
     ${PYTHON_LIBRARIES}

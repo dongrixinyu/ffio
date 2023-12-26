@@ -1,94 +1,114 @@
 #include "interfaceAPI.h"
 
-void *newStreamObject() {
-    StreamObj *curStreamObj = newStreamObj();
-    if (curStreamObj == NULL)
+void *newInputStreamObject() {
+    InputStreamObj *curInputStreamObj = newInputStreamObj();
+    if (curInputStreamObj == NULL)
     {
         return 0;
     }
 
-    return curStreamObj;
+    return curInputStreamObj;
 }
 
-void *deleteStreamObject(void *streamObj) {
-    StreamObj *curStreamObj = (StreamObj *)streamObj;
-    free(curStreamObj);
-    curStreamObj = NULL;
+void *deleteInputStreamObject(void *inputStreamObj)
+{
+    InputStreamObj *curInputStreamObj = (InputStreamObj *)inputStreamObj;
+    free(curInputStreamObj);
+    curInputStreamObj = NULL;
 
     return NULL;
 }
 
-void *init(void *streamObj, const char *sourceStreamPath)
+void *initializeInputStreamObject(void *inputStreamObj, const char *sourceStreamPath)
 {
     int ret;
-    StreamObj *curStreamObj = (StreamObj *)streamObj;
+    InputStreamObj *curInputStreamObj = (InputStreamObj *)inputStreamObj;
 
     // initialize log callback
     av_log_set_callback(av_log_pyFFmpeg_callback);
 
-    ret = Init(curStreamObj, sourceStreamPath);
+    ret = initializeInputStream(curInputStreamObj, sourceStreamPath);
     if (ret != 0) // failed to open stream context
     {
-        curStreamObj = unInit(curStreamObj);
+        curInputStreamObj = finalizeInputStream(curInputStreamObj);
     }
 
-    return curStreamObj;
+    return curInputStreamObj;
 }
 
-void *finalize(void *streamObj) {
-    StreamObj *curStreamObj = (StreamObj *)streamObj;
+void *finalizeInputStreamObject(void *inputStreamObj) {
+    InputStreamObj *curInputStreamObj = (InputStreamObj *)inputStreamObj;
 
-    curStreamObj = unInit(curStreamObj);
+    curInputStreamObj = finalizeInputStream(curInputStreamObj);
 
-    return curStreamObj;
+    return curInputStreamObj;
 }
 
-int getWidth(void *streamObj)
+int getInputVideoStreamWidth(void *inputStreamObj)
 {
-    StreamObj *curStreamObj = (StreamObj *)streamObj;
+    InputStreamObj *curInputStreamObj = (InputStreamObj *)inputStreamObj;
 
-    int width = curStreamObj->streamWidth;
+    int width = curInputStreamObj->inputVideoStreamWidth;
     return width;
 }
 
-int getHeight(void *streamObj)
+int getInputVideoStreamHeight(void *inputStreamObj)
 {
-    StreamObj *curStreamObj = (StreamObj *)streamObj;
+    InputStreamObj *curInputStreamObj = (InputStreamObj *)inputStreamObj;
 
-    int height = curStreamObj->streamHeight;
+    int height = curInputStreamObj->inputVideoStreamHeight;
     return height;
 }
 
-int getStreamState(void *streamObj)
+int getInputStreamState(void *inputStreamObj)
 {
-    StreamObj *curStreamObj = (StreamObj *)streamObj;
+    InputStreamObj *curInputStreamObj = (InputStreamObj *)inputStreamObj;
 
-    int streamStateFlag = curStreamObj->streamStateFlag;
+    int streamStateFlag = curInputStreamObj->inputStreamStateFlag;
     return streamStateFlag;
 }
 
-float getAverageFPS(void *streamObj)
+float getInputVideoStreamAverageFPS(void *inputStreamObj)
 {
-    StreamObj *curStreamObj = (StreamObj *)streamObj;
+    InputStreamObj *curInputStreamObj = (InputStreamObj *)inputStreamObj;
 
-    int framerateNum = curStreamObj->framerateNum;
-    int framerateDen = curStreamObj->framerateDen;
+    int framerateNum = curInputStreamObj->inputFramerateNum;
+    int framerateDen = curInputStreamObj->inputFramerateDen;
 
     float fps = (float)framerateNum / framerateDen;
 
     return fps;
 }
 
-PyObject *getOneFrame(void *streamObj)
+int getInputVideoStreamFramerateNum(void *inputStreamObj)
+{
+    InputStreamObj *curInputStreamObj = (InputStreamObj *)inputStreamObj;
+
+    int framerateNum = curInputStreamObj->inputFramerateNum;
+
+    return framerateNum;
+}
+
+int getInputVideoStreamFramerateDen(void *inputStreamObj)
+{
+    InputStreamObj *curInputStreamObj = (InputStreamObj *)inputStreamObj;
+
+    int framerateDen = curInputStreamObj->inputFramerateDen;
+
+    return framerateDen;
+}
+
+PyObject *decode1Frame(void *inputStreamObj)
 {
     int ret;
 
-    StreamObj *curStreamObj = (StreamObj *)streamObj;
-    ret = decodeOneFrame(curStreamObj);
+    InputStreamObj *curInputStreamObj = (InputStreamObj *)inputStreamObj;
+    ret = decodeOneFrame(curInputStreamObj);
 
     if (ret == 0) {
+        // get the RGB frame correctly
         PyObject *outputImageBuffer = PyBytes_FromStringAndSize(
-            (char *)curStreamObj->outputImage, curStreamObj->imageSize);
+            (char *)curInputStreamObj->extractedFrame, curInputStreamObj->imageSize);
 
         return outputImageBuffer;
     } else {
@@ -98,4 +118,79 @@ PyObject *getOneFrame(void *streamObj)
     }
 
     // return (char *)curStreamObj->outputImage; // return the result RGB image bytes
+}
+
+void *newOutputStreamObject() {
+    OutputStreamObj *curOutputStreamObj = newOutputStreamObj();
+    if (curOutputStreamObj == NULL)
+    {
+        return 0;
+    }
+
+    return curOutputStreamObj;
+}
+
+void *deleteOutputStreamObject(void *outputStreamObj) {
+    InputStreamObj *curOutputStreamObj = (InputStreamObj *)outputStreamObj;
+    free(curOutputStreamObj);
+    curOutputStreamObj = NULL;
+
+    return NULL;
+}
+
+void *initializeOutputStreamObject(
+    void *outputStreamObj, const char *outputStreamPath,
+    int framerateNum, int framerateDen, int frameWidth, int frameHeight)
+{
+    int ret;
+    OutputStreamObj *curOutputStreamObj = (OutputStreamObj *)outputStreamObj;
+
+    // initialize log callback
+    av_log_set_callback(av_log_pyFFmpeg_callback);
+
+    ret = initializeOutputStream(
+        curOutputStreamObj, outputStreamPath,
+        framerateNum, framerateDen, frameWidth, frameHeight);
+    if (ret != 0) // failed to open stream context
+    {
+        curOutputStreamObj = finalizeOutputStream(curOutputStreamObj);
+    }
+
+    return curOutputStreamObj;
+}
+
+void *finalizeOutputStreamObject(void *outputStreamObj){
+    OutputStreamObj *curOutputStreamObj = (OutputStreamObj *)outputStreamObj;
+
+    curOutputStreamObj = finalizeOutputStream(curOutputStreamObj);
+
+    return curOutputStreamObj;
+}
+
+int getOutputStreamState(void *outputStreamObj) {
+    OutputStreamObj *curOutputStreamObj = (OutputStreamObj *)outputStreamObj;
+
+    int streamStateFlag = curOutputStreamObj->outputStreamStateFlag;
+    return streamStateFlag;
+}
+
+/**
+ *
+ *
+ *
+ *
+ */
+int encode1Frame(void *outputStreamObj, PyObject *PyRGBImage)
+{
+    int ret;
+
+    OutputStreamObj *curOutputStreamObj = (OutputStreamObj *)outputStreamObj;
+    char *RGBImage = PyBytes_AsString(PyRGBImage);
+    Py_ssize_t RGBImageSize = PyBytes_GET_SIZE(PyRGBImage);
+
+    ret = encodeOneFrame(curOutputStreamObj, (unsigned char *)RGBImage, (int)RGBImageSize,
+                         0);
+    PyObject *outputNum = PyLong_FromSsize_t((Py_ssize_t)ret);
+    return outputNum;
+
 }

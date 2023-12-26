@@ -1,10 +1,10 @@
 # -*- coding=utf-8 -*-
-# Library: pyFFmpeg
+# Library: ffio
 # Author: dongrixinyu
 # License: MIT
 # Email: dongrixinyu.66@gmail.com
-# Github: https://github.com/dongrixinyu/pyFFmpeg
-# Description: a simple Python wrapper for FFmpeg.'
+# Github: https://github.com/dongrixinyu/ffio
+# Description: An easy-to-use Python wrapper for FFmpeg-C-API.
 # Website: http://www.jionlp.com
 
 
@@ -41,8 +41,8 @@ def _refresh_logger(logger):
     return logger
 
 
-def set_logger(level='INFO', log_dir_name='.cache/pyFFmpeg'):
-    """ pyFFmpeg 日志打印
+def set_logger(level='INFO', log_dir_name='.cache/ffio'):
+    """ ffio 日志打印
 
     Args:
         level(str): 日志级别，若为 None，则不打印日志

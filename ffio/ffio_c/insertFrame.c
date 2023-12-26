@@ -299,7 +299,9 @@ int initializeOutputStream(
             NULL);
         if (ret < 0)
         {
-            av_log(NULL, AV_LOG_INFO, "avio_open2 failed %d.\n", ret);
+            char errbuf[200];
+            av_strerror(ret, errbuf, sizeof(errbuf));
+            av_log(NULL, AV_LOG_INFO, "avio_open2 failed %d - %s.\n", ret, errbuf);
             return ret;
         }
     }
@@ -307,9 +309,13 @@ int initializeOutputStream(
     ret = avformat_write_header(outputStreamObj->outputFormatContext, NULL);
     if (ret < 0)
     {
-        av_log(NULL, AV_LOG_INFO, "avformat_write_header failed %d.\n", ret);
+        char errbuf[200];
+        av_strerror(ret, errbuf, sizeof(errbuf));
+        av_log(NULL, AV_LOG_INFO, "avformat_write_header failed %d - %s.\n", ret, errbuf);
         return ret;
     }
+
+    outputStreamObj->outputStreamStateFlag = 1;
 
     return 0;
 
@@ -322,6 +328,9 @@ end:
 
 OutputStreamObj *finalizeOutputStream(OutputStreamObj *outputStreamObj)
 {
+    // set stream state to 0, which means the stream context has been closed.
+    outputStreamObj->outputStreamStateFlag = 0;
+
     if (outputStreamObj->videoRGBFrame)
     {
         av_frame_free(&(outputStreamObj->videoRGBFrame));
@@ -343,6 +352,8 @@ int encodeOneFrame(
     int end_of_stream)
 {
     int ret;
+    clock_t start_time, end_time;
+
 
     // make frame data
     ret = av_frame_make_writable(outputStreamObj->videoEncoderFrame);
@@ -406,9 +417,7 @@ int encodeOneFrame(
     // outputStreamObj->videoEncoderFrame->pkt_dts = inputStreamObj->videoFrame->pts;
     // outputStreamObj->videoEncoderFrame->pkt_pts = inputStreamObj->videoFrame->pts;
 
-    /* send the frame to the encoder */
-    // av_log(NULL, AV_LOG_DEBUG, "---> Send frame %3" PRId64 "\n", outputStreamObj->videoEncoderFrame->pts);
-
+    // send the frame to the encoder
     ret = avcodec_send_frame(
         outputStreamObj->videoEncoderContext,
         outputStreamObj->videoEncoderFrame);
@@ -483,14 +492,19 @@ int encodeOneFrame(
         //        outputStreamObj->videoPacketOut->pts,
         //        outputStreamObj->videoPacketOut->dts,
         //        outputStreamObj->videoPacketOut->size);
-
+        start_time = clock();
         ret = av_interleaved_write_frame(
             outputStreamObj->outputFormatContext, outputStreamObj->videoPacketOut);
+        end_time = clock();
+        av_log(NULL, AV_LOG_INFO, "encode one frame cost time=%f\n",
+               (double)(end_time - start_time) / CLOCKS_PER_SEC);
+
         if (ret < 0)
         {
             char errbuf[200];
             av_strerror(ret, errbuf, sizeof(errbuf));
             av_log(NULL, AV_LOG_INFO, "av_interleaved_write_frame failed %d - %s.\n", ret, errbuf);
+
             return ret;
         }
         av_packet_unref(outputStreamObj->videoPacketOut);
@@ -515,5 +529,7 @@ int encodeOneFrame(
     //     av_log(NULL, AV_LOG_INFO, "avcodec_send_frame failed %d %d.\n", ret, AVERROR(EINVAL));
     //     return ret;
     // }
+
+
     return 0;
 }

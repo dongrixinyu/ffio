@@ -50,7 +50,7 @@ void av_log_pyFFmpeg_callback(void *avClass, int level, const char *fmt, va_list
     // get the pid of the current process
     pid_t pid = getpid();
 
-    sprintf(fileName, "%s/.cache/pyFFmpeg/clog-%d.txt.%s",
+    sprintf(fileName, "%s/.cache/ffio/clog-%d.txt.%s",
             homeDir, pid, fileNameBuffer); // copy the log file path
 
     // printf("full path: %s\n", fileName);

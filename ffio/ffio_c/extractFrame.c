@@ -315,21 +315,26 @@ int decodeOneFrame(InputStreamObj *inputStreamObj)
 
             if (ret == -5)  // -5 means timeout, need to exit this function
             {
+                char errbuf[200];
+                av_strerror(ret, errbuf, sizeof(errbuf));
                 av_log(NULL, AV_LOG_WARNING,
-                       "timeout to waiting for the next packet data, ret = %d.\n", ret);
+                       "timeout to waiting for the next packet data, ret: %d - %s.\n", ret, errbuf);
                 return -5;
             }
             else if (ret < 0) {
+                char errbuf[200];
+                av_strerror(ret, errbuf, sizeof(errbuf));
                 av_log(NULL, AV_LOG_WARNING,
-                       "Probably Packet mismatch, unable to seek the next packet. ret: %d.\n", ret);
+                       "Probably Packet mismatch, unable to seek the next packet. ret: %d - %s.\n",
+                       ret, errbuf);
                 return -4;
             }
             else{
                 if (inputStreamObj->frameNum % (PRINT_FRAME_GAP * 2) == 0)
                 {
                     av_log(NULL, AV_LOG_WARNING,
-                           "Only accept packet from streamID: %d, ret: %d, eof: %d.\n",
-                           inputStreamObj->inputVideoStreamID, ret, AVERROR_EOF);
+                           "Only accept packet from streamID: %d, ret: %d.\n",
+                           inputStreamObj->inputVideoStreamID, ret);
                 }
             }
 
