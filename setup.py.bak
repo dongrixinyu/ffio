@@ -1,9 +1,9 @@
 # -*- coding=utf-8 -*-
-# Library: py-ffmpeg
+# Library: ffio
 # Author: dongrixinyu
 # License: MIT
 # Email: dongrixinyu.66@gmail.com
-# Github: https://github.com/dongrixinyu/py-ffmpeg
+# Github: https://github.com/dongrixinyu/ffio
 # Description: a simple Python wrapper for FFmpeg.'
 # Website: http://www.jionlp.com
 

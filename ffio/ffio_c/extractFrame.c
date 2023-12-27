@@ -438,9 +438,6 @@ int decodeOneFrame(InputStreamObj *inputStreamObj)
                         inputStreamObj->swsContext,
                         inputStreamObj->videoCodecContext);
 
-                    // end_time = clock();
-                    // av_log(NULL, AV_LOG_INFO, "read one frame cost time=%f\n",
-                    //     (double)(end_time - start_time) / CLOCKS_PER_SEC);
                     // inputStreamObj->streamEnd = 1; //  to the end
 
                     memcpy(inputStreamObj->extractedFrame, inputStreamObj->videoRGBFrame->data[0], inputStreamObj->imageSize);

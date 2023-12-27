@@ -55,7 +55,7 @@ lib_interface_api.getOutputStreamState.restype = ctypes.c_int
 # lib_interface_api.getOutputVideoStreamAverageFPS.restype = ctypes.c_float
 
 lib_interface_api.encode1Frame.argtypes = [ctypes.c_void_p, ctypes.py_object]
-lib_interface_api.encode1Frame.restype = ctypes.py_object
+lib_interface_api.encode1Frame.restype = ctypes.c_int
 
 
 class OutputStreamParser(object):

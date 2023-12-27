@@ -82,13 +82,13 @@ int main()
             curOutputStreamObj,
             curInputStreamObj->extractedFrame, curInputStreamObj->imageSize,
             file_end);
+
         if (count > 10000)
         {
             // write this to finish the mp4 file format
             av_write_trailer(curOutputStreamObj->outputFormatContext);
             avio_closep(&curOutputStreamObj->outputFormatContext->pb);
             return 1;
-            // break;
         }
 
         if (ret == 10)
@@ -99,7 +99,6 @@ int main()
 
         if (file_end == 1)
         {
-            // break;
             return 0;
         }
     }

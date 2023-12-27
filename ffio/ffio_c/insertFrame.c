@@ -278,10 +278,10 @@ int initializeOutputStream(
         //     &(outputStreamObj->outputVideoStream)->metadata,
         //     inputStreamObj->inputFormatContext->streams[inputStreamObj->inputVideoStreamID]->metadata, 0);
 
-        if (outputStreamObj->outputFormatContext->oformat->flags & AVFMT_GLOBALHEADER)
-        {
-            outputStreamObj->outputVideoStream->codec->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
-        }
+        // if (outputStreamObj->outputFormatContext->oformat->flags & AVFMT_GLOBALHEADER)
+        // {
+        //     outputStreamObj->outputVideoStream->codec->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
+        // }
         outputStreamObj->outputVideoStream->codecpar->codec_tag = 0;
     }
 
@@ -326,6 +326,14 @@ end:
     return ret;
 }
 
+/**
+ * to finalize the output stream context
+ *
+ * ret: int
+ *     0 means encoding a frame successfully.
+ *
+ *
+ */
 OutputStreamObj *finalizeOutputStream(OutputStreamObj *outputStreamObj)
 {
     // set stream state to 0, which means the stream context has been closed.
@@ -352,8 +360,6 @@ int encodeOneFrame(
     int end_of_stream)
 {
     int ret;
-    clock_t start_time, end_time;
-
 
     // make frame data
     ret = av_frame_make_writable(outputStreamObj->videoEncoderFrame);
@@ -492,13 +498,9 @@ int encodeOneFrame(
         //        outputStreamObj->videoPacketOut->pts,
         //        outputStreamObj->videoPacketOut->dts,
         //        outputStreamObj->videoPacketOut->size);
-        start_time = clock();
+
         ret = av_interleaved_write_frame(
             outputStreamObj->outputFormatContext, outputStreamObj->videoPacketOut);
-        end_time = clock();
-        av_log(NULL, AV_LOG_INFO, "encode one frame cost time=%f\n",
-               (double)(end_time - start_time) / CLOCKS_PER_SEC);
-
         if (ret < 0)
         {
             char errbuf[200];

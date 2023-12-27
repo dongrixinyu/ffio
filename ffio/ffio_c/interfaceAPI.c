@@ -103,7 +103,15 @@ PyObject *decode1Frame(void *inputStreamObj)
     int ret;
 
     InputStreamObj *curInputStreamObj = (InputStreamObj *)inputStreamObj;
+
+    // this code below it for test the speed of decodeOneFrame
+    // struct timeval start_tv, end_tv;
+    // gettimeofday(&start_tv, NULL);
     ret = decodeOneFrame(curInputStreamObj);
+    // gettimeofday(&end_tv, NULL);
+    // av_log(NULL, AV_LOG_INFO, "decodeOneFrame in C cost time = %.5f, %d\n",
+    //        (((double)end_tv.tv_sec + (double)end_tv.tv_usec / 1000000) - ((double)start_tv.tv_sec + (double)start_tv.tv_usec / 1000000)),
+    //        curInputStreamObj->frameNum);
 
     if (ret == 0) {
         // get the RGB frame correctly
@@ -188,9 +196,15 @@ int encode1Frame(void *outputStreamObj, PyObject *PyRGBImage)
     char *RGBImage = PyBytes_AsString(PyRGBImage);
     Py_ssize_t RGBImageSize = PyBytes_GET_SIZE(PyRGBImage);
 
+    // this code below it for test the speed of decodeOneFrame
+    // struct timeval start_tv, end_tv;
+    // gettimeofday(&start_tv, NULL);
     ret = encodeOneFrame(curOutputStreamObj, (unsigned char *)RGBImage, (int)RGBImageSize,
                          0);
-    PyObject *outputNum = PyLong_FromSsize_t((Py_ssize_t)ret);
-    return outputNum;
+    // gettimeofday(&end_tv, NULL);
+    // av_log(NULL, AV_LOG_INFO, "encodeOneFrame in C cost time = %.5f, %d\n",
+    //        (((double)end_tv.tv_sec + (double)end_tv.tv_usec / 1000000) - ((double)start_tv.tv_sec + (double)start_tv.tv_usec / 1000000)),
+    //        curOutputStreamObj->outputframeNum);
 
+    return ret;
 }
