@@ -36,7 +36,8 @@ lib_interface_api.deleteOutputStreamObject.restype = ctypes.c_void_p
 # the source stream path must be in byte format, not Unicode
 lib_interface_api.initializeOutputStreamObject.argtypes = [
     ctypes.c_void_p, ctypes.c_char_p,
-    ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int]
+    ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int,
+    ctypes.c_char_p]
 lib_interface_api.initializeOutputStreamObject.restype = ctypes.c_void_p
 
 lib_interface_api.finalizeOutputStreamObject.argtypes = [ctypes.c_void_p]
@@ -66,11 +67,13 @@ class OutputStreamParser(object):
         >>> import ffio
         >>> output_stream_obj = ffio.OutputStreamParser('rtmp://ip:port/path/to/your/stream',
         >>> ... )
-
+        >>> image_np = np.array([[1,2,3],[4,6,9]], dtype=np.uint8)
+        >>> output_Stream_obj.encode_1_frame(image_np)
 
     """
     def __init__(self, output_stream_path, input_stream_obj=None,
-                framerate_num=0, framerate_den=0, image_width=0, image_height=0):
+                framerate_num=0, framerate_den=0, image_width=0, image_height=0,
+                preset="medium"):
 
         # allocate memory to new a streamObj
         self.output_stream_obj = ctypes.c_void_p(lib_interface_api.newOutputStreamObject())
@@ -102,13 +105,17 @@ class OutputStreamParser(object):
             self.output_stream_video_average_fps = \
                 self.output_stream_video_framerate_num / self.output_stream_video_framerate_den
 
+        self.output_stream_video_preset = preset
+
         # the output stream must be in byte format
         self.output_stream_obj = ctypes.c_void_p(
             lib_interface_api.initializeOutputStreamObject(
                 self.output_stream_obj, self.output_stream_path.encode(),
                 self.output_stream_video_framerate_num,
                 self.output_stream_video_framerate_den,
-                self.output_stream_video_width, self.output_stream_video_height))
+                self.output_stream_video_width,
+                self.output_stream_video_height,
+                self.output_stream_video_preset.encode()))
         end_time = time.time()
 
         self.output_stream_state_flag = lib_interface_api.getOutputStreamState(

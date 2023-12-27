@@ -32,7 +32,8 @@ void *deleteOutputStreamObject(void *outputStreamObj);
 
 void *initializeOutputStreamObject(
     void *outputStreamObj, const char *outputStreamPath,
-    int framerateNum, int framerateDen, int frameWidth, int frameHeight);
+    int framerateNum, int framerateDen, int frameWidth, int frameHeight,
+    const char *preset);
 void *finalizeOutputStreamObject(void *outputStreamObj);
 
 int getOutputStreamState(void *outputStreamObj);

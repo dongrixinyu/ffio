@@ -28,6 +28,7 @@ void *initializeInputStreamObject(void *inputStreamObj, const char *sourceStream
     av_log_set_callback(av_log_pyFFmpeg_callback);
 
     ret = initializeInputStream(curInputStreamObj, sourceStreamPath);
+    printf("failed to xxxx %d\n", ret);
     if (ret != 0) // failed to open stream context
     {
         curInputStreamObj = finalizeInputStream(curInputStreamObj);
@@ -148,7 +149,8 @@ void *deleteOutputStreamObject(void *outputStreamObj) {
 
 void *initializeOutputStreamObject(
     void *outputStreamObj, const char *outputStreamPath,
-    int framerateNum, int framerateDen, int frameWidth, int frameHeight)
+    int framerateNum, int framerateDen, int frameWidth, int frameHeight,
+    const char *preset)
 {
     int ret;
     OutputStreamObj *curOutputStreamObj = (OutputStreamObj *)outputStreamObj;
@@ -158,7 +160,7 @@ void *initializeOutputStreamObject(
 
     ret = initializeOutputStream(
         curOutputStreamObj, outputStreamPath,
-        framerateNum, framerateDen, frameWidth, frameHeight);
+        framerateNum, framerateDen, frameWidth, frameHeight, preset);
     if (ret != 0) // failed to open stream context
     {
         curOutputStreamObj = finalizeOutputStream(curOutputStreamObj);

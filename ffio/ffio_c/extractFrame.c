@@ -272,7 +272,7 @@ InputStreamObj *finalizeInputStream(InputStreamObj *inputStreamObj)
 
     memset(inputStreamObj->inputStreamPath, '0', 300);
 
-    av_log(NULL, AV_LOG_INFO, "%s", "finished unref this video stream context\n");
+    av_log(NULL, AV_LOG_INFO, "%s", "finished unref input video stream context.\n");
 
     return inputStreamObj;
 }

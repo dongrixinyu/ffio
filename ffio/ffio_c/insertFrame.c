@@ -64,23 +64,14 @@ OutputStreamObj *newOutputStreamObj()
     return outputStreamObj;
 }
 
-/**
- *  initialize video encoder context and format context info
- *
- *  ret: int
- *      0 means successfully start a video stream
- *      1 means can not denote the right output format
- *      2 means failed to allocate memory for `avformat_alloc_output_context2`
- *      3 means avcodec_new_stream failed.
- *      4 means avcodec_copy_context failed.
- *
- */
 int initializeOutputStream(
     OutputStreamObj *outputStreamObj,
     const char *outputStreamPath,
-    int framerateNum, int framerateDen, int frameWidth, int frameHeight)
+    int framerateNum, int framerateDen, int frameWidth, int frameHeight,
+    const char *preset)
 {
     int ret;
+
     sprintf(outputStreamObj->outputStreamPath, "%s", outputStreamPath);
 
     // open an output format context
@@ -104,6 +95,7 @@ int initializeOutputStream(
     else
     {
         // 1 means the outputStreamPath is illegal.
+        av_log(NULL, AV_LOG_WARNING, "the remux format of `%s` is invalid.\n", outputStreamPath);
         return 1;
     }
 
@@ -111,12 +103,12 @@ int initializeOutputStream(
     if (outputStreamObj->videoEncoderContext == NULL)
     {
         // initialize codec object
-        const char *codec_name = "libx264";
+        const char *codec_name = "libx264";  // default
         outputStreamObj->videoEncoder = avcodec_find_encoder_by_name(codec_name);
         if (!outputStreamObj->videoEncoder)
         {
-            fprintf(stderr, "Codec '%s' not found\n", codec_name);
-            exit(1);
+            av_log(NULL, AV_LOG_WARNING, "Codec '%s' not found.\n", codec_name);
+            return 2;
         }
 
         // initialize encoder context
@@ -157,13 +149,11 @@ int initializeOutputStream(
         // outputStreamObj->videoEncoderContext->colorspace = inputStreamObj->videoFrame->colorspace;
         // outputStreamObj->videoEncoderContext->chroma_sample_location = inputStreamObj->videoFrame->chroma_location;
 
-        if (outputStreamObj->videoEncoder->id == AV_CODEC_ID_H264)
-            av_opt_set(outputStreamObj->videoEncoderContext->priv_data, "preset", "slow", 0);
+        if (outputStreamObj->videoEncoder->id == AV_CODEC_ID_H264) {
+            av_opt_set(outputStreamObj->videoEncoderContext->priv_data, "preset", preset, 0);
+            av_log(NULL, AV_LOG_INFO, "--- preset: %s.\n", preset);
+        }
 
-        /* 注意，这个 field_order 不同的视频的值是不一样的，这里我写死了。
-         * 因为 本文的视频就是 AV_FIELD_PROGRESSIVE
-         * 生产环境要对不同的视频做处理的
-         */
         // outputStreamObj->videoEncoderContext->field_order = AV_FIELD_PROGRESSIVE;
         // AV_FIELD_UNKNOWN;
         // AV_FIELD_PROGRESSIVE;
@@ -188,8 +178,11 @@ int initializeOutputStream(
             outputStreamObj->videoEncoder, NULL); // &codec_options
         if (ret < 0)
         {
-            av_log(NULL, AV_LOG_INFO, "avcodec_open2 failed %d.\n", ret);
-            return ret;
+            char errbuf[200];
+            av_strerror(ret, errbuf, sizeof(errbuf));
+            av_log(NULL, AV_LOG_WARNING, "avcodec_open2 failed %d - %s.\n", ret, errbuf);
+
+            return 3;
         }
     }
 
@@ -208,22 +201,25 @@ int initializeOutputStream(
         outputStreamObj->videoEncoderContext->height,
         outputStreamObj->videoEncoderContext->pix_fmt,
         SWS_BICUBIC, NULL, NULL, NULL);
-    if (outputStreamObj->RGB2YUVContext == NULL)
-        return -10;
+    if (outputStreamObj->RGB2YUVContext == NULL) {
+        av_log(NULL, AV_LOG_WARNING, "sws_getCachedContext failed.\n");
+        return 4;
+    }
 
     // initialize frame info
     outputStreamObj->outputVideoStreamWidth = outputStreamObj->videoEncoderContext->width;
     outputStreamObj->outputVideoStreamHeight = outputStreamObj->videoEncoderContext->height;
 
-    av_log(NULL, AV_LOG_INFO, "pix format: %d\n", AV_PIX_FMT_YUV420P);
     outputStreamObj->videoEncoderFrame->format = outputStreamObj->videoEncoderContext->pix_fmt;
     outputStreamObj->videoEncoderFrame->width = outputStreamObj->videoEncoderContext->width;
     outputStreamObj->videoEncoderFrame->height = outputStreamObj->videoEncoderContext->height;
     ret = av_frame_get_buffer(outputStreamObj->videoEncoderFrame, 0);
     if (ret < 0)
     {
-        fprintf(stderr, "Could not allocate the video frame data\n");
-        return 9;
+        char errbuf[200];
+        av_strerror(ret, errbuf, sizeof(errbuf));
+        av_log(NULL, AV_LOG_WARNING, "av_frame_get_buffer failed - videoEncoderFrame %d - %s\n", ret, errbuf);
+        return 5;
     }
 
     // set params for videoRGBFrame
@@ -233,8 +229,10 @@ int initializeOutputStream(
     ret = av_frame_get_buffer(outputStreamObj->videoRGBFrame, 0);
     if (ret < 0)
     {
-        fprintf(stderr, "Could not allocate the video frame data\n");
-        return 9;
+        char errbuf[200];
+        av_strerror(ret, errbuf, sizeof(errbuf));
+        av_log(NULL, AV_LOG_WARNING, "av_frame_get_buffer failed - videoRGBFrame %d - %s\n", ret, errbuf);
+        return 5;
     }
 
     // step 3: initialize output remux object, open it and then write header
@@ -242,8 +240,10 @@ int initializeOutputStream(
         &(outputStreamObj->outputFormatContext), NULL, format_name, outputStreamPath);
     if (!outputStreamObj->outputFormatContext)
     {
-        av_log(NULL, AV_LOG_INFO, "avformat_alloc_output_context2 failed %d \n", AVERROR(ENOMEM));
-        return 2; // out of memory
+        char errbuf[200];
+        av_strerror(ret, errbuf, sizeof(errbuf));
+        av_log(NULL, AV_LOG_INFO, "avformat_alloc_output_context2 failed %d - %s\n", ret, errbuf);
+        return 6;
     }
 
     // add a video stream to the context, streamID default by 0
@@ -256,10 +256,10 @@ int initializeOutputStream(
             outputStreamObj->outputFormatContext, NULL);
         if (!outputStreamObj->outputVideoStream)
         {
-            av_log(NULL, AV_LOG_ERROR, "avformat_new_stream failed %d.\n", 3);
-            ret = AVERROR_UNKNOWN;
-            ret = 3;
-            goto end;
+            char errbuf[200];
+            av_strerror(ret, errbuf, sizeof(errbuf));
+            av_log(NULL, AV_LOG_ERROR, "avformat_new_stream failed %d - %s.\n", ret, errbuf);
+            return 7;
         }
 
         // copy input stream params to output streams
@@ -271,8 +271,10 @@ int initializeOutputStream(
             outputStreamObj->videoEncoderContext);
         if (ret < 0)
         {
-            av_log(NULL, AV_LOG_ERROR, "avcodec_parameters_copy failed %d.\n", ret);
-            goto end;
+            char errbuf[200];
+            av_strerror(ret, errbuf, sizeof(errbuf));
+            av_log(NULL, AV_LOG_ERROR, "avcodec_parameters_copy failed %d - %s.\n", ret, errbuf);
+            return 8;
         }
         // av_dict_copy(
         //     &(outputStreamObj->outputVideoStream)->metadata,
@@ -302,7 +304,7 @@ int initializeOutputStream(
             char errbuf[200];
             av_strerror(ret, errbuf, sizeof(errbuf));
             av_log(NULL, AV_LOG_INFO, "avio_open2 failed %d - %s.\n", ret, errbuf);
-            return ret;
+            return 9;
         }
     }
 
@@ -312,28 +314,15 @@ int initializeOutputStream(
         char errbuf[200];
         av_strerror(ret, errbuf, sizeof(errbuf));
         av_log(NULL, AV_LOG_INFO, "avformat_write_header failed %d - %s.\n", ret, errbuf);
-        return ret;
+        return 10;
     }
 
     outputStreamObj->outputStreamStateFlag = 1;
 
     return 0;
 
-end:
-    avformat_free_context(outputStreamObj->outputFormatContext);
-    outputStreamObj->outputFormatContext = NULL;
-
-    return ret;
 }
 
-/**
- * to finalize the output stream context
- *
- * ret: int
- *     0 means encoding a frame successfully.
- *
- *
- */
 OutputStreamObj *finalizeOutputStream(OutputStreamObj *outputStreamObj)
 {
     // set stream state to 0, which means the stream context has been closed.
@@ -344,6 +333,62 @@ OutputStreamObj *finalizeOutputStream(OutputStreamObj *outputStreamObj)
         av_frame_free(&(outputStreamObj->videoRGBFrame));
         outputStreamObj->videoRGBFrame = NULL;
     }
+
+    if (outputStreamObj->RGB2YUVContext)
+    {
+        sws_freeContext(outputStreamObj->RGB2YUVContext);
+        outputStreamObj->RGB2YUVContext = NULL;
+    }
+
+    if (outputStreamObj->videoRGBFrame)
+    {
+        av_frame_free(&(outputStreamObj->videoRGBFrame));
+        outputStreamObj->videoRGBFrame = NULL;
+    }
+
+    if (outputStreamObj->videoEncoderFrame)
+    {
+        av_frame_free(&(outputStreamObj->videoEncoderFrame));
+        outputStreamObj->videoEncoderFrame = NULL;
+    }
+
+    if (outputStreamObj->videoPacketOut)
+    {
+        av_packet_free(&(outputStreamObj->videoPacketOut));
+        outputStreamObj->videoPacketOut = NULL;
+    }
+
+    if (outputStreamObj->videoEncoderContext)
+    {
+        avcodec_free_context(&(outputStreamObj->videoEncoderContext));
+        outputStreamObj->videoEncoderContext = NULL;
+    }
+
+    if (outputStreamObj->outputFormatContext && !(outputStreamObj->outputFormatContext->oformat->flags & AVFMT_NOFILE))
+        avio_closep(&outputStreamObj->outputFormatContext->pb);
+
+    if (outputStreamObj->outputFormatContext)
+    {
+        avformat_free_context(outputStreamObj->outputFormatContext);
+        outputStreamObj->outputFormatContext = NULL;
+    }
+
+    outputStreamObj->videoEncoder = NULL;
+
+    outputStreamObj->outputframeNum = 1;
+    outputStreamObj->outputStreamStateFlag = 0;
+    outputStreamObj->outputVideoStreamID = -1;
+    outputStreamObj->outputVideoStreamWidth = 0;
+    outputStreamObj->outputVideoStreamHeight = 0;
+
+    outputStreamObj->outputvideoFramerateNum = 0;
+    outputStreamObj->outputvideoFramerateDen = 0;
+
+    memset(outputStreamObj->outputStreamPath, '0', 300);
+
+    av_log(NULL, AV_LOG_INFO, "%s", "finished unref output video stream context.\n");
+
+    return outputStreamObj;
 }
 
 /**
@@ -351,7 +396,7 @@ OutputStreamObj *finalizeOutputStream(OutputStreamObj *outputStreamObj)
  *
  * ret: int
  *     0 means encoding a frame successfully.
- *
+ *     others means errors, need to restart output stream context.
  *
  */
 int encodeOneFrame(
@@ -386,7 +431,7 @@ int encodeOneFrame(
         }
     }
 
-    // copy the input image to output in yuv format
+    // copy the input image to output in yuv format, only for testing decodeOneFrame and encodeOneFrame
     // if (0) {
     //     for (int i = 0; i <= 2; i++)
     //     {

@@ -51,11 +51,34 @@ typedef struct OutputStreamObj
 
 OutputStreamObj *newOutputStreamObj();
 
+/**
+ *  initialize video encoder context and format context info
+ *
+ *  ret: int
+ *      0 means successfully start a video stream.
+ *      1 means can not parse the right output format.
+ *      2 means can not find the video encoder `libx264` default.
+ *      3 means failed to run avcodec_open2.
+ *      4 means failed to run sws_getCachedContext.
+ *      5 means av_frame_get_buffer failed.
+ *      6 means failed to allocate memory for `avformat_alloc_output_context2`.
+ *      7 means avcodec_new_stream failed.
+ *      8 means avcodec_copy_context failed.
+ *      9 means avio_open2 failed.
+ *      10 means avformat_write_header failed
+ */
 int initializeOutputStream(
     OutputStreamObj *outputStreamObj,
     const char *outputStreamPath,
-    int framerateNum, int framerateDen, int frameWidth, int frameHeight);
+    int framerateNum, int framerateDen, int frameWidth, int frameHeight,
+    const char *preset);
 
+/**
+ * to finalize the output stream context
+ *
+ * ret: OutputStreamObj * , which need to be deleted.
+ *
+ */
 OutputStreamObj *finalizeOutputStream(OutputStreamObj *outputStreamObj);
 
 /**
