@@ -63,17 +63,23 @@ class OutputStreamParser(object):
     """OutputStreamParser: a Python wrapper for FFmpeg to initialize an output video stream.
 
 
+    Args:
+        output_stream_path: path you must designate. rtmp, mp4, rtsp, srt, flv format etc.
+        preset: param concerning encoding:
+            ultrafast,superfast,veryfast,faster,fast,medium,slow,slower,veryslow,placebo
+            `medium` default.
+
     example:
         >>> import ffio
         >>> output_stream_obj = ffio.OutputStreamParser('rtmp://ip:port/path/to/your/stream',
         >>> ... )
         >>> image_np = np.array([[1,2,3],[4,6,9]], dtype=np.uint8)
-        >>> output_Stream_obj.encode_1_frame(image_np)
+        >>> output_stream_obj.encode_one_frame(image_np)
 
     """
     def __init__(self, output_stream_path, input_stream_obj=None,
                 framerate_num=0, framerate_den=0, image_width=0, image_height=0,
-                preset="medium"):
+                preset="ultrafast"):
 
         # allocate memory to new a streamObj
         self.output_stream_obj = ctypes.c_void_p(lib_interface_api.newOutputStreamObject())
@@ -123,14 +129,16 @@ class OutputStreamParser(object):
 
         if self.output_stream_state_flag == 1:  # 1 means successfully opening a stream context
             print("initialization of output stream cost {:.4f} seconds".format(end_time-start_time))
-            print("output stream width: {}, height: {}, average fps: {}".format(
+            print("output stream \n\twidth: {}, height: {}, average fps: {}\n"
+                  "\tpreset: {},".format(
                 self.output_stream_video_width, self.output_stream_video_height,
-                self.output_stream_video_average_fps))
+                self.output_stream_video_average_fps,
+                self.output_stream_video_preset))
 
             self.output_stream_buffer_size = self.output_stream_video_height * self.output_stream_video_width * 3
             # self.image_buffer = ctypes.create_string_buffer(
             #     b"\0", self.stream_buffer_size)
-            print("image buffer size = {} * {} * 3 = {}".format(
+            print("\timage buffer size = {} * {} * 3 = {}".format(
                 self.output_stream_video_width, self.output_stream_video_height,
                 3, self.output_stream_buffer_size))
 
@@ -139,6 +147,9 @@ class OutputStreamParser(object):
         else:
             print("failed to initialize the output stream. cost {:.4f} seconds".format(
                 end_time-start_time))
+
+            self.output_streamObj = lib_interface_api.finalizeOutputStreamObject(
+                self.output_stream_obj)
 
             self.output_stream_obj = lib_interface_api.deleteOutputStreamObject(
                 self.output_stream_obj)
@@ -165,6 +176,10 @@ class OutputStreamParser(object):
         return self.output_stream_video_average_fps
 
     @property
+    def preset(self):
+        return self.output_stream_video_preset
+
+    @property
     def stream_state(self):
         # 1 means successfully opening a stream context
         # 0 means failed to initialize it
@@ -189,27 +204,18 @@ class OutputStreamParser(object):
             # numpy method to convert the result buffer
             # print(rgb_image.size, rgb_image.dtype)
             rgb_image_bytes = rgb_image.tobytes()
-            # pdb.set_trace()
+
             ret = lib_interface_api.encode1Frame(self.output_stream_obj, rgb_image_bytes)
             if ret == 0:
                 self.output_frame_number += 1
-            # pdb.set_trace()
+
             return ret
 
-        elif image_format == 'Image':
-            rgb_image = Image.frombytes(
-                "RGB", (self.output_stream_video_width, self.output_stream_video_height), frame_bytes)
-            return rgb_image
+        elif rgb_image_type == Image:
+            pass
 
-        elif image_format == 'base64':
-            np_buffer = np.frombuffer(frame_bytes, dtype=np.uint8)
-            np_frame = np.reshape(
-                np_buffer, (self.output_stream_video_height, self.output_stream_video_width, 3))
-
-            np_image = cv2.imencode('.jpg', np_frame)[1]
-            base64_image_code = str(base64.b64encode(np_image))
-
-            return base64_image_code
+        elif rgb_image_type == base64.base64:
+            pass
 
         else:
             raise ValueError('the type of the given `rgb_image` is invalid.')
@@ -221,7 +227,7 @@ class OutputStreamParser(object):
         # by Python automatically via ref count, otherwise the memory would explode if
         # initialize and finalize several times.
 
-        # uninitialize
+        # finalize
         self.output_streamObj = lib_interface_api.finalizeOutputStreamObject(
             self.output_stream_obj)
 

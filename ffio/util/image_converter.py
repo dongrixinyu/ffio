@@ -53,3 +53,13 @@ def rawrgb_2_base64(rgb_bytes, width, height):
     base64_image_code = base64.b64encode(np_image).decode()
 
     return base64_image_code
+
+
+def numpy_2_rawrgb(numpy_image):
+    rgb_image_bytes = rgb_image.tobytes()
+
+    return rgb_image_bytes
+
+
+def base64_2_rawrgb(base64_image):
+    pass

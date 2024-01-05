@@ -250,6 +250,7 @@ InputStreamObj *finalizeInputStream(InputStreamObj *inputStreamObj)
 
     if (inputStreamObj->videoCodecContext)
     {
+        avcodec_close(inputStreamObj->videoCodecContext);
         avcodec_free_context(&(inputStreamObj->videoCodecContext));
         inputStreamObj->videoCodecContext = NULL;
     }
@@ -262,6 +263,7 @@ InputStreamObj *finalizeInputStream(InputStreamObj *inputStreamObj)
 
     free(inputStreamObj->extractedFrame);
     inputStreamObj->extractedFrame = NULL;
+    inputStreamObj->videoCodec = NULL;
 
     inputStreamObj->inputVideoStreamID = -1; // which stream index to parse in the video
     inputStreamObj->inputVideoStreamWidth = 0;
@@ -269,6 +271,7 @@ InputStreamObj *finalizeInputStream(InputStreamObj *inputStreamObj)
     inputStreamObj->inputFramerateNum = 0;
     inputStreamObj->inputFramerateDen = 0;
     inputStreamObj->imageSize = 0;
+    inputStreamObj->frameNum = 0;
 
     memset(inputStreamObj->inputStreamPath, '0', 300);
 

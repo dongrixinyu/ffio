@@ -13,7 +13,7 @@ int main()
     const char *sourcePath = "rtmp://live.demo.uavcmlc.com:1935/live/DEV02003179?token=8622d43632a1";
     // const char *sourceStreamPath = "rtmp://live.demo.uavcmlc.com:1935/live/DEV02001270?token=03c7986c15e0";
     // const char *sourceStreamPath = "/home/cuichengyu/github/pyFFmpeg/pyFFmpeg/res1.mp4";
-    const char *sourceStreamPath = "rtmp://192.168.35.30:30107/live/cuichengyu3";
+    const char *sourceStreamPath = "rtmp://live.demo.uavcmlc.com:1935/live/DEV02005245?token=efa390262de0";
 
     clock_t start_time, end_time;
 
@@ -37,18 +37,44 @@ int main()
     int framerateDen = curInputStreamObj->inputFormatContext->streams[1]->avg_frame_rate.den;
     int frameWidth = curInputStreamObj->inputVideoStreamWidth;
     int frameHeight = curInputStreamObj->inputVideoStreamHeight;
-
-    start_time = clock();
     OutputStreamObj *curOutputStreamObj = newOutputStreamObj();
-    ret = initializeOutputStream(
-        curOutputStreamObj, sourceStreamPath,
-        framerateNum, framerateDen, frameWidth, frameHeight);
 
-    end_time = clock();
-    printf("initializing encoder cost time=%f\n", (double)(end_time - start_time) / CLOCKS_PER_SEC);
+    ret = decodeOneFrame(curInputStreamObj);
 
+    for (int j = 0; j < 30; j++){
+        memset(curInputStreamObj->extractedFrame + j * 2000, '0', 1500);
+        start_time = clock();
+
+        ret = initializeOutputStream(
+            curOutputStreamObj, sourceStreamPath,
+            framerateNum, framerateDen, frameWidth, frameHeight, "ultrafast");
+
+        end_time = clock();
+        printf("initializing encoder cost time=%f, %d\n", (double)(end_time - start_time) / CLOCKS_PER_SEC, ret);
+
+        for (int k = 0; k < 300; k++){
+            ret = encodeOneFrame(
+                curOutputStreamObj,
+                curInputStreamObj->extractedFrame, curInputStreamObj->imageSize,
+                0);
+            if (ret != 0){
+                break;
+            }
+        }
+
+        printf("has started and encoded %d, sleep 30s.\n", j + 1);
+        sleep(30);
+
+        curOutputStreamObj = finalizeOutputStream(curOutputStreamObj);
+        printf("has finalized %d, sleep 30s.\n", j + 1);
+        sleep(30);
+    }
+
+    curInputStreamObj = finalizeInputStream(curInputStreamObj);
+    free(curInputStreamObj);
+    free(curOutputStreamObj);
     printf("start waiting to get frame.\n");
-    // sleep(60);
+    return 1;
     if (ret != 0)
     {
         return 1;
@@ -83,12 +109,13 @@ int main()
             curInputStreamObj->extractedFrame, curInputStreamObj->imageSize,
             file_end);
 
-        if (count > 10000)
+        if (count > 300)
         {
+            break;
             // write this to finish the mp4 file format
-            av_write_trailer(curOutputStreamObj->outputFormatContext);
-            avio_closep(&curOutputStreamObj->outputFormatContext->pb);
-            return 1;
+            // av_write_trailer(curOutputStreamObj->outputFormatContext);
+            // avio_closep(&curOutputStreamObj->outputFormatContext->pb);
+            // return 1;
         }
 
         if (ret == 10)
@@ -106,7 +133,8 @@ int main()
     end_time = clock();
     printf("read one frame cost time=%f\n", (double)(end_time - start_time) / CLOCKS_PER_SEC);
 
-    curInputStreamObj = finalizeInputStream(curInputStreamObj);
+    // curInputStreamObj = finalizeInputStream(curInputStreamObj);
+    // curOutputStreamObj = finalizeOutputStream(curOutputStreamObj);
 
     printf("finished 1st period\n");
     sleep(60);

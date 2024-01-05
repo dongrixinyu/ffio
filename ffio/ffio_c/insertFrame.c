@@ -47,7 +47,6 @@ OutputStreamObj *newOutputStreamObj()
     outputStreamObj->outputVideoStreamID = -1; // which stream index to parse in the video, default 0.
     outputStreamObj->outputVideoStreamWidth = 0;
     outputStreamObj->outputVideoStreamHeight = 0;
-
     outputStreamObj->outputvideoFramerateNum = 0; // to compute the fps of the stream, duration / Den
     outputStreamObj->outputvideoFramerateDen = 0;
 
@@ -151,7 +150,7 @@ int initializeOutputStream(
 
         if (outputStreamObj->videoEncoder->id == AV_CODEC_ID_H264) {
             av_opt_set(outputStreamObj->videoEncoderContext->priv_data, "preset", preset, 0);
-            av_log(NULL, AV_LOG_INFO, "--- preset: %s.\n", preset);
+            av_log(NULL, AV_LOG_INFO, "set preset: %s.\n", preset);
         }
 
         // outputStreamObj->videoEncoderContext->field_order = AV_FIELD_PROGRESSIVE;
@@ -170,7 +169,6 @@ int initializeOutputStream(
 
         // AVDictionary *codec_options = NULL;
         // av_dict_set(&codec_options, "profile", "high", 0);
-        // av_dict_set(&codec_options, "preset", "superfast", 0);
         // av_dict_set(&codec_options, "tune", "zerolatency", 0);
 
         ret = avcodec_open2(
@@ -276,9 +274,6 @@ int initializeOutputStream(
             av_log(NULL, AV_LOG_ERROR, "avcodec_parameters_copy failed %d - %s.\n", ret, errbuf);
             return 8;
         }
-        // av_dict_copy(
-        //     &(outputStreamObj->outputVideoStream)->metadata,
-        //     inputStreamObj->inputFormatContext->streams[inputStreamObj->inputVideoStreamID]->metadata, 0);
 
         // if (outputStreamObj->outputFormatContext->oformat->flags & AVFMT_GLOBALHEADER)
         // {
@@ -360,6 +355,7 @@ OutputStreamObj *finalizeOutputStream(OutputStreamObj *outputStreamObj)
 
     if (outputStreamObj->videoEncoderContext)
     {
+        avcodec_close(outputStreamObj->videoEncoderContext);
         avcodec_free_context(&(outputStreamObj->videoEncoderContext));
         outputStreamObj->videoEncoderContext = NULL;
     }

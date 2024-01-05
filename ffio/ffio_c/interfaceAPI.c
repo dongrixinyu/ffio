@@ -28,7 +28,7 @@ void *initializeInputStreamObject(void *inputStreamObj, const char *sourceStream
     av_log_set_callback(av_log_pyFFmpeg_callback);
 
     ret = initializeInputStream(curInputStreamObj, sourceStreamPath);
-    printf("failed to xxxx %d\n", ret);
+
     if (ret != 0) // failed to open stream context
     {
         curInputStreamObj = finalizeInputStream(curInputStreamObj);

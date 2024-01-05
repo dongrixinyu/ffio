@@ -187,9 +187,10 @@ class InputStreamParser(object):
                 np_buffer = np.frombuffer(frame_bytes, dtype=np.uint8)
                 np_frame = np.reshape(
                     np_buffer, (self.input_stream_video_height, self.input_stream_video_width, 3))
+                bgr_image = cv2.cvtColor(np_frame, cv2.COLOR_RGB2BGR)
 
-                np_image = cv2.imencode('.jpg', np_frame)[1]
-                base64_image_code = str(base64.b64encode(np_image))
+                np_image = cv2.imencode('.jpg', bgr_image)[1]
+                base64_image_code = base64.b64encode(np_image).decode()
 
                 return base64_image_code
 
