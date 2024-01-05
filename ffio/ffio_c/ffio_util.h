@@ -33,4 +33,4 @@ typedef struct Clicker
 
 int interrupt_callback(void *p);
 
-void av_log_pyFFmpeg_callback(void *avClass, int level, const char *fmt, va_list vl);
+void av_log_ffio_callback(void *avClass, int level, const char *fmt, va_list vl);

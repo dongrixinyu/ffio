@@ -7,13 +7,15 @@
 
 <img src="https://github.com/dongrixinyu/ffio/blob/main/ffio_logo.jpg?raw=true" />
 
-This repo **ffio**, which means using FFmpeg to process io stream data, is an easy-to-use Python wrapper for FFmpeg-C-API, providing for Python users to handle video streams smoothly.
+This repo **ffio**, which means using FFmpeg to process io stream data, is a stable and easy-to-use Python wrapper for FFmpeg-C-API, providing for Python users to handle video streams smoothly.
 
 # Features
 
 For Python users:
-- 1. You do not need to tackle many complex audio-video problems concerning FFmpeg any more.
-- 2. When fork a Python subprocess to process an online video stream, you have no need to worry about the memory leak, error of online stream, abnormal suspension of subprocess, etc.
+- 1. **Easy to use**. You do not need to tackle many complex audio-video problems concerning FFmpeg any more.
+- 2. **Stable subprocess management**. When fork a Python subprocess to process an online video stream, you have no need to worry about the memory leak, error of online stream, abnormal suspension of subprocess, etc.
+
+> Most third python packages for wrapping FFmpeg only fork a subprocess using `subprocess` or `multiprocess` to initiate an `ffmpeg` command process by OS. The main problem of this method is the instability of the program. If processing the online video streams, you will find that many network blocking problems will have an influence on the `ffmpeg` command process, causing defunct which can not be detected by the main process.
 
 # Installation
 
@@ -57,7 +59,7 @@ This method is a little bit difficult if you are not familiar with `gcc`, `make`
 
 - gcc, make, cmake tools etc.
 - ffmpeg>=4.2.0 should been installed correctly.
-- Python>=3.7
+- Python>=3.8
 
 #### Installation method
 
