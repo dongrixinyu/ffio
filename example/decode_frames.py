@@ -32,6 +32,16 @@ while True:
             # otherwise, the stream can not be reached,
             # probably the path is wrong or stream is empty
             input_stream_state = input_stream_obj.stream_state
+
+            # now you can get some info about the stream.
+            # you can uncomment the following codes to check the results.
+            # print(input_stream_obj.width)
+            # print(input_stream_obj.height)
+            # print(input_stream_obj.fps)
+            # the equation is: fps = framerate_num / framerate_den
+            # print(input_stream_obj.framerate_num)
+            # print(input_stream_obj.framerate_den)
+
             break
 
     # to get frames in a loop until encountering an error
@@ -50,10 +60,14 @@ while True:
 
         else:
             pass
+            # now you have get an image sucessfully.
             # process this frame according to your needs.
-            # rgb_image.save(os.path.join(dir_path, 'rgb_file_{}.jpg'.format(i)))
+            # uncomment the following codes to check the results.
+            # print(frame.shape, type(frame))
+            # image.save(os.path.join(dir_path, 'rgb_frame.jpg'))
 
     # then reconnect to the input stream, rebuild an input stream context in the next loop.
     # you have to release the memory containing input stream context manually.
+    # otherwise the memory would increase until explosion.
     input_stream_obj.release_memory()
     print('successfully release memory of input stream context.')

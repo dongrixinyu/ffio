@@ -7,11 +7,7 @@
 
 <img src="https://github.com/dongrixinyu/ffio/blob/main/ffio_logo.jpg?raw=true" />
 
-An easy-to-use Python wrapper for FFmpeg-C-API.
-
-- This repo **ffio**(which means FFmpeg as an io) is to provide an easy way for Python users to use handle video streams. Now this repo includes functions below:
-    - grab frames from a video stream.
-    - insert frames in Python format into an output video stream.
+This repo **ffio**, which means using FFmpeg to process io stream data, is an easy-to-use Python wrapper for FFmpeg-C-API, providing for Python users to handle video streams smoothly.
 
 # Features
 
@@ -81,13 +77,14 @@ $ pip install -e .
 Examples of how to use ffio are given in the hyperlinks:
 
 | function | description |
+|----------|-------------|
 | [decode video frames](https://github.com/dongrixinyu/ffio/blob/main/example/decode_frames.py) | To grab frames from an online stream or a video file suffixed by `mp4` or `flv`, etc. |
 | [encode video frames](https://github.com/dongrixinyu/ffio/blob/main/example/encode_frames.py) | To insert frames in Numpy format into a video stream |
 
 # TODO
 - read and insert SEI info.
 - enable Nvidia cuda for encoding and decoding.
-- audio functions.
+- functions concerning audio and subtitle.
 
 # Reference
 

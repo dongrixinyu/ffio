@@ -24,9 +24,6 @@ print_gap = 200  # print log every `print_gap` frames
 input_stream_path = "rtmp://ip:port/path/to/your/input/stream"
 output_stream_path = "rtmp://ip:port/path/to/your/output/stream"
 
-input_stream_path = "rtmp://live.demo.uavcmlc.com:1935/live/DEV02003179?token=8622d43632a1"
-output_stream_path = "rtmp://live.demo.uavcmlc.com:1935/live/DEV02005245?token=efa390262de0"
-
 input_stream_state = False  # to control whether to restart the input stream context
 output_stream_state = False  # control whether to restart the output stream context
 
@@ -49,6 +46,17 @@ while True:
         output_stream_obj = ffio.OutputStreamParser(
             output_stream_path, input_stream_obj=input_stream_obj,
             preset="ultrafast")
+
+        # in the initialization phase of ffio.OutputStreamParser,
+        # you can inherit the params from input stream context, such as fps, width, height
+        # just like the above code.
+        # Besides, you can designate every params according to your needs as below.
+        # set `input_stream_obj=None`,
+        # output_stream_obj = ffio.OutputStreamParser(
+        #     output_stream_path, input_stream_obj=None,
+        #     framerate_num=25, framerate_den=1, image_width=540, image_height=360,
+        #     preset="ultrafast")
+
         if output_stream_obj.stream_state is True:
             # it means that the output stream context has been opened successfully.
             # otherwise, the output stream can not be reached,
@@ -70,6 +78,7 @@ while True:
                 break
 
         else:
+            # to add a dynamic rectangle to the output stream frames.
             base_coor = output_stream_obj.output_frame_number
             while base_coor + 100 > output_stream_obj.height:
                 base_coor -= output_stream_obj.height
