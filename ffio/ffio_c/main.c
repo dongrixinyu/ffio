@@ -17,7 +17,7 @@ int main()
 
     clock_t start_time, end_time;
 
-    av_log_set_callback(av_log_pyFFmpeg_callback);
+    av_log_set_callback(av_log_ffio_callback);
     printf("start waiting to new a stream obj.\n");
     // sleep(60);
 

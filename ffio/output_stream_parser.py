@@ -67,7 +67,7 @@ class OutputStreamParser(object):
         output_stream_path: path you must designate. rtmp, mp4, rtsp, srt, flv format etc.
         preset: param concerning encoding:
             ultrafast,superfast,veryfast,faster,fast,medium,slow,slower,veryslow,placebo
-            `medium` default.
+            `ultrafast` default.
 
     example:
         >>> import ffio
@@ -99,15 +99,19 @@ class OutputStreamParser(object):
             if image_width == 0:
                 raise ValueError('the `image_width` should not be 0')
             self.output_stream_video_width = image_width
+
             if image_height == 0:
                 raise ValueError('the `image_height` should not be 0')
             self.output_stream_video_height = image_height
+
             if framerate_num == 0:
                 raise ValueError('the `framerate_num` should not be 0')
             self.output_stream_video_framerate_num = framerate_num
+
             if framerate_den == 0:
                 raise ValueError('the `framerate_den` should not be 0')
             self.output_stream_video_framerate_den = framerate_den
+
             self.output_stream_video_average_fps = \
                 self.output_stream_video_framerate_num / self.output_stream_video_framerate_den
 
@@ -148,7 +152,7 @@ class OutputStreamParser(object):
             print("failed to initialize the output stream. cost {:.4f} seconds".format(
                 end_time-start_time))
 
-            self.output_streamObj = lib_interface_api.finalizeOutputStreamObject(
+            self.output_stream_obj = lib_interface_api.finalizeOutputStreamObject(
                 self.output_stream_obj)
 
             self.output_stream_obj = lib_interface_api.deleteOutputStreamObject(
@@ -228,7 +232,7 @@ class OutputStreamParser(object):
         # initialize and finalize several times.
 
         # finalize
-        self.output_streamObj = lib_interface_api.finalizeOutputStreamObject(
+        self.output_stream_obj = lib_interface_api.finalizeOutputStreamObject(
             self.output_stream_obj)
 
         # delete the object

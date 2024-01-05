@@ -1,1 +1,1 @@
-include pyffmpeg/build/*.so
+include ffio/build/*.so

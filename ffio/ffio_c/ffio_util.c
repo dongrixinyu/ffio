@@ -15,7 +15,7 @@ int interrupt_callback(void *p)
     return 0;
 }
 
-void av_log_pyFFmpeg_callback(void *avClass, int level, const char *fmt, va_list vl)
+void av_log_ffio_callback(void *avClass, int level, const char *fmt, va_list vl)
 {
     if (level > AV_LOG_INFO) // set level
     {

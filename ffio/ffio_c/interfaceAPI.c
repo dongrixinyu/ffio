@@ -25,7 +25,7 @@ void *initializeInputStreamObject(void *inputStreamObj, const char *sourceStream
     InputStreamObj *curInputStreamObj = (InputStreamObj *)inputStreamObj;
 
     // initialize log callback
-    av_log_set_callback(av_log_pyFFmpeg_callback);
+    av_log_set_callback(av_log_ffio_callback);
 
     ret = initializeInputStream(curInputStreamObj, sourceStreamPath);
 
@@ -156,7 +156,7 @@ void *initializeOutputStreamObject(
     OutputStreamObj *curOutputStreamObj = (OutputStreamObj *)outputStreamObj;
 
     // initialize log callback
-    av_log_set_callback(av_log_pyFFmpeg_callback);
+    av_log_set_callback(av_log_ffio_callback);
 
     ret = initializeOutputStream(
         curOutputStreamObj, outputStreamPath,
@@ -184,12 +184,6 @@ int getOutputStreamState(void *outputStreamObj) {
     return streamStateFlag;
 }
 
-/**
- *
- *
- *
- *
- */
 int encode1Frame(void *outputStreamObj, PyObject *PyRGBImage)
 {
     int ret;
