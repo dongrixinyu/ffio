@@ -57,10 +57,10 @@ ENV LD_LIBRARY_PATH=/usr/local/lib:/usr/local/lib64/:/root/Python-3.10.13/:/usr/
 # install cmake
 RUN apt install cmake git -y
 
-# install pyFFmpeg
+# install ffio
 WORKDIR /root
-RUN git clone https://github.com/dongrixinyu/pyFFmpeg
-WORKDIR /root/pyFFmpeg
+RUN git clone https://github.com/dongrixinyu/ffio
+WORKDIR /root/ffio
 RUN ./compiler.sh
 RUN pip install -e .
 

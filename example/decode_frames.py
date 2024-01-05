@@ -17,12 +17,13 @@ import ffio
 
 
 # replace this rtmp stream path with your custom one.
+# `mp4` file path, `rtsp`, `srt`, `flv`, etc. are all allowed.
 input_stream_path = "rtmp://ip:port/path/to/your/input/stream"
 
-input_stream_state = False  # to control whether to restart the stream context
+input_stream_state = False  # to control whether to restart the input stream context
 while True:
 
-    # initialize the stream context
+    # initialize the input stream context
     while True:
         print('init ... ')
         input_stream_obj = ffio.InputStreamParser(input_stream_path)
