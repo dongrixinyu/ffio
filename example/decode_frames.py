@@ -26,7 +26,7 @@ while True:
     # initialize the input stream context
     while True:
         print('init ... ')
-        input_stream_obj = ffio.InputStreamParser(input_stream_path)
+        input_stream_obj = ffio.InputStreamParser(input_stream_path, use_cuda=False)
         if input_stream_obj.stream_state is True:
             # it means that the stream context has been opened successfully.
             # otherwise, the stream can not be reached,
