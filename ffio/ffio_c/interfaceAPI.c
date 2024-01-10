@@ -19,7 +19,8 @@ void *deleteInputStreamObject(void *inputStreamObj)
     return NULL;
 }
 
-void *initializeInputStreamObject(void *inputStreamObj, const char *sourceStreamPath)
+void *initializeInputStreamObject(
+    void *inputStreamObj, const char *sourceStreamPath, int hw_flag)
 {
     int ret;
     InputStreamObj *curInputStreamObj = (InputStreamObj *)inputStreamObj;
@@ -27,7 +28,7 @@ void *initializeInputStreamObject(void *inputStreamObj, const char *sourceStream
     // initialize log callback
     av_log_set_callback(av_log_ffio_callback);
 
-    ret = initializeInputStream(curInputStreamObj, sourceStreamPath);
+    ret = initializeInputStream(curInputStreamObj, sourceStreamPath, hw_flag, "cuda");
 
     if (ret != 0) // failed to open stream context
     {

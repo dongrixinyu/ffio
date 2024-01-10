@@ -20,14 +20,7 @@
 #define INPUT_RGB_PIX_FMT AV_PIX_FMT_YUV420P
 
 
-
 typedef signed long int int64_tt;
-
-int convertRGB2YUV(struct SwsContext *RGB2YUVContext, AVCodecContext *videoCodecContext,
-                   AVFrame *inputFrame, AVFrame *RGBFrame,
-                   unsigned char *RGBImage, int RGBImageSize);
-
-
 
 typedef struct InputStreamObj
 {
@@ -45,10 +38,15 @@ typedef struct InputStreamObj
     AVCodecContext *videoCodecContext;
     AVPacket *videoPacket;
     AVFrame *videoFrame;
+    AVFrame *videoTmpFrame;
+    AVFrame *videoSWFrame;
     AVFrame *videoRGBFrame;
     AVCodec *videoCodec;
     struct SwsContext *swsContext;
+    AVBufferRef *hw_device_ctx;
+    enum AVPixelFormat hw_pix_fmt;
 
+    int hw_flag;   // indicate if using the hardware accelaration
     int frameNum;  // the current number of the video stream
     int streamEnd; // has already to the end of the stream
 
@@ -58,9 +56,14 @@ typedef struct InputStreamObj
 
 } InputStreamObj;
 
+int convertYUV2RGB(
+    InputStreamObj *inputStreamObj);
+
 InputStreamObj *newInputStreamObj();
 
-int initializeInputStream(InputStreamObj *inputStreamObj, const char *streamPath);
+int initializeInputStream(
+    InputStreamObj *inputStreamObj, const char *streamPath,
+    int hw_flag, const char *hw_device);
 
 InputStreamObj *finalizeInputStream(InputStreamObj *inputStreamObj);
 
@@ -72,3 +75,6 @@ InputStreamObj *finalizeInputStream(InputStreamObj *inputStreamObj);
 int decodeOneFrame(InputStreamObj *inputStreamObj);
 
 int save_rgb_to_file(InputStreamObj *inputStreamObj, int frame_num);
+
+static enum AVPixelFormat get_hw_format(
+    AVCodecContext *ctx, const enum AVPixelFormat *pix_fmts);

@@ -24,7 +24,7 @@ int main()
     // build a new struct object
     start_time = clock();
     InputStreamObj *curInputStreamObj = newInputStreamObj();
-    ret = initializeInputStream(curInputStreamObj, sourcePath); // initialize a new stream
+    ret = initializeInputStream(curInputStreamObj, sourcePath, 1, "cuda"); // initialize a new stream
     end_time = clock();
     printf("initializing decoder cost time=%f\n", (double)(end_time - start_time) / CLOCKS_PER_SEC);
     if (ret != 0)
@@ -39,8 +39,13 @@ int main()
     int frameHeight = curInputStreamObj->inputVideoStreamHeight;
     OutputStreamObj *curOutputStreamObj = newOutputStreamObj();
 
-    ret = decodeOneFrame(curInputStreamObj);
+    for (int i = 0; i < 10000; i++){
+        ret = decodeOneFrame(curInputStreamObj);
+        sleep(0.01);
+    }
 
+    curInputStreamObj = finalizeInputStream(curInputStreamObj);
+    free(curInputStreamObj);
     for (int j = 0; j < 30; j++){
         memset(curInputStreamObj->extractedFrame + j * 2000, '0', 1500);
         start_time = clock();
@@ -140,7 +145,7 @@ int main()
     sleep(60);
     // ret = save_rgb_to_file(curInputStreamObj, 0);
 
-    ret = initializeInputStream(curInputStreamObj, sourceStreamPath); // initialize a new stream
+    ret = initializeInputStream(curInputStreamObj, sourceStreamPath, 1, "cuda:0"); // initialize a new stream
     end_time = clock();
     printf("cur time: %ld\n", end_time);
     printf("initializing cost time=%f\n", (double)(end_time - start_time) / CLOCKS_PER_SEC);

@@ -58,6 +58,8 @@ build/*
 # generated files
 generated
 version.rc
+ffio/ffio_c/main
+test.py
 
 # Cmake
 CMakeCache.txt

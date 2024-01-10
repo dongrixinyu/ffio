@@ -21,9 +21,14 @@ InputStreamObj *newInputStreamObj()
     inputStreamObj->videoCodecContext = NULL;
     inputStreamObj->videoPacket = NULL;
     inputStreamObj->videoFrame = NULL;
+    inputStreamObj->videoTmpFrame = NULL;
+    inputStreamObj->videoSWFrame = NULL;
     inputStreamObj->videoRGBFrame = NULL;
     inputStreamObj->swsContext = NULL;
+    inputStreamObj->hw_device_ctx = NULL;
+    inputStreamObj->hw_pix_fmt = -1;
 
+    inputStreamObj->hw_flag = 0;   // 1 means to use hardware, 0 means not
     inputStreamObj->frameNum = -1; // the current number of the video stream
     inputStreamObj->streamEnd = 0; // has already to the end of the stream
 
@@ -50,38 +55,45 @@ int save_rgb_to_file(InputStreamObj *inputStreamObj, int frame_num)
     return 0;
 }
 
-int convertYUV2RGB(
-    AVFrame *inputFrame, AVFrame *RGBFrame, struct SwsContext *swsContextObj,
-    AVCodecContext *videoCodecContext)
+int convertYUV2RGB(InputStreamObj *inputStreamObj)
 {
     int ret;
 
-    if (swsContextObj == NULL)
+    if (inputStreamObj->swsContext == NULL)
     {
         // replace SWS_FAST_BILINEAR with other options SWS_BICUBIC
-        swsContextObj = sws_getCachedContext(
-            swsContextObj,
-            videoCodecContext->width, videoCodecContext->height, videoCodecContext->pix_fmt,
-            videoCodecContext->width, videoCodecContext->height, OUTPUT_RGB_PIX_FMT,
-            SWS_BICUBIC, NULL, NULL, NULL);
-        if (swsContextObj == NULL)
+        // several methods and its CPU %
+        // SWS_BICUBIC 57.8 %
+        // SWS_FAST_BILINEAR 35.7 %
+        // SWS_GAUSS 56.3 %
+        // SWS_BICUBLIN 38.9 %
+        // the input frame pix_fmt should be changed according to the hw decode and cpu decode.
+        inputStreamObj->swsContext = sws_getCachedContext(
+            inputStreamObj->swsContext,
+            inputStreamObj->videoCodecContext->width, inputStreamObj->videoCodecContext->height,
+            inputStreamObj->videoTmpFrame->format, // videoCodecContext->pix_fmt,
+            inputStreamObj->videoCodecContext->width, inputStreamObj->videoCodecContext->height,
+            OUTPUT_RGB_PIX_FMT,
+            SWS_FAST_BILINEAR, // SWS_BICUBIC,
+            NULL, NULL, NULL);
+        if (inputStreamObj->swsContext == NULL)
             return 0;
     }
 
-    RGBFrame->width = videoCodecContext->width;
-    RGBFrame->height = videoCodecContext->height;
-    RGBFrame->format = OUTPUT_RGB_PIX_FMT;
+    inputStreamObj->videoRGBFrame->width = inputStreamObj->videoCodecContext->width;
+    inputStreamObj->videoRGBFrame->height = inputStreamObj->videoCodecContext->height;
+    inputStreamObj->videoRGBFrame->format = OUTPUT_RGB_PIX_FMT;
 
-    ret = av_frame_get_buffer(RGBFrame, 1);
+    ret = av_frame_get_buffer(inputStreamObj->videoRGBFrame, 1);
     if (ret != 0)
     {
         av_log(NULL, AV_LOG_INFO, "%s", "no memory for frame data buffer.\n");
     }
 
     ret = sws_scale(
-        swsContextObj, (const uint8_t *const)inputFrame->data,
-        inputFrame->linesize, 0, inputFrame->height,
-        RGBFrame->data, RGBFrame->linesize);
+        inputStreamObj->swsContext, (const uint8_t *const)inputStreamObj->videoTmpFrame->data,
+        inputStreamObj->videoTmpFrame->linesize, 0, inputStreamObj->videoTmpFrame->height,
+        inputStreamObj->videoRGBFrame->data, inputStreamObj->videoRGBFrame->linesize);
     if (ret < 0)
     {
         av_log(NULL, AV_LOG_INFO, "Error convert video: %d\n", ret);
@@ -94,15 +106,20 @@ int convertYUV2RGB(
 /**
  *  read the video context info, including format context and codec context.
  *
+ *  params:
+ *      hw_flag: set to declare if use cuda gpu to accelarate. 1 means to use, 0 means not.
+ *      hw_device: which cuda to use, e.g. cuda:0
+ *
  *  ret: int
  *      0 means successfully start a video stream
  *      1 means failing to open the input stream
  *      2 means can not find the stream info
  *      3 means can not process params to context
  *      4 means can not open codec context
- *      5 means failing to allocate memory for swsContext
+ *      5 means failing to allocate memory for swsContext(deleted)
  */
-int initializeInputStream(InputStreamObj *inputStreamObj, const char *streamPath)
+int initializeInputStream(
+    InputStreamObj *inputStreamObj, const char *streamPath, int hw_flag, const char *hw_device)
 {
     int ret;
 
@@ -148,6 +165,28 @@ int initializeInputStream(InputStreamObj *inputStreamObj, const char *streamPath
         inputStreamObj->inputFormatContext, AVMEDIA_TYPE_VIDEO, -1, -1, (const AVCodec **)&inputStreamObj->videoCodec, 0);
     av_log(NULL, AV_LOG_INFO, "video stream number is %d.\n", videoStreamID);
 
+    inputStreamObj->hw_flag = hw_flag;
+    if(inputStreamObj->hw_flag)
+    {
+        for (int i = 0;; i++)
+        {
+            const AVCodecHWConfig *config = avcodec_get_hw_config(
+                inputStreamObj->videoCodec, i);
+            if (!config)
+            {
+                av_log(NULL, AV_LOG_ERROR, "Decoder %s does not support device type %s.\n",
+                       inputStreamObj->videoCodec->name, av_hwdevice_get_type_name(AV_HWDEVICE_TYPE_CUDA));
+                return -1;
+            }
+            if (config->methods & AV_CODEC_HW_CONFIG_METHOD_HW_DEVICE_CTX &&
+                config->device_type == AV_HWDEVICE_TYPE_CUDA)
+            {
+                inputStreamObj->hw_pix_fmt = config->pix_fmt;
+                break;
+            }
+        }
+    }
+
     inputStreamObj->videoCodecContext = avcodec_alloc_context3(NULL);
     ret = avcodec_parameters_to_context(
         inputStreamObj->videoCodecContext,
@@ -156,6 +195,30 @@ int initializeInputStream(InputStreamObj *inputStreamObj, const char *streamPath
     {
         av_log(NULL, AV_LOG_INFO, "%s\n", "can not process params to context.");
         return 3;
+    }
+
+    if(inputStreamObj->hw_flag)
+    {
+        inputStreamObj->videoCodecContext->get_format = get_hw_format;
+
+        // hw context initialization
+        // const char hw_device[128] = "cuda:0"; // get it from user params
+        ret = av_hwdevice_ctx_create(
+            &(inputStreamObj->hw_device_ctx), AV_HWDEVICE_TYPE_CUDA,
+            (const char *)hw_device, NULL, 0);
+        if (ret != 0)
+        {
+            char errbuf[200];
+            av_strerror(ret, errbuf, sizeof(errbuf));
+            av_log(NULL, AV_LOG_ERROR,
+                   "initialize hardware context failed, ret: %d - %s.\n", ret, errbuf);
+        }
+        else
+        {
+            av_log(NULL, AV_LOG_INFO, "successfully initialize the nvidia cuda.\n");
+        }
+
+        inputStreamObj->videoCodecContext->hw_device_ctx = av_buffer_ref(inputStreamObj->hw_device_ctx);
     }
 
     inputStreamObj->videoCodec = avcodec_find_decoder(inputStreamObj->videoCodecContext->codec_id);
@@ -179,6 +242,10 @@ int initializeInputStream(InputStreamObj *inputStreamObj, const char *streamPath
 
     inputStreamObj->videoPacket = av_packet_alloc();
     inputStreamObj->videoFrame = av_frame_alloc();
+    if(inputStreamObj->hw_flag)
+    {
+        inputStreamObj->videoSWFrame = av_frame_alloc();
+    }
 
     inputStreamObj->frameNum = 0;
     inputStreamObj->streamEnd = 0; // 0 means not reaching the end, 1 means the stream is empty.
@@ -197,18 +264,6 @@ int initializeInputStream(InputStreamObj *inputStreamObj, const char *streamPath
     inputStreamObj->extractedFrame = (unsigned char *)malloc(inputStreamObj->imageSize);
     av_log(NULL, AV_LOG_INFO, "stream imagesize: %d\n", inputStreamObj->imageSize);
     inputStreamObj->videoRGBFrame = av_frame_alloc();
-
-    if (inputStreamObj->swsContext == NULL)
-    {
-        inputStreamObj->swsContext = sws_getCachedContext(
-            inputStreamObj->swsContext,
-            inputStreamObj->videoCodecContext->width, inputStreamObj->videoCodecContext->height,
-            inputStreamObj->videoCodecContext->pix_fmt,
-            inputStreamObj->videoCodecContext->width, inputStreamObj->videoCodecContext->height, OUTPUT_RGB_PIX_FMT,
-            SWS_BICUBIC, NULL, NULL, NULL);
-        if (inputStreamObj->swsContext == NULL)
-            return 5;  // failed to allocate memory for swsContext
-    }
 
     inputStreamObj->inputStreamStateFlag = 1;
     return 0;
@@ -242,6 +297,18 @@ InputStreamObj *finalizeInputStream(InputStreamObj *inputStreamObj)
         inputStreamObj->videoFrame = NULL;
     }
 
+    if (inputStreamObj->videoSWFrame)
+    {
+        av_frame_free(&(inputStreamObj->videoSWFrame));
+        inputStreamObj->videoSWFrame = NULL;
+    }
+
+    if (inputStreamObj->videoTmpFrame)
+    {
+        // av_frame_free(&(inputStreamObj->videoTmpFrame));
+        inputStreamObj->videoTmpFrame = NULL;
+    }
+
     if (inputStreamObj->videoPacket)
     {
         av_packet_free(&(inputStreamObj->videoPacket));
@@ -261,6 +328,12 @@ InputStreamObj *finalizeInputStream(InputStreamObj *inputStreamObj)
         inputStreamObj->inputFormatContext = NULL;
     }
 
+    if(inputStreamObj->hw_device_ctx)
+    {
+        av_buffer_unref(&(inputStreamObj->hw_device_ctx));
+        inputStreamObj->hw_device_ctx = NULL;
+    }
+
     free(inputStreamObj->extractedFrame);
     inputStreamObj->extractedFrame = NULL;
     inputStreamObj->videoCodec = NULL;
@@ -272,6 +345,7 @@ InputStreamObj *finalizeInputStream(InputStreamObj *inputStreamObj)
     inputStreamObj->inputFramerateDen = 0;
     inputStreamObj->imageSize = 0;
     inputStreamObj->frameNum = 0;
+    inputStreamObj->hw_pix_fmt = AV_PIX_FMT_NONE;
 
     memset(inputStreamObj->inputStreamPath, '0', 300);
 
@@ -304,11 +378,8 @@ int decodeOneFrame(InputStreamObj *inputStreamObj)
             return 1;
         }
 
-        // av_log(NULL, AV_LOG_INFO, "read one packet %d.\n", inputStreamObj->streamEnd);
-
-        inputStreamObj->clicker->lasttime = time(NULL);                                  // get the currect time before av_read_frame
+        inputStreamObj->clicker->lasttime = time(NULL);
         ret = av_read_frame(inputStreamObj->inputFormatContext, inputStreamObj->videoPacket); // read a packet
-        // av_log(NULL, AV_LOG_DEBUG, "%s", "### successfully read one packet.\n");
         // log_packet(inputStreamObj->inputFormatContext, inputStreamObj->videoPacket, "in");
 
         if (inputStreamObj->videoPacket->stream_index != inputStreamObj->inputVideoStreamID)
@@ -366,9 +437,25 @@ int decodeOneFrame(InputStreamObj *inputStreamObj)
                 }
                 else if (ret >= 0)
                 {
-                    ret = convertYUV2RGB(
-                        inputStreamObj->videoFrame, inputStreamObj->videoRGBFrame, inputStreamObj->swsContext,
-                        inputStreamObj->videoCodecContext);
+                    if (inputStreamObj->hw_flag)
+                    {
+                        if (inputStreamObj->videoFrame->format == inputStreamObj->hw_pix_fmt)
+                        {
+                            ret = av_hwframe_transfer_data(
+                                inputStreamObj->videoSWFrame, inputStreamObj->videoFrame, 0);
+                            inputStreamObj->videoTmpFrame = inputStreamObj->videoSWFrame;
+                        }
+                        else
+                        {
+                            inputStreamObj->videoTmpFrame = inputStreamObj->videoFrame;
+                        }
+                    }
+                    else
+                    {
+                        inputStreamObj->videoTmpFrame = inputStreamObj->videoFrame;
+                    }
+
+                    ret = convertYUV2RGB(inputStreamObj);
 
                     // end_time = clock();
                     // av_log(NULL, AV_LOG_INFO, "read one frame cost time=%f\n",
@@ -412,7 +499,11 @@ int decodeOneFrame(InputStreamObj *inputStreamObj)
                 }
                 else if (ret < 0)
                 {
-                    av_log(NULL, AV_LOG_ERROR, "%s", "an unknown error.\n");
+                    char errbuf[200];
+                    av_strerror(ret, errbuf, sizeof(errbuf));
+                    av_log(NULL, AV_LOG_ERROR,
+                           "an unknown error, ret: %d - %s.\n", ret, errbuf);
+
                     break;
                 }
             }
@@ -436,13 +527,27 @@ int decodeOneFrame(InputStreamObj *inputStreamObj)
                 }
                 else if (ret >= 0)
                 {
-                    ret = convertYUV2RGB(
-                        inputStreamObj->videoFrame, inputStreamObj->videoRGBFrame,
-                        inputStreamObj->swsContext,
-                        inputStreamObj->videoCodecContext);
+                    if(inputStreamObj->hw_flag)
+                    {
+                        if (inputStreamObj->videoFrame->format == inputStreamObj->hw_pix_fmt)
+                        {
+                            ret = av_hwframe_transfer_data(
+                                inputStreamObj->videoSWFrame, inputStreamObj->videoFrame, 0);
+                            inputStreamObj->videoTmpFrame = inputStreamObj->videoSWFrame;
+                        }
+                        else
+                        {
+                            inputStreamObj->videoTmpFrame = inputStreamObj->videoFrame;
+                        }
+                    }
+                    else
+                    {
+                        inputStreamObj->videoTmpFrame = inputStreamObj->videoFrame;
+                    }
 
-                    // inputStreamObj->streamEnd = 1; //  to the end
+                    ret = convertYUV2RGB(inputStreamObj);
 
+                    // memcpy might be dismissed to accelerate.
                     memcpy(inputStreamObj->extractedFrame, inputStreamObj->videoRGBFrame->data[0], inputStreamObj->imageSize);
                     av_frame_unref(inputStreamObj->videoRGBFrame);
 
@@ -457,18 +562,38 @@ int decodeOneFrame(InputStreamObj *inputStreamObj)
                 }
                 else
                 {
-                    av_log(NULL, AV_LOG_ERROR, "%s", "unknown error 1.\n");
-
+                    char errbuf[200];
+                    av_strerror(ret, errbuf, sizeof(errbuf));
+                    av_log(NULL, AV_LOG_ERROR,
+                           "an unknown error -1, ret: %d - %s.\n", ret, errbuf);
                     return -1;
                 }
             }
         }
         else
         {
-            av_log(NULL, AV_LOG_ERROR, "%s", "unknown error 2.\n");
+            char errbuf[200];
+            av_strerror(ret, errbuf, sizeof(errbuf));
+            av_log(NULL, AV_LOG_ERROR,
+                   "an unknown error -2, ret: %d - %s.\n", ret, errbuf);
             return -2;
         }
     }
 
     return 1;
+}
+
+static enum AVPixelFormat get_hw_format(
+    AVCodecContext *ctx, const enum AVPixelFormat *pix_fmts)
+{
+    const enum AVPixelFormat *p;
+
+    for (p = pix_fmts; *p != -1; p++)
+    {
+        if (*p == AV_PIX_FMT_CUDA)
+            return *p;
+    }
+
+    fprintf(stderr, "Failed to get HW surface format.\n");
+    return AV_PIX_FMT_NONE;
 }

@@ -18,6 +18,7 @@
 #include "libavutil/time.h"
 #include "libavutil/timestamp.h"
 
+#include "libavutil/hwcontext.h"
 #include "libavcodec/avcodec.h"
 #include "libavformat/avformat.h"
 #include "libavfilter/avfilter.h"

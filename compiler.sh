@@ -13,10 +13,12 @@ fi
 avutil_header_file_path=`find /usr -name avutil.h`
 avutil_include_path=`dirname ${avutil_header_file_path}`
 ffmpeg_include_path=`dirname ${avutil_include_path}`
+ffmpeg_include_path=/home/cuichengyu/pyffmpeg_workspace/ffmpeg-6.0/include
 echo "FFMPEG_INCLUDE_PATH: ${ffmpeg_include_path}"
 
 avutil_lib_file_path=`find /usr -name libavutil.so`
 ffmpeg_lib_dir_path=`dirname ${avutil_lib_file_path}`
+ffmpeg_lib_dir_path=/home/cuichengyu/pyffmpeg_workspace/ffmpeg-6.0/lib
 echo "FFMPEG_LIB_DIR_PATH: ${ffmpeg_lib_dir_path}"
 
 cd ffio/build

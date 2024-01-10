@@ -49,7 +49,7 @@ $ cd ffio
 $ docker build -t jionlp/ffio:vv .
 ```
 
-If you wanna run ffio in your host OS, rather than a docker, you can
+If you wanna run ffio in your host OS, rather than a docker container, you can
 
 ## 3. Install ffio by yourself
 

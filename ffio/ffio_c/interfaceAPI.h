@@ -12,7 +12,8 @@
 void *newInputStreamObject();
 void *deleteInputStreamObject(void *inputStreamObj);
 
-void *initializeInputStreamObject(void *inputStreamObj, const char *sourceStreamPath);
+void *initializeInputStreamObject(
+    void *inputStreamObj, const char *sourceStreamPath, int hw_flag);
 void *finalizeInputStreamObject(void *inputStreamObj);
 
 int getInputStreamState(void *inputStreamObj);

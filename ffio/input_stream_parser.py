@@ -34,7 +34,8 @@ lib_interface_api.deleteInputStreamObject.argtypes = [ctypes.c_void_p]
 lib_interface_api.deleteInputStreamObject.restype = ctypes.c_void_p
 
 # the source stream path must be in byte format, not Unicode
-lib_interface_api.initializeInputStreamObject.argtypes = [ctypes.c_void_p, ctypes.c_char_p]
+lib_interface_api.initializeInputStreamObject.argtypes = [
+    ctypes.c_void_p, ctypes.c_char_p, ctypes.c_int]
 lib_interface_api.initializeInputStreamObject.restype = ctypes.c_void_p
 
 lib_interface_api.finalizeInputStreamObject.argtypes = [ctypes.c_void_p]
@@ -66,7 +67,12 @@ class InputStreamParser(object):
     """InputStreamParser: a Python wrapper for FFmpeg to initialize an video stream.
 
     """
-    def __init__(self, input_stream_path):
+    def __init__(self, input_stream_path, use_cuda=False):
+
+        if use_cuda:
+            self.use_cuda = 1
+        else:
+            self.use_cuda = 0
 
         # allocate memory to new a streamObj
         self.input_stream_obj = ctypes.c_void_p(lib_interface_api.newInputStreamObject())
@@ -77,7 +83,7 @@ class InputStreamParser(object):
         # the input stream must be in byte format
         self.input_stream_obj = ctypes.c_void_p(
             lib_interface_api.initializeInputStreamObject(
-                self.input_stream_obj, self.input_stream_path.encode()))
+                self.input_stream_obj, self.input_stream_path.encode(), self.use_cuda))
         end_time = time.time()
 
         self.input_stream_state_flag = lib_interface_api.getInputStreamState(
