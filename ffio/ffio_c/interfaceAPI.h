@@ -27,6 +27,7 @@ int getFPS(void *inputStreamObj);
 
 PyObject *decode1Frame(void *inputStreamObj);
 
+// --------------------------------------------------------------
 // output stream functions
 void *newOutputStreamObject();
 void *deleteOutputStreamObject(void *outputStreamObj);
@@ -34,7 +35,7 @@ void *deleteOutputStreamObject(void *outputStreamObj);
 void *initializeOutputStreamObject(
     void *outputStreamObj, const char *outputStreamPath,
     int framerateNum, int framerateDen, int frameWidth, int frameHeight,
-    const char *preset);
+    const char *preset, int hwFlag);
 void *finalizeOutputStreamObject(void *outputStreamObj);
 
 int getOutputStreamState(void *outputStreamObj);

@@ -151,9 +151,10 @@ void *deleteOutputStreamObject(void *outputStreamObj) {
 void *initializeOutputStreamObject(
     void *outputStreamObj, const char *outputStreamPath,
     int framerateNum, int framerateDen, int frameWidth, int frameHeight,
-    const char *preset)
+    const char *preset, int hwFlag)
 {
     int ret;
+
     OutputStreamObj *curOutputStreamObj = (OutputStreamObj *)outputStreamObj;
 
     // initialize log callback
@@ -161,7 +162,7 @@ void *initializeOutputStreamObject(
 
     ret = initializeOutputStream(
         curOutputStreamObj, outputStreamPath,
-        framerateNum, framerateDen, frameWidth, frameHeight, preset);
+        framerateNum, framerateDen, frameWidth, frameHeight, preset, hwFlag);
     if (ret != 0) // failed to open stream context
     {
         curOutputStreamObj = finalizeOutputStream(curOutputStreamObj);

@@ -1,22 +1,27 @@
 #include "insertFrame.h"
 
 int convertRGB2YUV(
-    struct SwsContext *RGB2YUVContext, AVCodecContext *videoCodecContext,
-    AVFrame *YUVFrame, AVFrame *RGBFrame,
+    OutputStreamObj *outputStreamObj,
     unsigned char *RGBImage, int RGBImageSize)
 {
     int ret;
 
-    ret = av_frame_make_writable(RGBFrame);
+    ret = av_frame_make_writable(outputStreamObj->videoRGBFrame);
     if (ret < 0)
     {
         av_log(NULL, AV_LOG_INFO, "av_frame_make_writable failed.\n");
         return -1;
     }
 
-    memcpy(RGBFrame->data[0], RGBImage, RGBImageSize);
+    memcpy(outputStreamObj->videoRGBFrame->data[0], RGBImage, RGBImageSize);
 
-    ret = sws_scale(RGB2YUVContext, (const uint8_t *const)RGBFrame->data, RGBFrame->linesize, 0, YUVFrame->height, YUVFrame->data, YUVFrame->linesize);
+    ret = sws_scale(
+        outputStreamObj->RGB2YUVContext,
+        (const uint8_t *const)outputStreamObj->videoRGBFrame->data,
+        outputStreamObj->videoRGBFrame->linesize, 0,
+        outputStreamObj->videoEncoderFrame->height,
+        outputStreamObj->videoEncoderFrame->data,
+        outputStreamObj->videoEncoderFrame->linesize);
     if (ret < 0)
     {
         av_log(NULL, AV_LOG_INFO, "Error convert pix format of frame: %d\n", ret);
@@ -24,6 +29,40 @@ int convertRGB2YUV(
     }
 
     // av_frame_unref(RGBFrame);
+    return 1;
+}
+
+int convertRGB2NV12(
+    OutputStreamObj *outputStreamObj,
+    unsigned char *RGBImage, int RGBImageSize)
+{
+    int ret;
+
+    ret = av_frame_make_writable(outputStreamObj->videoRGBFrame);
+    if (ret < 0)
+    {
+        av_log(NULL, AV_LOG_INFO, "av_frame_make_writable failed.\n");
+        return -1;
+    }
+
+    memcpy(outputStreamObj->videoRGBFrame->data[0], RGBImage, RGBImageSize);
+
+    ret = sws_scale(
+        outputStreamObj->RGB2YUVContext,
+        (const uint8_t *const)outputStreamObj->videoRGBFrame->data,
+        outputStreamObj->videoRGBFrame->linesize, 0,
+        outputStreamObj->videoEncoderFrame->height,
+        outputStreamObj->videoEncoderFrame->data,
+        outputStreamObj->videoEncoderFrame->linesize);
+    if (ret < 0)
+    {
+        av_log(NULL, AV_LOG_INFO, "Error convert pix format of frame: %d\n", ret);
+        return 0;
+    }
+
+    // transfer frame from cpu to gpu
+    ret = av_hwframe_transfer_data(
+        outputStreamObj->videoHWEncoderFrame, outputStreamObj->videoEncoderFrame, 0);
 
     return 1;
 }
@@ -44,18 +83,22 @@ OutputStreamObj *newOutputStreamObj()
     outputStreamObj->outputframeNum = 1;        // this is used to record the encoded frame number.
     outputStreamObj->outputStreamStateFlag = 0; // to indicate that if the stream has been opened successfully
 
-    outputStreamObj->outputVideoStreamID = -1; // which stream index to parse in the video, default 0.
+    outputStreamObj->outputVideoStreamID = -1;  // which stream index to parse in the video, default 0.
     outputStreamObj->outputVideoStreamWidth = 0;
     outputStreamObj->outputVideoStreamHeight = 0;
     outputStreamObj->outputvideoFramerateNum = 0; // to compute the fps of the stream, duration / Den
     outputStreamObj->outputvideoFramerateDen = 0;
+
+    outputStreamObj->hw_flag = 0;  // to indicate if using hw encode. 1 means to use hw, 0 means not.
 
     // encoder info and remux info
     outputStreamObj->outputFormatContext = NULL;
     outputStreamObj->videoEncoderContext = NULL;
     outputStreamObj->videoEncoder = NULL;
     outputStreamObj->videoEncoderFrame = NULL;
+    outputStreamObj->videoHWEncoderFrame = NULL;
     outputStreamObj->videoPacketOut = NULL;
+    outputStreamObj->hw_device_ctx = NULL;
 
     // rgb -> yuv format
     outputStreamObj->RGB2YUVContext = NULL;
@@ -63,13 +106,54 @@ OutputStreamObj *newOutputStreamObj()
     return outputStreamObj;
 }
 
+static int set_hwframe_ctx(
+    AVCodecContext *ctx, AVBufferRef *hw_device_ctx, int width, int height)
+{
+    AVBufferRef *hw_frames_ref;
+    AVHWFramesContext *frames_ctx = NULL;
+
+    int ret;
+
+    if (!(hw_frames_ref = av_hwframe_ctx_alloc(hw_device_ctx)))
+    {
+        av_log(NULL, AV_LOG_ERROR, "Failed to create VAAPI frame context.\n");
+        return -1;
+    }
+
+    frames_ctx = (AVHWFramesContext *)(hw_frames_ref->data);
+    frames_ctx->format = AV_PIX_FMT_CUDA;
+    frames_ctx->sw_format = AV_PIX_FMT_NV12;
+    frames_ctx->width = width;
+    frames_ctx->height = height;
+    frames_ctx->initial_pool_size = 20;
+
+    ret = av_hwframe_ctx_init(hw_frames_ref);
+    if (ret < 0)
+    {
+        char errbuf[200];
+        av_strerror(ret, errbuf, sizeof(errbuf));
+        av_log(NULL, AV_LOG_ERROR, "Failed to initialize VAAPI frame context. ret: %d - %s.\n", ret, errbuf);
+        av_buffer_unref(&hw_frames_ref);
+        return ret;
+    }
+    ctx->hw_frames_ctx = av_buffer_ref(hw_frames_ref);
+    if (!ctx->hw_frames_ctx)
+        ret = AVERROR(ENOMEM);
+
+    av_buffer_unref(&hw_frames_ref);
+
+    return ret;
+}
+
 int initializeOutputStream(
     OutputStreamObj *outputStreamObj,
     const char *outputStreamPath,
     int framerateNum, int framerateDen, int frameWidth, int frameHeight,
-    const char *preset)
+    const char *preset, int hw_flag)
 {
     int ret;
+
+    outputStreamObj->hw_flag = hw_flag;
 
     sprintf(outputStreamObj->outputStreamPath, "%s", outputStreamPath);
 
@@ -102,12 +186,33 @@ int initializeOutputStream(
     if (outputStreamObj->videoEncoderContext == NULL)
     {
         // initialize codec object
-        const char *codec_name = "libx264";  // default
+        const char *codec_name = NULL;
+        if (hw_flag)
+        {
+            codec_name = "h264_nvenc";
+        }
+        else
+        {
+            codec_name = "libx264"; // default
+        }
         outputStreamObj->videoEncoder = avcodec_find_encoder_by_name(codec_name);
         if (!outputStreamObj->videoEncoder)
         {
             av_log(NULL, AV_LOG_WARNING, "Codec '%s' not found.\n", codec_name);
             return 2;
+        }
+
+        if(hw_flag)
+        {
+            ret = av_hwdevice_ctx_create(&outputStreamObj->hw_device_ctx, AV_HWDEVICE_TYPE_CUDA,
+                                         "cuda", NULL, 0);
+            if (ret < 0)
+            {
+                char errbuf[200];
+                av_strerror(ret, errbuf, sizeof(errbuf));
+                av_log(NULL, AV_LOG_ERROR, "Failed to create a VAAPI device. ret: %d - %s.\n", ret, errbuf);
+                return 1;
+            }
         }
 
         // initialize encoder context
@@ -133,7 +238,6 @@ int initializeOutputStream(
         outputStreamObj->videoEncoderContext->framerate.den = framerateDen;
 
         outputStreamObj->videoEncoderContext->time_base = av_inv_q(outputStreamObj->videoEncoderContext->framerate);
-        outputStreamObj->outputVideoTimebase = outputStreamObj->videoEncoderContext->time_base;
         // outputStreamObj->videoEncoderContext->width = inputStreamObj->inputFormatContext->streams[inputStreamObj->inputVideoStreamID]->codecpar->width;
         // outputStreamObj->videoEncoderContext->height = inputStreamObj->inputFormatContext->streams[inputStreamObj->inputVideoStreamID]->codecpar->height;
         outputStreamObj->videoEncoderContext->width = frameWidth;
@@ -141,7 +245,16 @@ int initializeOutputStream(
 
         // // get params from AVFrame
         // outputStreamObj->videoEncoderContext->pix_fmt = inputStreamObj->videoFrame->format;
-        outputStreamObj->videoEncoderContext->pix_fmt = AV_PIX_FMT_YUV420P;
+        if (outputStreamObj->hw_flag)
+        {
+            outputStreamObj->videoEncoderContext->pix_fmt = AV_PIX_FMT_CUDA;
+        }
+        else
+        {
+            outputStreamObj->videoEncoderContext->pix_fmt = AV_PIX_FMT_YUV420P;
+        }
+
+
         // outputStreamObj->videoEncoderContext->color_range = inputStreamObj->videoFrame->color_range;
         // outputStreamObj->videoEncoderContext->color_primaries = inputStreamObj->videoFrame->color_primaries;
         // outputStreamObj->videoEncoderContext->color_trc = inputStreamObj->videoFrame->color_trc;
@@ -171,6 +284,30 @@ int initializeOutputStream(
         // av_dict_set(&codec_options, "profile", "high", 0);
         // av_dict_set(&codec_options, "tune", "zerolatency", 0);
 
+        if(hw_flag)
+        {
+            ret = set_hwframe_ctx(
+                outputStreamObj->videoEncoderContext, outputStreamObj->hw_device_ctx,
+                frameWidth, frameHeight);
+            if (ret < 0)
+            {
+                av_log(NULL, AV_LOG_ERROR, "Failed to set hwframe context.\n");
+                return 1;
+            }
+        }
+        if (hw_flag)
+        {
+            outputStreamObj->videoHWEncoderFrame = av_frame_alloc();
+            ret = av_hwframe_get_buffer(
+                outputStreamObj->videoEncoderContext->hw_frames_ctx,
+                outputStreamObj->videoHWEncoderFrame, 0);
+            if (ret < 0)
+            {
+                char errbuf[200];
+                av_strerror(ret, errbuf, sizeof(errbuf));
+                av_log(NULL, AV_LOG_ERROR, "av_hwframe_get_buffer failed, ret %d - %s\n", ret, errbuf);
+            }
+        }
         ret = avcodec_open2(
             outputStreamObj->videoEncoderContext,
             outputStreamObj->videoEncoder, NULL); // &codec_options
@@ -189,16 +326,28 @@ int initializeOutputStream(
     outputStreamObj->videoEncoderFrame = av_frame_alloc();
     outputStreamObj->videoRGBFrame = av_frame_alloc();
 
+
     // initialize RGB -> YUV context
     // replace SWS_FAST_BILINEAR with other options SWS_BICUBIC
+    enum AVPixelFormat output_pix_fmt;
+    if (outputStreamObj->hw_flag)
+    {
+        output_pix_fmt = AV_PIX_FMT_NV12;
+    }
+    else
+    {
+        output_pix_fmt = AV_PIX_FMT_YUV420P;
+    }
+
     outputStreamObj->RGB2YUVContext = sws_getCachedContext(
         outputStreamObj->RGB2YUVContext,
         outputStreamObj->videoEncoderContext->width,
         outputStreamObj->videoEncoderContext->height, OUTPUT_RGB_PIX_FMT,
         outputStreamObj->videoEncoderContext->width,
         outputStreamObj->videoEncoderContext->height,
-        outputStreamObj->videoEncoderContext->pix_fmt,
-        SWS_BICUBIC, NULL, NULL, NULL);
+        // outputStreamObj->videoEncoderContext->pix_fmt,
+        output_pix_fmt, // format for gpu cuda
+        SWS_FAST_BILINEAR, NULL, NULL, NULL);
     if (outputStreamObj->RGB2YUVContext == NULL) {
         av_log(NULL, AV_LOG_WARNING, "sws_getCachedContext failed.\n");
         return 4;
@@ -208,7 +357,15 @@ int initializeOutputStream(
     outputStreamObj->outputVideoStreamWidth = outputStreamObj->videoEncoderContext->width;
     outputStreamObj->outputVideoStreamHeight = outputStreamObj->videoEncoderContext->height;
 
-    outputStreamObj->videoEncoderFrame->format = outputStreamObj->videoEncoderContext->pix_fmt;
+    // outputStreamObj->videoEncoderFrame->format = outputStreamObj->videoEncoderContext->pix_fmt;
+    if (outputStreamObj->hw_flag)
+    {
+        outputStreamObj->videoEncoderFrame->format = AV_PIX_FMT_NV12;
+    }
+    else
+    {
+        outputStreamObj->videoEncoderFrame->format = AV_PIX_FMT_YUV420P;
+    }
     outputStreamObj->videoEncoderFrame->width = outputStreamObj->videoEncoderContext->width;
     outputStreamObj->videoEncoderFrame->height = outputStreamObj->videoEncoderContext->height;
     ret = av_frame_get_buffer(outputStreamObj->videoEncoderFrame, 0);
@@ -335,16 +492,16 @@ OutputStreamObj *finalizeOutputStream(OutputStreamObj *outputStreamObj)
         outputStreamObj->RGB2YUVContext = NULL;
     }
 
-    if (outputStreamObj->videoRGBFrame)
-    {
-        av_frame_free(&(outputStreamObj->videoRGBFrame));
-        outputStreamObj->videoRGBFrame = NULL;
-    }
-
     if (outputStreamObj->videoEncoderFrame)
     {
         av_frame_free(&(outputStreamObj->videoEncoderFrame));
         outputStreamObj->videoEncoderFrame = NULL;
+    }
+
+    if (outputStreamObj->videoHWEncoderFrame)
+    {
+        av_frame_free(&(outputStreamObj->videoHWEncoderFrame));
+        outputStreamObj->videoHWEncoderFrame = NULL;
     }
 
     if (outputStreamObj->videoPacketOut)
@@ -358,6 +515,11 @@ OutputStreamObj *finalizeOutputStream(OutputStreamObj *outputStreamObj)
         avcodec_close(outputStreamObj->videoEncoderContext);
         avcodec_free_context(&(outputStreamObj->videoEncoderContext));
         outputStreamObj->videoEncoderContext = NULL;
+    }
+
+    if (outputStreamObj->hw_device_ctx)
+    {
+        av_buffer_unref(&outputStreamObj->hw_device_ctx);
     }
 
     if (outputStreamObj->outputFormatContext && !(outputStreamObj->outputFormatContext->oformat->flags & AVFMT_NOFILE))
@@ -448,26 +610,43 @@ int encodeOneFrame(
     //     }
     // }
 
-    // convert the input RGB to YUV format
-    ret = convertRGB2YUV(
-        outputStreamObj->RGB2YUVContext,
-        outputStreamObj->videoEncoderContext,
-        outputStreamObj->videoEncoderFrame, outputStreamObj->videoRGBFrame,
-        RGBImage, RGBImageSize);
+    // convert the input RGB to YUV format or NV12 format
+    if (outputStreamObj->hw_flag)
+    {
+        // if use gpu, convert rgb to nv12
+        ret = convertRGB2NV12(outputStreamObj, RGBImage, RGBImageSize);
+    }
+    else
+    {
+        // if use cpu, convert rgb to yuv
+        ret = convertRGB2YUV(outputStreamObj, RGBImage, RGBImageSize);
+    }
 
     // 1000 means the default time_base of the video stream, namely 1000ms
     // you can check it via outputStreamObj->outputVideoStream->time_base
     int64_tt curPTS = (outputStreamObj->outputframeNum * 1000 * outputStreamObj->outputvideoFramerateDen) / outputStreamObj->outputvideoFramerateNum;
     // outputStreamObj->videoEncoderFrame->pts = inputStreamObj->videoFrame->pts;
-    outputStreamObj->videoEncoderFrame->pts = curPTS;
+
     // av_log(NULL, AV_LOG_INFO, "---> frame->pts: %d\n", outputStreamObj->videoEncoderFrame->pts);
     // outputStreamObj->videoEncoderFrame->pkt_dts = inputStreamObj->videoFrame->pts;
     // outputStreamObj->videoEncoderFrame->pkt_pts = inputStreamObj->videoFrame->pts;
 
-    // send the frame to the encoder
-    ret = avcodec_send_frame(
-        outputStreamObj->videoEncoderContext,
-        outputStreamObj->videoEncoderFrame);
+    if (outputStreamObj->hw_flag) {
+        outputStreamObj->videoHWEncoderFrame->pts = curPTS;
+        // send the frame to the encoder
+        ret = avcodec_send_frame(
+            outputStreamObj->videoEncoderContext,
+            outputStreamObj->videoHWEncoderFrame);
+    }
+    else
+    {
+        outputStreamObj->videoEncoderFrame->pts = curPTS;
+        // send the frame to the encoder
+        ret = avcodec_send_frame(
+            outputStreamObj->videoEncoderContext,
+            outputStreamObj->videoEncoderFrame);
+    }
+
     if (ret < 0)
     {
         av_log(NULL, AV_LOG_INFO, "avcodec_send_frame failed %d %d.\n", ret, AVERROR(EINVAL));
@@ -490,7 +669,10 @@ int encodeOneFrame(
         }
         else if (ret < 0)
         {
-            av_log(NULL, AV_LOG_INFO, "avcodec_receive_packet failed %d.\n", ret);
+            char errbuf[200];
+            av_strerror(ret, errbuf, sizeof(errbuf));
+            av_log(NULL, AV_LOG_ERROR, "avcodec_receive_packet failed %d - %s.\n", ret, errbuf);
+
             return ret;
         }
 
@@ -498,6 +680,8 @@ int encodeOneFrame(
         //        outputStreamObj->videoPacketOut->pts, outputStreamObj->videoPacketOut->size);
         // log_packet(outputStreamObj->outputFormatContext, outputStreamObj->videoPacketOut, "out_1");
 
+        if (outputStreamObj->hw_flag)
+            outputStreamObj->videoPacketOut->pts += 40;
         // set the stream_index of one AVPacket
         outputStreamObj->videoPacketOut->stream_index = outputStreamObj->outputVideoStream->index;
 
@@ -558,21 +742,6 @@ int encodeOneFrame(
                    outputStreamObj->outputStreamPath);
         }
     }
-
-    // frame -> encoder context
-    // if (end_of_stream == 1) {
-    //     ret = avcodec_send_frame(
-    //         outputStreamObj->videoEncoderContext, NULL);
-    // } else {
-    //     ret = avcodec_send_frame(
-    //         outputStreamObj->videoEncoderContext, inputStreamObj->videoFrame);
-    // }
-    // if (ret < 0)
-    // {
-    //     av_log(NULL, AV_LOG_INFO, "avcodec_send_frame failed %d %d.\n", ret, AVERROR(EINVAL));
-    //     return ret;
-    // }
-
 
     return 0;
 }

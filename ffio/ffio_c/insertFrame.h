@@ -16,10 +16,6 @@
 
 typedef signed long int int64_tt;
 
-int convertRGB2YUV(struct SwsContext *RGB2YUVContext, AVCodecContext *videoCodecContext,
-                   AVFrame *inputFrame, AVFrame *RGBFrame,
-                   unsigned char *RGBImage, int RGBImageSize);
-
 typedef struct OutputStreamObj
 {
     int outputframeNum;
@@ -34,22 +30,33 @@ typedef struct OutputStreamObj
     int outputvideoFramerateNum; // to compute the fps of the stream, duration / Den
     int outputvideoFramerateDen;
 
+    int hw_flag; // indicate if using the hardware accelaration
+
+    AVBufferRef *hw_device_ctx;
+    // enum AVPixelFormat hw_pix_fmt;
+
     AVFormatContext *outputFormatContext;
     AVCodecContext *videoEncoderContext;
     AVCodec *videoEncoder;
-    AVFrame *videoEncoderFrame;
-    AVFrame *videoRGBFrame;
+    AVFrame *videoEncoderFrame;    // cpu frame
+    AVFrame *videoRGBFrame;        // cpu rgb frame
+    AVFrame *videoHWEncoderFrame;  // gpu hw frame
     AVPacket *videoPacketOut;
     AVStream *outputVideoStream;
-
-    AVRational outputVideoTimebase; // for computing pts and dts
-    // AVRational inputVideoTimebase;  // for computing pts and dts for output
 
     struct SwsContext *RGB2YUVContext;
 
 } OutputStreamObj;
 
 OutputStreamObj *newOutputStreamObj();
+
+int convertRGB2YUV(
+    OutputStreamObj *outputStreamObj,
+    unsigned char *RGBImage, int RGBImageSize);
+
+int convertRGB2NV12(
+    OutputStreamObj *outputStreamObj,
+    unsigned char *RGBImage, int RGBImageSize);
 
 /**
  *  initialize video encoder context and format context info
@@ -71,7 +78,10 @@ int initializeOutputStream(
     OutputStreamObj *outputStreamObj,
     const char *outputStreamPath,
     int framerateNum, int framerateDen, int frameWidth, int frameHeight,
-    const char *preset);
+    const char *preset, int hw_flag);
+
+static int set_hwframe_ctx(
+    AVCodecContext *ctx, AVBufferRef *hw_device_ctx, int width, int height);
 
 /**
  * to finalize the output stream context

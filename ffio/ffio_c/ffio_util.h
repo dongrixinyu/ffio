@@ -26,6 +26,8 @@
 #include "libavfilter/buffersink.h"
 #include "libavutil/mathematics.h"
 #include "libswscale/swscale.h"
+#include <libavutil/pixdesc.h>
+
 
 typedef struct Clicker
 {

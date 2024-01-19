@@ -32,7 +32,8 @@ while True:
     # initialize the input stream context
     while True:
         print('init input stream context ... ')
-        input_stream_obj = ffio.InputStreamParser(input_stream_path)
+        input_stream_obj = ffio.InputStreamParser(
+            input_stream_path, use_cuda=True)
         if input_stream_obj.stream_state is True:
             # it means that the input stream context has been opened successfully.
             # otherwise, the input stream can not be reached,
@@ -45,7 +46,7 @@ while True:
         print('init output stream context ... ')
         output_stream_obj = ffio.OutputStreamParser(
             output_stream_path, input_stream_obj=input_stream_obj,
-            preset="ultrafast")
+            preset="medium", use_cuda=True)
 
         # in the initialization phase of ffio.OutputStreamParser,
         # you can inherit the params from input stream context, such as fps, width, height
