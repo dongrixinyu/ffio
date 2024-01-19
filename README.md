@@ -5,7 +5,7 @@
 <img src="https://img.shields.io/docker/pulls/jionlp/pyffmpeg?color=brightgreen" />
 </p>
 
-<img src="https://github.com/dongrixinyu/ffio/blob/main/image/ffio_logo.jpg?raw=true" />
+<img src="https://github.com/dongrixinyu/ffio/blob/main/image/ffio_logo.jpg?raw=true" style="width:100px;height:70px">
 
 **ffio**, which means using **FF**mpeg to process **io** audio-video streams, is a stable and easy-to-use Python wrapper for FFmpeg-C-API, providing for Python users to handle video streams smoothly.
 
@@ -18,7 +18,7 @@ For Python users:
 > Most third python packages for wrapping FFmpeg only fork a subprocess using `subprocess` or `multiprocess` to initiate an `ffmpeg` command process by OS. The main problem of this method is the instability of the program. If processing the online video streams, you will find that many network blocking problems will have an influence on the `ffmpeg` command process, causing defunct which can not be detected by the main process.
 
 - 3. **support nvidia GPU**. You can choose if to use nvidia GPU by setting `use_cuda` to `True` or `False`.
-- 4. **support shared memory**. 
+- 4. **support shared memory**.
 - 5. **read and write SEI info**.
 
 # Installation
