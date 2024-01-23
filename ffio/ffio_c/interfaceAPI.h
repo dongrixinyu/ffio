@@ -13,7 +13,9 @@ void *newInputStreamObject();
 void *deleteInputStreamObject(void *inputStreamObj);
 
 void *initializeInputStreamObject(
-    void *inputStreamObj, const char *sourceStreamPath, int hw_flag);
+    void *inputStreamObj, const char *sourceStreamPath, int hw_flag,
+    const bool enableShm, const char *shmName, const int shmSize, const int shmOffset
+);
 void *finalizeInputStreamObject(void *inputStreamObj);
 
 int getInputStreamState(void *inputStreamObj);

@@ -35,7 +35,9 @@ lib_interface_api.deleteInputStreamObject.restype = ctypes.c_void_p
 
 # the source stream path must be in byte format, not Unicode
 lib_interface_api.initializeInputStreamObject.argtypes = [
-    ctypes.c_void_p, ctypes.c_char_p, ctypes.c_int]
+    ctypes.c_void_p, ctypes.c_char_p, ctypes.c_int,
+    ctypes.c_bool, ctypes.c_char_p, ctypes.c_int, ctypes.c_int
+]
 lib_interface_api.initializeInputStreamObject.restype = ctypes.c_void_p
 
 lib_interface_api.finalizeInputStreamObject.argtypes = [ctypes.c_void_p]
@@ -67,7 +69,8 @@ class InputStreamParser(object):
     """InputStreamParser: a Python wrapper for FFmpeg to initialize an video stream.
 
     """
-    def __init__(self, input_stream_path, use_cuda=False):
+    def __init__(self, input_stream_path, use_cuda=False,
+                 shm_name: str = None, shm_size: int = 0, shm_offset: int = 0):
 
         if use_cuda:
             self.use_cuda = 1
@@ -81,9 +84,22 @@ class InputStreamParser(object):
 
         start_time = time.time()
         # the input stream must be in byte format
-        self.input_stream_obj = ctypes.c_void_p(
-            lib_interface_api.initializeInputStreamObject(
-                self.input_stream_obj, self.input_stream_path.encode(), self.use_cuda))
+        if shm_name is None:
+            self.shm_enabled = False
+            self.input_stream_obj = ctypes.c_void_p(
+                lib_interface_api.initializeInputStreamObject(
+                    self.input_stream_obj, self.input_stream_path.encode(), self.use_cuda,
+                    False, "".encode(), 0, 0
+                )
+            )
+        else:
+            self.shm_enabled = True
+            self.input_stream_obj = ctypes.c_void_p(
+                lib_interface_api.initializeInputStreamObject(
+                    self.input_stream_obj, self.input_stream_path.encode(), self.use_cuda,
+                    True, shm_name.encode(), shm_size, shm_offset
+                )
+            )
         end_time = time.time()
 
         self.input_stream_state_flag = lib_interface_api.getInputStreamState(
