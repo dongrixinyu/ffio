@@ -28,6 +28,7 @@ float getInputVideoStreamAverageFPS(void *inputStreamObj);
 int getFPS(void *inputStreamObj);
 
 PyObject *decode1Frame(void *inputStreamObj);
+bool getOneFrameToShm(void *inputStreamObj, int shmOffset);
 
 // --------------------------------------------------------------
 // output stream functions

@@ -392,7 +392,26 @@ InputStreamObj *finalizeInputStream(InputStreamObj *inputStreamObj)
  *     -2 means other error concerning av_read_frame.
  *     -4 means packet mismatch & unable to seek to the next packet.
  */
-int decodeOneFrame(InputStreamObj *inputStreamObj)
+int decodeOneFrame(InputStreamObj *inputStreamObj){
+  int ret = _decodeOneFrame(inputStreamObj);
+  if(ret == 0){
+    // memcpy might be dismissed to accelerate.
+    memcpy(inputStreamObj->extractedFrame, inputStreamObj->videoRGBFrame->data[0], inputStreamObj->imageSize);
+    av_frame_unref(inputStreamObj->videoRGBFrame);
+  }
+  return ret;
+}
+
+int decodeOneFrameToShm(InputStreamObj *inputStreamObj, int shmOffset){
+  int ret = _decodeOneFrame(inputStreamObj);
+  if(ret == 0){
+    memcpy(inputStreamObj->extractedFrameShm + shmOffset, inputStreamObj->videoRGBFrame->data[0], inputStreamObj->imageSize);
+    av_frame_unref(inputStreamObj->videoRGBFrame);
+  }
+  return ret;
+}
+
+int _decodeOneFrame(InputStreamObj *inputStreamObj)
 {
     int ret;
     inputStreamObj->streamEnd = 0;
@@ -489,8 +508,6 @@ int decodeOneFrame(InputStreamObj *inputStreamObj)
                     //     (double)(end_time - start_time) / CLOCKS_PER_SEC);
 
                     inputStreamObj->streamEnd = 1; //  to the end
-                    memcpy(inputStreamObj->extractedFrame, inputStreamObj->videoRGBFrame->data[0], inputStreamObj->imageSize);
-                    av_frame_unref(inputStreamObj->videoRGBFrame);
 
                     // print log once every PRINT_FRAME_GAP frames
                     if (inputStreamObj->frameNum % PRINT_FRAME_GAP == 0)
@@ -573,10 +590,6 @@ int decodeOneFrame(InputStreamObj *inputStreamObj)
                     }
 
                     ret = convertYUV2RGB(inputStreamObj);
-
-                    // memcpy might be dismissed to accelerate.
-                    memcpy(inputStreamObj->extractedFrame, inputStreamObj->videoRGBFrame->data[0], inputStreamObj->imageSize);
-                    av_frame_unref(inputStreamObj->videoRGBFrame);
 
                     // print log once every PRINT_FRAME_GAP frames
                     if (inputStreamObj->frameNum % PRINT_FRAME_GAP == 0)

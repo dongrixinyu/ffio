@@ -63,6 +63,8 @@ lib_interface_api.getInputVideoStreamAverageFPS.restype = ctypes.c_float
 
 lib_interface_api.decode1Frame.argtypes = [ctypes.c_void_p]
 lib_interface_api.decode1Frame.restype = ctypes.py_object
+lib_interface_api.getOneFrameToShm.argtypes = [ctypes.c_void_p, ctypes.c_int]
+lib_interface_api.getOneFrameToShm.restype  = ctypes.c_bool
 
 
 class InputStreamParser(object):
@@ -230,6 +232,10 @@ class InputStreamParser(object):
             else:
                 # other errors
                 return 1
+
+    def get_one_frame_to_shm(self, offset=0) -> bool:
+        # get RGB bytes to shm.
+        return lib_interface_api.getOneFrameToShm(self.input_stream_obj, offset)
 
     def release_memory(self):
         # have to release memory manually cause this piece of code can not be released

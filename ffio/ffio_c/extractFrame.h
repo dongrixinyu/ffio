@@ -79,6 +79,8 @@ InputStreamObj *finalizeInputStream(InputStreamObj *inputStreamObj);
  * the result is stored at inputStreamObj->extractedFrame
  */
 int decodeOneFrame(InputStreamObj *inputStreamObj);
+int decodeOneFrameToShm(InputStreamObj *inputStreamObj, int shmOffset);
+int _decodeOneFrame(InputStreamObj *inputStreamObj);
 
 int save_rgb_to_file(InputStreamObj *inputStreamObj, int frame_num);
 

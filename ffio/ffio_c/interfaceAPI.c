@@ -131,6 +131,11 @@ PyObject *decode1Frame(void *inputStreamObj)
 
     // return (char *)curStreamObj->outputImage; // return the result RGB image bytes
 }
+bool getOneFrameToShm(void *inputStreamObj, int shmOffset){
+  InputStreamObj *curInputStreamObj = (InputStreamObj *)inputStreamObj;
+  int ret = decodeOneFrameToShm(curInputStreamObj, shmOffset);
+  return ret == 0 ? true : false;
+}
 
 void *newOutputStreamObject() {
     OutputStreamObj *curOutputStreamObj = newOutputStreamObj();

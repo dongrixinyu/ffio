@@ -82,10 +82,11 @@ $ pip install -e .
 
 Examples of how to use ffio are given in the hyperlinks:
 
-| function | description |
-|----------|-------------|
-| [decode video frames](https://github.com/dongrixinyu/ffio/blob/main/example/decode_frames.py) | To grab frames from an online stream or a video file suffixed by `mp4` or `flv`, etc. |
-| [encode video frames](https://github.com/dongrixinyu/ffio/blob/main/example/encode_frames.py) | To insert frames in Numpy format into a video stream |
+| function                                                                                      | description                                                                                |
+|-----------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------|
+| [decode video frames](https://github.com/dongrixinyu/ffio/blob/main/example/decode_frames.py) | To grab frames from an online stream or a video file <br/>suffixed by `mp4` or `flv`, etc. |
+| [decode video frames to shm](example/decode_frames_shm.py)                                    | Decoded rgb bytes will be written to SharedMemory.                                         |
+| [encode video frames](https://github.com/dongrixinyu/ffio/blob/main/example/encode_frames.py) | To insert frames in Numpy format into a video stream                                       |
 
 # TODO
 - read and insert SEI info.
