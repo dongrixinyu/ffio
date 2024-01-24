@@ -24,7 +24,8 @@ int main()
     // build a new struct object
     start_time = clock();
     InputStreamObj *curInputStreamObj = newInputStreamObj();
-    ret = initializeInputStream(curInputStreamObj, inputSourcePath, 1, "cuda"); // initialize a new stream
+    ret = initializeInputStream(curInputStreamObj, inputSourcePath, 1, "cuda",
+                                false, "", 0, 0); // initialize a new stream
     end_time = clock();
     printf("initializing decoder cost time=%f\n", (double)(end_time - start_time) / CLOCKS_PER_SEC);
     if (ret != 0)
@@ -113,7 +114,8 @@ int main()
     sleep(60);
     // ret = save_rgb_to_file(curInputStreamObj, 0);
 
-    ret = initializeInputStream(curInputStreamObj, inputSourcePath, 1, "cuda:0"); // initialize a new stream
+    ret = initializeInputStream(curInputStreamObj, inputSourcePath, 1, "cuda:0",
+                                false, "", 0, 0); // initialize a new stream
     end_time = clock();
     printf("cur time: %ld\n", end_time);
     printf("initializing cost time=%f\n", (double)(end_time - start_time) / CLOCKS_PER_SEC);

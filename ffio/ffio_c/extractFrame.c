@@ -34,6 +34,11 @@ InputStreamObj *newInputStreamObj()
 
     inputStreamObj->extractedFrame = NULL; // the extracted frame
 
+    inputStreamObj->extractedFrameShm = NULL;
+    inputStreamObj->shmEnabled        = false;
+    inputStreamObj->shmFd             = -1;
+    inputStreamObj->shmSize           = 0;
+
     inputStreamObj->clicker = NULL;
 
     return inputStreamObj;
@@ -119,7 +124,8 @@ int convertYUV2RGB(InputStreamObj *inputStreamObj)
  *      5 means failing to allocate memory for swsContext(deleted)
  */
 int initializeInputStream(
-    InputStreamObj *inputStreamObj, const char *streamPath, int hw_flag, const char *hw_device)
+    InputStreamObj *inputStreamObj, const char *streamPath, int hw_flag, const char *hw_device,
+    const bool enableShm, const char *shmName, const int shmSize, const int shmOffset )
 {
     int ret;
 
@@ -263,6 +269,22 @@ int initializeInputStream(
     inputStreamObj->imageSize = inputStreamObj->inputVideoStreamWidth * inputStreamObj->inputVideoStreamHeight * channelNum;
     inputStreamObj->extractedFrame = (unsigned char *)malloc(inputStreamObj->imageSize);
     av_log(NULL, AV_LOG_INFO, "stream imagesize: %d\n", inputStreamObj->imageSize);
+    if(enableShm){
+      inputStreamObj->shmEnabled = true;
+      inputStreamObj->shmSize    = shmSize;
+      inputStreamObj->shmFd      = shm_open(shmName, O_RDWR, 0666);
+      if(inputStreamObj->shmFd == -1){
+        av_log(NULL, AV_LOG_ERROR, "%s\n", "can not create shm fd.");
+        return 5;
+      }
+      inputStreamObj->extractedFrameShm = mmap(0, shmSize, PROT_WRITE, MAP_SHARED, inputStreamObj->shmFd, shmOffset);
+      if(inputStreamObj->extractedFrameShm == MAP_FAILED){
+        av_log(NULL, AV_LOG_ERROR, "%s\n", "can not map shm.");
+        return 5;
+      }
+    }else{
+      inputStreamObj->shmEnabled = false;
+    }
     inputStreamObj->videoRGBFrame = av_frame_alloc();
 
     inputStreamObj->inputStreamStateFlag = 1;
@@ -338,6 +360,11 @@ InputStreamObj *finalizeInputStream(InputStreamObj *inputStreamObj)
     inputStreamObj->extractedFrame = NULL;
     inputStreamObj->videoCodec = NULL;
 
+    if(inputStreamObj->shmEnabled){
+      munmap(inputStreamObj->extractedFrameShm, inputStreamObj->shmSize);
+      close (inputStreamObj->shmFd);
+    }
+
     inputStreamObj->inputVideoStreamID = -1; // which stream index to parse in the video
     inputStreamObj->inputVideoStreamWidth = 0;
     inputStreamObj->inputVideoStreamHeight = 0;
@@ -365,7 +392,26 @@ InputStreamObj *finalizeInputStream(InputStreamObj *inputStreamObj)
  *     -2 means other error concerning av_read_frame.
  *     -4 means packet mismatch & unable to seek to the next packet.
  */
-int decodeOneFrame(InputStreamObj *inputStreamObj)
+int decodeOneFrame(InputStreamObj *inputStreamObj){
+  int ret = _decodeOneFrame(inputStreamObj);
+  if(ret == 0){
+    // memcpy might be dismissed to accelerate.
+    memcpy(inputStreamObj->extractedFrame, inputStreamObj->videoRGBFrame->data[0], inputStreamObj->imageSize);
+    av_frame_unref(inputStreamObj->videoRGBFrame);
+  }
+  return ret;
+}
+
+int decodeOneFrameToShm(InputStreamObj *inputStreamObj, int shmOffset){
+  int ret = _decodeOneFrame(inputStreamObj);
+  if(ret == 0){
+    memcpy(inputStreamObj->extractedFrameShm + shmOffset, inputStreamObj->videoRGBFrame->data[0], inputStreamObj->imageSize);
+    av_frame_unref(inputStreamObj->videoRGBFrame);
+  }
+  return ret;
+}
+
+int _decodeOneFrame(InputStreamObj *inputStreamObj)
 {
     int ret;
     inputStreamObj->streamEnd = 0;
@@ -462,8 +508,6 @@ int decodeOneFrame(InputStreamObj *inputStreamObj)
                     //     (double)(end_time - start_time) / CLOCKS_PER_SEC);
 
                     inputStreamObj->streamEnd = 1; //  to the end
-                    memcpy(inputStreamObj->extractedFrame, inputStreamObj->videoRGBFrame->data[0], inputStreamObj->imageSize);
-                    av_frame_unref(inputStreamObj->videoRGBFrame);
 
                     // print log once every PRINT_FRAME_GAP frames
                     if (inputStreamObj->frameNum % PRINT_FRAME_GAP == 0)
@@ -546,10 +590,6 @@ int decodeOneFrame(InputStreamObj *inputStreamObj)
                     }
 
                     ret = convertYUV2RGB(inputStreamObj);
-
-                    // memcpy might be dismissed to accelerate.
-                    memcpy(inputStreamObj->extractedFrame, inputStreamObj->videoRGBFrame->data[0], inputStreamObj->imageSize);
-                    av_frame_unref(inputStreamObj->videoRGBFrame);
 
                     // print log once every PRINT_FRAME_GAP frames
                     if (inputStreamObj->frameNum % PRINT_FRAME_GAP == 0)

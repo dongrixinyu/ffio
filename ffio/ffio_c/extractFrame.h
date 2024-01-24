@@ -52,6 +52,11 @@ typedef struct InputStreamObj
 
     unsigned char *extractedFrame; // the extracted frame
 
+    unsigned char *extractedFrameShm;
+    bool shmEnabled;
+    int  shmFd;
+    int  shmSize;
+
     struct Clicker *clicker;
 
 } InputStreamObj;
@@ -63,7 +68,8 @@ InputStreamObj *newInputStreamObj();
 
 int initializeInputStream(
     InputStreamObj *inputStreamObj, const char *streamPath,
-    int hw_flag, const char *hw_device);
+    int hw_flag, const char *hw_device,
+    const bool enableShm, const char *shmName, const int shmSize, const int shmOffset);
 
 InputStreamObj *finalizeInputStream(InputStreamObj *inputStreamObj);
 
@@ -73,6 +79,8 @@ InputStreamObj *finalizeInputStream(InputStreamObj *inputStreamObj);
  * the result is stored at inputStreamObj->extractedFrame
  */
 int decodeOneFrame(InputStreamObj *inputStreamObj);
+int decodeOneFrameToShm(InputStreamObj *inputStreamObj, int shmOffset);
+int _decodeOneFrame(InputStreamObj *inputStreamObj);
 
 int save_rgb_to_file(InputStreamObj *inputStreamObj, int frame_num);
 

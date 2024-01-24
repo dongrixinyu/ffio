@@ -46,6 +46,7 @@ add_library(interfaceAPI SHARED
             ${PROJECT_SOURCE_DIR}/ffio/ffio_c/ffio_util.c)
 
 target_link_libraries(interfaceAPI
+    rt                                 # for shared memory support
     ${PYTHON_LIBRARIES}
     ${FFMPEG_AVUTIL_LIBRARIES}
     ${FFMPEG_AVFILTER_LIBRARIES}
