@@ -5,7 +5,8 @@ FROM ubuntu:20.04
 # cuda version should be modified in accordance with the actual GPU card
 ENV NVIDIA_BASE_URL=https://us.download.nvidia.com/tesla
 ENV DRIVER_VERSION=470.223.02
-ENV CUDA_VERSION=12.1.0
+ENV CUDA_VERSION=12-3
+ENV CUDA_DELIM_VERSION=12
 ENV FFMPEG_VERSION=6.1.1
 ENV PYTHON_VERSION=3.10.13
 ENV PYTHON_DELIM_VERSION=3.10
@@ -35,9 +36,10 @@ RUN wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86
 RUN dpkg -i cuda-keyring_1.1-1_all.deb
 RUN apt-get update
 # the command must be run seperatedly
-RUN apt-get install cuda-toolkit -y
+# if install a specific cuda version, use apt-get install cuda-toolkit-$CUDA_VERSION -y
+RUN apt-get install cuda-toolkit-$CUDA_VERSION -y
 RUN apt-get install nvidia-gds -y
-ENV PATH=/usr/local/cuda-12/bin${PATH:+:${PATH}}
+ENV PATH=/usr/local/cuda-$CUDA_DELIM_VERSION/bin${PATH:+:${PATH}}
 
 
 # koisi-io config to request github
