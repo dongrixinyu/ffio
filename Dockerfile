@@ -8,7 +8,8 @@ ENV DRIVER_VERSION=470.223.02
 ENV CUDA_VERSION=12.1.0
 ENV FFMPEG_VERSION=6.1.1
 ENV PYTHON_VERSION=3.10.13
-ENV NV_CODEC_HEADERS_VERSION=n11.1.5.2
+ENV PYTHON_DELIM_VERSION=3.10
+ENV NV_CODEC_HEADERS_VERSION=n11.1.5.3
 
 WORKDIR /root
 
@@ -38,11 +39,18 @@ RUN apt-get install cuda-toolkit -y
 RUN apt-get install nvidia-gds -y
 ENV PATH=/usr/local/cuda-12/bin${PATH:+:${PATH}}
 
+
+# koisi-io config to request github
+# ENV http_proxy=http://192.168.126.62:6152
+# ENV https_proxy=$http_proxy
+
+
 # install ffmpeg from source code and check its version
 
 # dependency step: install nv-codec-headers
-RUN git clone -b $NV_CODEC_HEADERS_VERSION https://gitee.com/ak17/nv-codec-headers.git nv-codec-headers
+RUN git clone https://github.com/FFmpeg/nv-codec-headers
 WORKDIR /root/nv-codec-headers
+RUN git checkout $NV_CODEC_HEADERS_VERSION
 RUN make -j$(nproc) && make install
 
 RUN apt-get install libx264-dev -y
@@ -65,6 +73,8 @@ RUN ./configure \
     --enable-nonfree \
     --enable-cuda-nvcc \
     --enable-libnpp \
+    --enable-nvenc \
+    --enable-cuvid \
     --disable-debug \
     --disable-asm \
     --disable-stripping \
@@ -81,7 +91,7 @@ RUN make install
 # root@1e61361abac7:/usr# find . -name libavcodec.so
 # ./lib/x86_64-linux-gnu/libavcodec.so
 
-# install python 3.10
+# install python
 WORKDIR /root/
 RUN apt install build-essential zlib1g-dev libncurses5-dev libgdbm-dev \
     libnss3-dev libssl-dev libreadline-dev libffi-dev libsqlite3-dev libbz2-dev -y
@@ -92,20 +102,17 @@ RUN ./configure --enable-optimizations --enable-shared
 RUN make -j $(nproc)
 # to make it overwrite the default python in system
 RUN make install
-RUN ln -s /usr/local/bin/python3.10 /usr/local/bin/python
+RUN ln -s /usr/local/bin/python$PYTHON_DELIM_VERSION /usr/local/bin/python
 
-# install pip for python3.10
+# install pip for python
 RUN apt install curl -y
 ENV LD_LIBRARY_PATH=/usr/local/lib:/root/Python-$PYTHON_VERSION
-RUN curl -sS https://bootstrap.pypa.io/get-pip.py | python3.10
+RUN curl -sS https://bootstrap.pypa.io/get-pip.py | python$PYTHON_DELIM_VERSION
 RUN rm /usr/local/bin/pip
-RUN ln -s /usr/local/bin/pip3.10 /usr/local/bin/pip
+RUN ln -s /usr/local/bin/pip$PYTHON_DELIM_VERSION /usr/local/bin/pip
 
 ENV LD_LIBRARY_PATH=/usr/local/lib:/usr/local/lib64/:/root/Python-${PYTHON_VERSION}/:/usr/local/lib/x86_64-linux-gnu
 
-# koisi-io config
-# ENV http_proxy=http://192.168.126.62:6152
-# ENV https_proxy=$http_proxy
 
 # install ffio
 WORKDIR /root
