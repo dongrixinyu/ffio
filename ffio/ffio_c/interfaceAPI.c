@@ -20,7 +20,8 @@ void *deleteInputStreamObject(void *inputStreamObj)
 }
 
 void *initializeInputStreamObject(
-    void *inputStreamObj, const char *sourceStreamPath, int hw_flag)
+    void *inputStreamObj, const char *sourceStreamPath, int hw_flag,
+    const bool enableShm, const char *shmName, const int shmSize, const int shmOffset)
 {
     int ret;
     InputStreamObj *curInputStreamObj = (InputStreamObj *)inputStreamObj;
@@ -28,7 +29,8 @@ void *initializeInputStreamObject(
     // initialize log callback
     av_log_set_callback(av_log_ffio_callback);
 
-    ret = initializeInputStream(curInputStreamObj, sourceStreamPath, hw_flag, "cuda");
+    ret = initializeInputStream(curInputStreamObj, sourceStreamPath, hw_flag, "cuda",
+                                enableShm, shmName, shmSize, shmOffset);
 
     if (ret != 0) // failed to open stream context
     {
@@ -128,6 +130,11 @@ PyObject *decode1Frame(void *inputStreamObj)
     }
 
     // return (char *)curStreamObj->outputImage; // return the result RGB image bytes
+}
+bool getOneFrameToShm(void *inputStreamObj, int shmOffset){
+  InputStreamObj *curInputStreamObj = (InputStreamObj *)inputStreamObj;
+  int ret = decodeOneFrameToShm(curInputStreamObj, shmOffset);
+  return ret == 0 ? true : false;
 }
 
 void *newOutputStreamObject() {

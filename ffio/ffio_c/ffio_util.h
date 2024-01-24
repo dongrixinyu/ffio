@@ -11,6 +11,9 @@
 #include <time.h>
 #include <sys/types.h>
 #include <pwd.h>
+#include <fcntl.h>
+#include <sys/mman.h>
+#include <stdbool.h>
 
 #include "libavutil/opt.h"
 #include "libavutil/bprint.h"
