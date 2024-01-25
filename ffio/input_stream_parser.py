@@ -233,7 +233,7 @@ class InputStreamParser(object):
                 # other errors
                 return 1
 
-    def get_one_frame_to_shm(self, offset=0) -> bool:
+    def decode_one_frame_to_shm(self, offset=0) -> bool:
         # get RGB bytes to shm.
         return lib_interface_api.getOneFrameToShm(self.input_stream_obj, offset)
 

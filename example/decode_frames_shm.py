@@ -23,7 +23,7 @@ rgb_index  = idx % 30
 # you can specify an offset to place the RGB bytes in the desired location.
 # Just do it like this:
 rgbs = np.ndarray((30, 1080, 1920, 3), dtype=np.uint8, buffer=your_shm.buf, offset=some_data_bytes)
-while stream_obj.get_one_frame_to_shm( offset=(rgb_index * 1080 * 1920 * 3) ):
+while stream_obj.decode_one_frame_to_shm( offset=(rgb_index * 1080 * 1920 * 3) ):
     # Access the rgb data:
     frame = rgbs[rgb_index]
 
