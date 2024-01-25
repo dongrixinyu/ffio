@@ -484,7 +484,7 @@ int initializeOutputStream(
         av_log(NULL, AV_LOG_ERROR, "%s\n", "can not create shm fd.");
         return 5;
       }
-      outputStreamObj->shmForFrame = mmap(0, shmSize, PROT_WRITE, MAP_SHARED, outputStreamObj->shmFd, shmOffset);
+      outputStreamObj->shmForFrame = mmap(0, shmSize, PROT_READ, MAP_SHARED, outputStreamObj->shmFd, shmOffset);
       if(outputStreamObj->shmForFrame == MAP_FAILED){
         av_log(NULL, AV_LOG_ERROR, "%s\n", "can not map shm.");
         return 5;
