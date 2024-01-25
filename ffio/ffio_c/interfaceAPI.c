@@ -215,3 +215,9 @@ int encode1Frame(void *outputStreamObj, PyObject *PyRGBImage)
 
     return ret;
 }
+bool encodeOneFrameFromShm(void *outputStreamObj, int shmOffset){
+  OutputStreamObj *curOutputStreamObj = (OutputStreamObj *)outputStreamObj;
+  int ret = encodeOneFrame(curOutputStreamObj, curOutputStreamObj->shmForFrame +shmOffset,
+                           curOutputStreamObj->sizeOfImageBytes, 0);
+  return ret == 0 ? true : false;
+}

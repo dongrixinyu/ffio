@@ -59,6 +59,8 @@ lib_interface_api.getOutputStreamState.restype = ctypes.c_int
 
 lib_interface_api.encode1Frame.argtypes = [ctypes.c_void_p, ctypes.py_object]
 lib_interface_api.encode1Frame.restype = ctypes.c_int
+lib_interface_api.encodeOneFrameFromShm.argtypes = [ctypes.c_void_p, ctypes.c_int]
+lib_interface_api.encodeOneFrameFromShm.restype  = ctypes.c_bool
 
 
 class OutputStreamParser(object):
@@ -238,6 +240,10 @@ class OutputStreamParser(object):
             raise ValueError('the type of the given `rgb_image` is invalid.')
 
         return ret
+
+    def encode_one_frame_from_shm(self, offset=0) -> bool:
+        # get RGB bytes to shm.
+        return lib_interface_api.encodeOneFrameFromShm(self.output_stream_obj, offset)
 
     def release_memory(self):
         # have to release memory manually cause this piece of code can not be released

@@ -46,3 +46,4 @@ void *finalizeOutputStreamObject(void *outputStreamObj);
 int getOutputStreamState(void *outputStreamObj);
 
 int encode1Frame(void *outputStreamObj, PyObject *PyRGBImage);
+bool encodeOneFrameFromShm(void *outputStreamObj, int shmOffset);
