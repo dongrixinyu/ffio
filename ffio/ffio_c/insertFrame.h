@@ -26,6 +26,7 @@ typedef struct OutputStreamObj
     int outputVideoStreamID; // which stream index to parse in the video, default 0.
     int outputVideoStreamWidth;
     int outputVideoStreamHeight;
+    int sizeOfImageBytes;
 
     int outputvideoFramerateNum; // to compute the fps of the stream, duration / Den
     int outputvideoFramerateDen;
@@ -45,6 +46,11 @@ typedef struct OutputStreamObj
     AVStream *outputVideoStream;
 
     struct SwsContext *RGB2YUVContext;
+
+    unsigned char *shmForFrame;
+    bool shmEnabled;
+    int  shmFd;
+    int  shmSize;
 
 } OutputStreamObj;
 
@@ -78,7 +84,8 @@ int initializeOutputStream(
     OutputStreamObj *outputStreamObj,
     const char *outputStreamPath,
     int framerateNum, int framerateDen, int frameWidth, int frameHeight,
-    const char *preset, int hw_flag);
+    const char *preset, int hw_flag,
+    const bool enableShm, const char *shmName, const int shmSize, const int shmOffset);
 
 static int set_hwframe_ctx(
     AVCodecContext *ctx, AVBufferRef *hw_device_ctx, int width, int height);

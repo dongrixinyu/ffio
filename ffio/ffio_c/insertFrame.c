@@ -103,6 +103,12 @@ OutputStreamObj *newOutputStreamObj()
     // rgb -> yuv format
     outputStreamObj->RGB2YUVContext = NULL;
 
+    outputStreamObj->shmForFrame       = NULL;
+    outputStreamObj->shmEnabled        = false;
+    outputStreamObj->shmFd             = -1;
+    outputStreamObj->shmSize           = 0;
+    outputStreamObj->sizeOfImageBytes  = 0;
+
     return outputStreamObj;
 }
 
@@ -149,8 +155,9 @@ int initializeOutputStream(
     OutputStreamObj *outputStreamObj,
     const char *outputStreamPath,
     int framerateNum, int framerateDen, int frameWidth, int frameHeight,
-    const char *preset, int hw_flag)
-{
+    const char *preset, int hw_flag,
+    const bool enableShm, const char *shmName, const int shmSize, const int shmOffset
+){
     int ret;
 
     outputStreamObj->hw_flag = hw_flag;
@@ -469,6 +476,24 @@ int initializeOutputStream(
         return 10;
     }
 
+    if(enableShm){
+      outputStreamObj->shmEnabled = true;
+      outputStreamObj->shmSize    = shmSize;
+      outputStreamObj->shmFd      = shm_open(shmName, O_RDONLY, 0666);
+      if(outputStreamObj->shmFd == -1){
+        av_log(NULL, AV_LOG_ERROR, "%s\n", "can not create shm fd.");
+        return 5;
+      }
+      outputStreamObj->shmForFrame = mmap(0, shmSize, PROT_WRITE, MAP_SHARED, outputStreamObj->shmFd, shmOffset);
+      if(outputStreamObj->shmForFrame == MAP_FAILED){
+        av_log(NULL, AV_LOG_ERROR, "%s\n", "can not map shm.");
+        return 5;
+      }
+    }else{
+      outputStreamObj->shmEnabled = false;
+    }
+    outputStreamObj->sizeOfImageBytes = outputStreamObj->outputVideoStreamWidth * outputStreamObj->outputVideoStreamHeight * 3;
+
     outputStreamObj->outputStreamStateFlag = 1;
 
     return 0;
@@ -543,6 +568,11 @@ OutputStreamObj *finalizeOutputStream(OutputStreamObj *outputStreamObj)
     outputStreamObj->outputvideoFramerateDen = 0;
 
     memset(outputStreamObj->outputStreamPath, '0', 300);
+
+    if(outputStreamObj->shmEnabled){
+      munmap(outputStreamObj->shmForFrame, outputStreamObj->shmSize);
+      close (outputStreamObj->shmFd);
+    }
 
     av_log(NULL, AV_LOG_INFO, "%s", "finished unref output video stream context.\n");
 

@@ -37,7 +37,9 @@ lib_interface_api.deleteOutputStreamObject.restype = ctypes.c_void_p
 lib_interface_api.initializeOutputStreamObject.argtypes = [
     ctypes.c_void_p, ctypes.c_char_p,
     ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int,
-    ctypes.c_char_p, ctypes.c_int]
+    ctypes.c_char_p, ctypes.c_int,
+    ctypes.c_bool, ctypes.c_char_p, ctypes.c_int, ctypes.c_int
+]
 lib_interface_api.initializeOutputStreamObject.restype = ctypes.c_void_p
 
 lib_interface_api.finalizeOutputStreamObject.argtypes = [ctypes.c_void_p]
@@ -78,8 +80,9 @@ class OutputStreamParser(object):
 
     """
     def __init__(self, output_stream_path, input_stream_obj=None,
-                framerate_num=0, framerate_den=0, image_width=0, image_height=0,
-                preset="ultrafast", use_cuda=False):
+                 framerate_num=0, framerate_den=0, image_width=0, image_height=0,
+                 preset="ultrafast", use_cuda=False,
+                 shm_name: str = None, shm_size: int = 0, shm_offset: int = 0):
 
         # allocate memory to new a streamObj
         self.output_stream_obj = ctypes.c_void_p(lib_interface_api.newOutputStreamObject())
@@ -92,11 +95,11 @@ class OutputStreamParser(object):
 
         start_time = time.time()
         if input_stream_obj is not None:
-            self.output_stream_video_width = input_stream_obj.width
-            self.output_stream_video_height = input_stream_obj.height
+            self.output_stream_video_width         = input_stream_obj.width
+            self.output_stream_video_height        = input_stream_obj.height
             self.output_stream_video_framerate_num = input_stream_obj.framerate_num
             self.output_stream_video_framerate_den = input_stream_obj.framerate_den
-            self.output_stream_video_average_fps = \
+            self.output_stream_video_average_fps   = \
                 self.output_stream_video_framerate_num / self.output_stream_video_framerate_den
 
         else:
@@ -130,7 +133,12 @@ class OutputStreamParser(object):
                 self.output_stream_video_width,
                 self.output_stream_video_height,
                 self.output_stream_video_preset.encode(),
-                self.use_cuda))
+                self.use_cuda,
+                False       if shm_name is None else True,
+                "".encode() if shm_name is None else shm_name.encode(),
+                shm_size, shm_offset
+            )
+        )
         end_time = time.time()
 
         self.output_stream_state_flag = lib_interface_api.getOutputStreamState(
