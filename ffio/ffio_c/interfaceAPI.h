@@ -38,9 +38,12 @@ void *deleteOutputStreamObject(void *outputStreamObj);
 void *initializeOutputStreamObject(
     void *outputStreamObj, const char *outputStreamPath,
     int framerateNum, int framerateDen, int frameWidth, int frameHeight,
-    const char *preset, int hwFlag);
+    const char *preset, int hwFlag,
+    const bool enableShm, const char *shmName, const int shmSize, const int shmOffset
+);
 void *finalizeOutputStreamObject(void *outputStreamObj);
 
 int getOutputStreamState(void *outputStreamObj);
 
 int encode1Frame(void *outputStreamObj, PyObject *PyRGBImage);
+bool encodeOneFrameFromShm(void *outputStreamObj, int shmOffset);

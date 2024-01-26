@@ -158,8 +158,9 @@ void *deleteOutputStreamObject(void *outputStreamObj) {
 void *initializeOutputStreamObject(
     void *outputStreamObj, const char *outputStreamPath,
     int framerateNum, int framerateDen, int frameWidth, int frameHeight,
-    const char *preset, int hwFlag)
-{
+    const char *preset, int hwFlag,
+    const bool enableShm, const char *shmName, const int shmSize, const int shmOffset
+){
     int ret;
 
     OutputStreamObj *curOutputStreamObj = (OutputStreamObj *)outputStreamObj;
@@ -169,7 +170,8 @@ void *initializeOutputStreamObject(
 
     ret = initializeOutputStream(
         curOutputStreamObj, outputStreamPath,
-        framerateNum, framerateDen, frameWidth, frameHeight, preset, hwFlag);
+        framerateNum, framerateDen, frameWidth, frameHeight, preset, hwFlag,
+        enableShm, shmName, shmSize, shmOffset);
     if (ret != 0) // failed to open stream context
     {
         curOutputStreamObj = finalizeOutputStream(curOutputStreamObj);
@@ -212,4 +214,10 @@ int encode1Frame(void *outputStreamObj, PyObject *PyRGBImage)
     //        curOutputStreamObj->outputframeNum);
 
     return ret;
+}
+bool encodeOneFrameFromShm(void *outputStreamObj, int shmOffset){
+  OutputStreamObj *curOutputStreamObj = (OutputStreamObj *)outputStreamObj;
+  int ret = encodeOneFrame(curOutputStreamObj, curOutputStreamObj->shmForFrame +shmOffset,
+                           curOutputStreamObj->sizeOfImageBytes, 0);
+  return ret == 0 ? true : false;
 }
