@@ -12,20 +12,20 @@
 # Features
 
 For Python users:
-- 1. **Easy to use**. You do not need to tackle many complex audio-video problems concerning FFmpeg any more.[**examples**](https://github.com/dongrixinyu/ffio/tree/main/example)
-- 2. **Stable subprocess management**. When fork a Python subprocess to process an online video stream, you have no need to worry about the memory leak, error of online stream, abnormal suspension of subprocess, etc.
-
-> Most third python packages for wrapping FFmpeg only fork a subprocess using `subprocess` or `multiprocess` to initiate an `ffmpeg` command process by OS. The main problem of this method is the instability of the program. If processing the online video streams, you will find that many network blocking problems will have an influence on the `ffmpeg` command process, causing defunct which can not be detected by the main process.
+- 1. [**Easy to use**](https://github.com/dongrixinyu/ffio/tree/main/example). You do not need to tackle many complex audio-video problems concerning FFmpeg any more.
+- 2. [**Stable subprocess management**](). When fork a Python subprocess to process an online video stream, you have no need to worry about the memory leak, error of online stream, abnormal suspension of subprocess, etc.
 
 - 3. **support nvidia GPU**. You can choose if to use nvidia GPU by setting `use_cuda` to `True` or `False`.
-- 4. **support shared memory**.
+- 4. [**support shared memory**](https://github.com/dongrixinyu/ffio/blob/main/example/decode_frames_shm.py). When decoding one frame from a video stream, the decoded RGB frame(usually in numpy format) could be stored in a shared memory that can be accessed by other process. Same to the encoded frame.
 - 5. **read and write SEI info**.
 
 # Installation
 
+- **ffio** depends on `FFmpeg` dynamic linking libraries. So it's nessesary to install FFmpeg before ffio.
+
 We provide 3 methods to install ffio.
 
-If you are not familiar with C, not willing to deal with anything about C:
+If you are not familiar with C, and not willing to deal with anything about C:
 
 ## 1. pull docker image from docker hub (**recommended**)
 ```
@@ -50,14 +50,14 @@ You can first clone this repo via git, and then build a docker with all libs ins
 ```
 $ git clone https://github.com/dongrixinyu/ffio
 $ cd ffio
-$ docker build -t jionlp/ffio:vv .
+$ docker build -t jionlp/ffio:(your custom version) .
 ```
 
 If you wanna run ffio in your host OS, rather than a docker container, you can
 
 ## 3. Install ffio by yourself
 
-This method is a little bit difficult if you are not familiar with `gcc`, `make`, `cmake` and trivials concerning compilation. But if you can configure `ffmpeg, python include path, dynamic library path` smoothly, just take a try.
+This method is a little bit difficult if you are not familiar with `gcc`, `make`, `cmake` and trivials concerning `ffmpeg` compilation. But if you can configure `ffmpeg, python include path, dynamic library path` smoothly, just take a try.
 
 #### Pre-Installation-requirements
 
@@ -67,16 +67,15 @@ This method is a little bit difficult if you are not familiar with `gcc`, `make`
 
 #### Installation method
 
-This repo is now still in experiment and may not be that stable, so I recommend you to install ffio in method 1:
+- install FFmpeg from source code - [refer to Dockerfile](https://github.com/dongrixinyu/ffio/blob/main/Dockerfile) or documents on other websites.
 
-- github + pip
+- install ffio via github + pip
 ```
 $ git clone https://github.com/dongrixinyu/ffio
 $ cd ffio
 $ ./compiler.sh  # you should configure all kinds of paths according to your OS environment, otherwise you would encounter errors.
 $ pip install -e .
 ```
-
 
 # Usage
 
@@ -91,7 +90,7 @@ Examples of how to use ffio are given in the hyperlinks:
 
 # TODO
 - read and insert SEI info.
-- enable Nvidia cuda for encoding and decoding.
+- enable Nvidia cuda for encoding and decoding, pixel format converting.
 - functions concerning audio and subtitle.
 
 # Reference
