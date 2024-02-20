@@ -26,7 +26,8 @@ while True:
     # initialize the input stream context
     while True:
         print('init ... ')
-        input_stream_obj = ffio.InputStreamParser(input_stream_path, use_cuda=False)
+        input_stream_obj = ffio.InputStreamParser(
+            input_stream_path, use_cuda=False, measuring_fps=True)
         if input_stream_obj.stream_state is True:
             # it means that the stream context has been opened successfully.
             # otherwise, the stream can not be reached,
@@ -47,6 +48,9 @@ while True:
     # to get frames in a loop until encountering an error
     while True:
         frame = input_stream_obj.decode_one_frame(image_format='numpy')
+        if input_stream_obj.number % 200 == 0:
+            print('measured_fps: ', input_stream_obj.measured_fps)
+
         if type(frame) is int:
             if frame == -5:
                 input_stream_state = input_stream_obj.stream_state

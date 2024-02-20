@@ -21,6 +21,7 @@ from PIL import Image
 import numpy as np
 
 from ffio import logging
+from ffio import TimeIt
 
 
 DIR_PATH = os.path.dirname(os.path.abspath(__file__))
@@ -64,7 +65,7 @@ lib_interface_api.getInputVideoStreamAverageFPS.restype = ctypes.c_float
 lib_interface_api.decode1Frame.argtypes = [ctypes.c_void_p]
 lib_interface_api.decode1Frame.restype = ctypes.py_object
 lib_interface_api.getOneFrameToShm.argtypes = [ctypes.c_void_p, ctypes.c_int]
-lib_interface_api.getOneFrameToShm.restype  = ctypes.c_bool
+lib_interface_api.getOneFrameToShm.restype = ctypes.c_bool
 
 
 class InputStreamParser(object):
@@ -72,12 +73,22 @@ class InputStreamParser(object):
 
     """
     def __init__(self, input_stream_path, use_cuda=False,
-                 shm_name: str = None, shm_size: int = 0, shm_offset: int = 0):
+                 shm_name: str = None, shm_size: int = 0, shm_offset: int = 0,
+                 measuring_fps=False):
 
         if use_cuda:
             self.use_cuda = 1
         else:
             self.use_cuda = 0
+
+        # measuring the fps of the input video stream
+        self.input_stream_video_measuring_fps = 0
+        self.fps_time_list = []
+        self.measuring_fps = measuring_fps
+        if measuring_fps:
+            self.time_it = TimeIt('measuring_fps', verbose=False)
+        else:
+            self.time_it = None
 
         # allocate memory to new a streamObj
         self.input_stream_obj = ctypes.c_void_p(lib_interface_api.newInputStreamObject())
@@ -107,7 +118,8 @@ class InputStreamParser(object):
         self.input_stream_state_flag = lib_interface_api.getInputStreamState(
             self.input_stream_obj)
 
-        if self.input_stream_state_flag == 1:  # 1 means successfully opening a stream context
+        if self.input_stream_state_flag == 1:
+            # 1 means successfully opening a input stream context
             print("initialization of input stream cost {:.4f} seconds".format(end_time-start_time))
 
             self.input_stream_video_width = lib_interface_api.getInputVideoStreamWidth(
@@ -132,6 +144,9 @@ class InputStreamParser(object):
                 3, self.input_stream_buffer_size))
 
             self.input_frame_number = 0
+
+            if self.measuring_fps:
+                self.time_it.start()
 
         else:
             print("failed to initialize the input stream. cost {:.4f} seconds".format(
@@ -165,6 +180,18 @@ class InputStreamParser(object):
         return self.input_stream_video_average_fps
 
     @property
+    def measured_fps(self):
+        # if measuring_fps set to True, this param is computed based on actual statistics
+        # otherwise will be set to 0
+        if not self.measuring_fps:
+            return 0
+        else:
+            self.input_stream_video_measuring_fps = \
+                len(self.fps_time_list) / sum(self.fps_time_list)
+
+            return self.input_stream_video_measuring_fps
+
+    @property
     def framerate_num(self):
         return self.input_stream_video_framerate_num
 
@@ -181,9 +208,19 @@ class InputStreamParser(object):
         else:
             return False
 
+    @property
+    def number(self):
+        # return the frame number
+        return self.input_frame_number
+
     def decode_one_frame(self, image_format='numpy'):
         """ image_format: numpy, Image, base64, None
         """
+
+        if self.measuring_fps:
+            self.fps_time_list.append(self.time_it.break_point(restart=True))
+            if len(self.fps_time_list) > 1000:
+                self.fps_time_list.pop(0)
 
         frame_bytes = lib_interface_api.decode1Frame(self.input_stream_obj)
         frame_bytes_type = type(frame_bytes)
@@ -242,7 +279,7 @@ class InputStreamParser(object):
         # by Python automatically via ref count, otherwise the memory would explode if
         # initialize and finalize several times.
 
-        # uninitialize
+        # finalize
         self.input_streamObj = lib_interface_api.finalizeInputStreamObject(
             self.input_stream_obj)
 

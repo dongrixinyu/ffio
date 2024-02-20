@@ -10,3 +10,4 @@
 
 from .image_converter import rawrgb_2_base64, rawrgb_2_Image, \
     rawrgb_2_jpg, rawrgb_2_numpy
+from .time_it import TimeIt

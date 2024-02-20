@@ -1,7 +1,7 @@
 # ffio
 
 <p align="left">
-<img src="https://img.shields.io/badge/version-1.0.2-green" />
+<img src="https://img.shields.io/badge/version-1.0.3-green" />
 <img src="https://img.shields.io/docker/pulls/jionlp/pyffmpeg?color=brightgreen" />
 </p>
 

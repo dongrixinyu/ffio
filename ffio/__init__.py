@@ -12,7 +12,7 @@ import pdb
 import time
 import ctypes
 
-__version__ = '1.0.2'
+__version__ = '1.0.3'
 
 HOME_DIR = os.path.expanduser('~')
 LOG_DIR = os.path.join(HOME_DIR, '.cache/ffio')
@@ -25,7 +25,7 @@ from ffio.util.logger import set_logger
 
 logging = set_logger(level='INFO')
 
-
+from ffio.util import *
 from ffio.input_stream_parser import InputStreamParser
 from ffio.output_stream_parser import OutputStreamParser
-from ffio.util import *
+
