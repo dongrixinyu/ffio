@@ -40,18 +40,18 @@ static int ffio_init_avformat(FFIO* ffio){
   if(ffio->ffioMode == FFIO_MODE_DECODE){
     ret = avformat_open_input(&ffio->avFormatContext, ffio->targetUrl,NULL, NULL);
     if(ret < 0){
-      av_log(NULL, AV_LOG_WARNING, "can not open stream: `%s`\n", ffio->targetUrl);
+      av_log(NULL, AV_LOG_ERROR, "can not open stream: `%s`.\n", ffio->targetUrl);
       return 1;
     }
 
     ret = avformat_find_stream_info(ffio->avFormatContext, NULL);
     if(ret < 0){
-      av_log(NULL, AV_LOG_WARNING, "can not find stream info\n");
+      av_log(NULL, AV_LOG_ERROR, "can not find stream info.\n");
       return 2;
     }
   }
 
-  av_log(NULL, AV_LOG_WARNING, "succeed to init avformat.\n");
+  av_log(NULL, AV_LOG_INFO, "succeed to init avformat.\n");
   return 0;
 }
 
@@ -99,7 +99,7 @@ static int ffio_init_avcodec(FFIO* ffio, const char *hw_device){
 
   ret = avcodec_open2(ffio->avCodecContext, ffio->avCodec, NULL);
   if(ret < 0){
-    av_log(NULL, AV_LOG_INFO, "%s\n", "can not open codec.");
+    av_log(NULL, AV_LOG_ERROR, "can not open codec.\n");
     return 4;
   }
 
@@ -118,8 +118,9 @@ static int ffio_init_memory_for_rgb_bytes(
   ffio->imageByteSize = ffio->imageHeight * ffio->imageWidth * FFIO_COLOR_DEPTH;
   ffio->rawFrame = (unsigned char *)malloc(ffio->imageByteSize);
   av_log(NULL, AV_LOG_INFO,
-         "stream image size: %dx%dx%d = %d\n",
-         ffio->imageWidth, ffio->imageHeight, FFIO_COLOR_DEPTH, ffio->imageByteSize);
+         "stream image size: %dx%dx%d = %d.\n",
+         ffio->imageWidth, ffio->imageHeight, FFIO_COLOR_DEPTH, ffio->imageByteSize
+  );
   if(enableShm){
     ffio->shmEnabled = true;
     ffio->shmSize    = shmSize;
@@ -128,12 +129,12 @@ static int ffio_init_memory_for_rgb_bytes(
     int _shm_map_port  = mode == FFIO_MODE_DECODE ? PROT_WRITE : PROT_READ;
     ffio->shmFd        = shm_open(shmName, _shm_open_mode, 0666);
     if(ffio->shmFd == -1){
-      av_log(NULL, AV_LOG_ERROR, "%s\n", "can not create shm fd.");
+      av_log(NULL, AV_LOG_ERROR, "can not create shm fd.\n");
       return 5;
     }
     ffio->rawFrameShm = mmap(0, shmSize, _shm_map_port, MAP_SHARED, ffio->shmFd, shmOffset);
     if(ffio->rawFrameShm == MAP_FAILED){
-      av_log(NULL, AV_LOG_ERROR, "%s\n", "can not map shm.");
+      av_log(NULL, AV_LOG_ERROR, "can not map shm.\n");
       return 5;
     }
   }else{
@@ -230,6 +231,6 @@ FFIO* finalizeFFIO(FFIO* ffio){
   memset(ffio->targetUrl, '0', MAX_URL_LENGTH);
 
   resetFFIO(ffio);
-  av_log(NULL, AV_LOG_INFO, "%s", "finished to unref video stream context.\n");
+  av_log(NULL, AV_LOG_INFO, "finished to unref video stream context.\n");
   return ffio;
 }
