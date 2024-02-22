@@ -368,7 +368,7 @@ int decodeOneFrameToShm(FFIO* ffio, int shmOffset){
 
   int ret = decodeOneFrameToAVFrame(ffio);
   if(ret == 0){
-    memcpy(ffio->rgbFrame + shmOffset, ffio->rgbFrame->data[0], ffio->imageByteSize);
+    memcpy(ffio->rawFrameShm + shmOffset, ffio->rgbFrame->data[0], ffio->imageByteSize);
   }
   return ret;
 }

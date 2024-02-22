@@ -49,11 +49,9 @@ elseif(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
   set(FFIO_LIBRARIES ${FFIO_LIBRARIES} rt)
 endif()
 
-add_library(interfaceAPI SHARED
-    ${PROJECT_SOURCE_DIR}/ffio/ffio_c/interfaceAPI.c
-    ${PROJECT_SOURCE_DIR}/ffio/ffio_c/extractFrame.c
-    ${PROJECT_SOURCE_DIR}/ffio/ffio_c/insertFrame.c
-    ${PROJECT_SOURCE_DIR}/ffio/ffio_c/ffio_util.c)
+set(LIB_SOURCE_FILES ${LIB_SOURCE_FILES} ${PROJECT_SOURCE_DIR}/ffio/ffio_c/ffio.c)
+set(LIB_SOURCE_FILES ${LIB_SOURCE_FILES} ${PROJECT_SOURCE_DIR}/ffio/ffio_c/ffioPyApi.c)
+add_library(interfaceAPI SHARED ${LIB_SOURCE_FILES})
 
 target_include_directories(interfaceAPI PUBLIC ${PYTHON_INCLUDE_DIRS})
 target_include_directories(interfaceAPI PUBLIC ${FFMPEG_INCLUDE_DIRS})

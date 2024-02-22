@@ -11,10 +11,12 @@ rgb_data_bytes  = 30 * 1080 * 1920 * 3  # 30 frames of 1080p rgb data.
 shm_size = some_data_bytes + rgb_data_bytes
 your_shm = shared_memory.SharedMemory(create=True, size=shm_size)
 
-stream_url = "rtmp://..."
-stream_obj = ffio.InputStreamParser(stream_url, False,
-                                    your_shm.name, shm_size, shm_offset=some_data_bytes)
-if stream_obj.stream_state:
+target_url = "rtmp://..."
+ffio       = ffio.FFIO(
+  target_url, 0, False,
+  your_shm.name, shm_size, shm_offset=some_data_bytes
+)
+if ffio.ffio_state:
   time_last  = time.time()
   time_begin = time_last
   time_total = 0
@@ -24,23 +26,23 @@ if stream_obj.stream_state:
   # you can specify an offset to place the RGB bytes in the desired location.
   # Just do it like this:
   rgbs = np.ndarray((30, 1080, 1920, 3), dtype=np.uint8, buffer=your_shm.buf, offset=some_data_bytes)
-  while stream_obj.decode_one_frame_to_shm( offset=(rgb_index * 1080 * 1920 * 3) ) and idx < 500:
-      # Access the rgb data:
-      frame = rgbs[rgb_index]
+  while ffio.decode_one_frame_to_shm( offset=(rgb_index * 1080 * 1920 * 3) ) and idx < 500:
+    # Access the rgb data:
+    frame = rgbs[rgb_index]
 
-      dt          = time.time() - time_last
-      time_last  += dt
-      time_total  = time_last - time_begin
-      idx        += 1
-      avg         = time_total * 1000 / idx
-      fps         = 1000 / avg
-      print(f"{idx}: dt:{dt * 1000:.2f}ms, avg:{avg:.2f}ms, {fps}fps, "
-            f"total: {time_total:.3f}s, shape:{frame.shape}")
-      rgb_index   = idx % 30
-# Attention !!
-# Force quitting this script will result in a memory leak.
-# Ensure the following process is executed.
-  stream_obj.release_memory()
+    dt          = time.time() - time_last
+    time_last  += dt
+    time_total  = time_last - time_begin
+    idx        += 1
+    avg         = time_total * 1000 / idx
+    fps         = 1000 / avg
+    print(f"{idx}: dt:{dt * 1000:.2f}ms, avg:{avg:.2f}ms, {fps:.2f}fps, "
+          f"total: {time_total:.3f}s, shape:{frame.shape}")
+    rgb_index   = idx % 30
+  # Attention !!
+  # Force quitting this script will result in a memory leak.
+  # Ensure the following process is executed.
+  ffio.release_memory()
 your_shm.close()
 your_shm.unlink()
 print('successfully release memory of input stream context.')

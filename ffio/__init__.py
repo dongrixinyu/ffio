@@ -8,9 +8,6 @@
 # Website: http://www.jionlp.com
 
 import os
-import pdb
-import time
-import ctypes
 
 __version__ = '1.0.3'
 
@@ -25,7 +22,5 @@ from ffio.util.logger import set_logger
 
 logging = set_logger(level='INFO')
 
-from ffio.util import *
-from ffio.input_stream_parser import InputStreamParser
-from ffio.output_stream_parser import OutputStreamParser
+from ffio.ffio import FFIO
 
