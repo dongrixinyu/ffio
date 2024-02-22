@@ -34,20 +34,7 @@ message("FFmpeg_AVDEVICE_LIBRARIES: ${FFMPEG_AVDEVICE_LIBRARIES}")
 message("FFmpeg_AVCODEC_LIBRARIES: ${FFMPEG_AVCODEC_LIBRARIES}")
 message("FFmpeg_AVFORMAT_LIBRARIES: ${FFMPEG_AVFORMAT_LIBRARIES}")
 
-include_directories(${PYTHON_INCLUDE_DIRS})
-include_directories(${FFMPEG_INCLUDE_DIRS})
-include_directories(${FFMPEG_LIBRARIES})
-include_directories(/usr/include)
-
-add_library(interfaceAPI SHARED
-            ${PROJECT_SOURCE_DIR}/ffio/ffio_c/interfaceAPI.c
-            ${PROJECT_SOURCE_DIR}/ffio/ffio_c/extractFrame.c
-            ${PROJECT_SOURCE_DIR}/ffio/ffio_c/insertFrame.c
-            ${PROJECT_SOURCE_DIR}/ffio/ffio_c/ffio_util.c)
-
-target_link_libraries(interfaceAPI
-    rt                                 # for shared memory support
-    ${PYTHON_LIBRARIES}
+set(FFIO_LIBRARIES
     ${FFMPEG_AVUTIL_LIBRARIES}
     ${FFMPEG_AVFILTER_LIBRARIES}
     ${FFMPEG_AVDEVICE_LIBRARIES}
@@ -55,4 +42,29 @@ target_link_libraries(interfaceAPI
     ${FFMPEG_AVFORMAT_LIBRARIES}
     ${FFMPEG_SWSCALE_LIBRARIES})
 
-# message("Successfully build `*.so` file.")
+message("CMAKE_SYSTEM_NAME: ${CMAKE_SYSTEM_NAME}")
+if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+  set(FFIO_LIBRARIES ${FFIO_LIBRARIES})
+elseif(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
+  set(FFIO_LIBRARIES ${FFIO_LIBRARIES} rt)
+endif()
+
+add_library(interfaceAPI SHARED
+    ${PROJECT_SOURCE_DIR}/ffio/ffio_c/interfaceAPI.c
+    ${PROJECT_SOURCE_DIR}/ffio/ffio_c/extractFrame.c
+    ${PROJECT_SOURCE_DIR}/ffio/ffio_c/insertFrame.c
+    ${PROJECT_SOURCE_DIR}/ffio/ffio_c/ffio_util.c)
+
+target_include_directories(interfaceAPI PUBLIC ${PYTHON_INCLUDE_DIRS})
+target_include_directories(interfaceAPI PUBLIC ${FFMPEG_INCLUDE_DIRS})
+target_include_directories(interfaceAPI PUBLIC /usr/include)
+target_link_libraries(interfaceAPI ${PYTHON_LIBRARIES} ${FFIO_LIBRARIES})
+
+# for test.
+AUX_SOURCE_DIRECTORY(${PROJECT_SOURCE_DIR}/ffio/ffio_c/test    TEST_SOURCE_FILES)
+set(TEST_SOURCE_FILES ${TEST_SOURCE_FILES} ${PROJECT_SOURCE_DIR}/ffio/ffio_c/ffio_util.c)
+set(TEST_SOURCE_FILES ${TEST_SOURCE_FILES} ${PROJECT_SOURCE_DIR}/ffio/ffio_c/ffio.c)
+add_executable(ffio.test ${TEST_SOURCE_FILES})
+target_include_directories(ffio.test PUBLIC ${FFMPEG_INCLUDE_DIRS})
+target_include_directories(ffio.test PUBLIC ${PROJECT_SOURCE_DIR}/ffio/ffio_c)
+target_link_libraries(ffio.test ${FFIO_LIBRARIES})
