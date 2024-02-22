@@ -106,9 +106,38 @@ static int ffio_init_avcodec(FFIO* ffio, const char *hw_device){
   return 0;
 }
 
-static void ffio_init_video_parameters(FFIO* ffio){
+static int ffio_init_video_parameters(FFIO* ffio){
   ffio->imageWidth  = ffio->avCodecContext->width;
   ffio->imageHeight = ffio->avCodecContext->height;
+
+  ffio->rgbFrame->width  = ffio->imageWidth;
+  ffio->rgbFrame->height = ffio->imageHeight;
+  ffio->rgbFrame->format = AV_PIX_FMT_RGB24;
+
+  int ret = av_frame_get_buffer(ffio->rgbFrame, 0);
+  if(ret != 0){
+    av_log(NULL, AV_LOG_ERROR, "Failed to allocate memory for rgbFrame.\n");
+    return 5;
+  }
+
+  return 0;
+}
+
+static int ffio_init_sws_context(FFIO* ffio){
+  if(ffio->ffioMode == FFIO_MODE_DECODE){
+    ffio->swsContext = sws_getContext(
+        ffio->avCodecContext->width, ffio->avCodecContext->height, ffio->avCodecContext->pix_fmt,
+        ffio->avCodecContext->width, ffio->avCodecContext->height, AV_PIX_FMT_RGB24,
+        SWS_FAST_BILINEAR, NULL, NULL, NULL
+    );
+  }
+
+  if(!ffio->swsContext){
+    av_log(NULL, AV_LOG_ERROR, "can not open sws codec.\n");
+    return 4;
+  }else{
+    return 0;
+  }
 }
 
 static int ffio_init_memory_for_rgb_bytes(
@@ -182,8 +211,6 @@ int initFFIO(
   ret = ffio_init_avcodec(ffio, hw_device);
   if(ret != 0){ finalizeFFIO(ffio); return ret; }
 
-  ffio_init_video_parameters(ffio);
-
   ffio->yuvFrame = av_frame_alloc();
   ffio->rgbFrame = av_frame_alloc();
   ffio->avPacket = av_packet_alloc();
@@ -192,6 +219,12 @@ int initFFIO(
     finalizeFFIO(ffio);
     return 5;
   }
+
+  ret = ffio_init_video_parameters(ffio);
+  if(ret != 0){ finalizeFFIO(ffio); return ret; }
+
+  ret = ffio_init_sws_context(ffio);
+  if(ret != 0){ finalizeFFIO(ffio); return ret; }
 
   ret = ffio_init_memory_for_rgb_bytes(ffio, mode, enableShm, shmName, shmSize, shmOffset);
   if(ret != 0){ finalizeFFIO(ffio); return ret; }
@@ -231,6 +264,110 @@ FFIO* finalizeFFIO(FFIO* ffio){
   memset(ffio->targetUrl, '0', MAX_URL_LENGTH);
 
   resetFFIO(ffio);
+  ffio->ffioState = FFIO_STATE_CLOSED;
   av_log(NULL, AV_LOG_INFO, "finished to unref video stream context.\n");
   return ffio;
+}
+
+static int convertYUV2RGB(FFIO* ffio){
+  return sws_scale(
+      ffio->swsContext, (uint8_t const* const*)ffio->yuvFrame->data,
+      ffio->yuvFrame->linesize, 0, ffio->avCodecContext->height,
+      ffio->rgbFrame->data, ffio->rgbFrame->linesize
+  );
+}
+
+static int decodeOneFrameToAVFrame(FFIO* ffio){
+  if(ffio->ffioState == FFIO_STATE_READY){ ffio->ffioState = FFIO_STATE_RUNNING; }
+  if(ffio->ffioState != FFIO_STATE_RUNNING){
+    av_log(NULL, AV_LOG_ERROR,"ffio not ready.\n");
+    return -7;
+  }
+
+  int read_ret, send_ret, recv_ret;
+  while( (read_ret = av_read_frame(ffio->avFormatContext, ffio->avPacket)) >= 0) {
+
+    if(ffio->avPacket->stream_index == ffio->videoStreamIndex) {
+ENDPOINT_RESEND_PACKET:
+      send_ret = avcodec_send_packet(ffio->avCodecContext, ffio->avPacket);
+      if(send_ret == AVERROR_EOF){
+        goto ENDPOINT_AV_ERROR_EOF;
+      } else if (send_ret < 0){
+        char errbuf[200];
+        av_strerror(send_ret, errbuf, sizeof(errbuf));
+        av_log(NULL, AV_LOG_ERROR,
+               "an error while avcodec_send_packet: %d - %s.\n", send_ret, errbuf);
+        return -2;
+      }
+
+      // send_ret == 0 or AVERROR(EAGAIN):
+      recv_ret = avcodec_receive_frame(ffio->avCodecContext, ffio->yuvFrame);
+      if(recv_ret == 0){
+        convertYUV2RGB(ffio);
+        ffio->frameSeq += 1;
+        return 0;
+      } else if (recv_ret == AVERROR_EOF){
+        goto ENDPOINT_AV_ERROR_EOF;
+      } else if (recv_ret == AVERROR(EAGAIN)){
+        if(send_ret == AVERROR(EAGAIN)){ usleep(10000); goto ENDPOINT_RESEND_PACKET; }
+        else{ continue; }
+      } else {
+        char errbuf[200];
+        av_strerror(recv_ret, errbuf, sizeof(errbuf));
+        av_log(NULL, AV_LOG_ERROR,
+               "an error while avcodec_receive_frame: %d - %s.\n", recv_ret, errbuf);
+        return -1;
+      }
+
+    } // if this is a packet of the desired stream.
+
+  }
+
+  if(read_ret == AVERROR_EOF){
+    avcodec_send_packet(ffio->avCodecContext, NULL);
+ENDPOINT_AV_ERROR_EOF:
+    av_log(NULL, AV_LOG_INFO, "here is the end of this stream.\n");
+    ffio->ffioState = FFIO_STATE_END;
+    return 1;
+  }else{
+    char errbuf[200];
+    av_strerror(read_ret, errbuf, sizeof(errbuf));
+    av_log(NULL, AV_LOG_ERROR,
+           "an error while av_read_frame: %d - %s.\n", read_ret, errbuf);
+    return -6;
+  }
+
+}
+
+/**
+ * to get one frame from the stream
+ *
+ * ret: int
+ *     0  means getting a frame successfully.
+ *     1  means the stream has been to the end
+ *     -1 means other error concerning avcodec_receive_frame.
+ *     -2 means other error concerning avcodec_send_packet.
+ *     -4 means packet mismatch & unable to seek to the next packet.
+ *     -5 means timeout to get the next packet, need to exit this function.
+ *     -6 means other error concerning av_read_frame.
+ *     -7 means ffio not get ready.
+ *     -9 means shm not enabled.
+ */
+int decodeOneFrame(FFIO* ffio){
+  int ret = decodeOneFrameToAVFrame(ffio);
+  if(ret == 0){
+    // memcpy might be dismissed to accelerate.
+    memcpy(ffio->rawFrame, ffio->rgbFrame->data[0], ffio->imageByteSize);
+  }
+  return ret;
+}
+
+int decodeOneFrameToShm(FFIO* ffio, int shmOffset){
+  if(!ffio->shmEnabled){ return -9; }
+
+  int ret = decodeOneFrameToAVFrame(ffio);
+  if(ret == 0){
+    memcpy(ffio->rgbFrame + shmOffset, ffio->rgbFrame->data[0], ffio->imageByteSize);
+  }
+  return ret;
 }

@@ -6,6 +6,19 @@
 
 #include "../ffio.h"
 
+static void saveRGB2File(const FFIO* ffio){
+  FILE *pFile;
+  char filename[32];
+
+  snprintf(filename, sizeof(filename), "frame%d.ppm", ffio->frameSeq);
+  pFile = fopen(filename, "wb");
+  if (pFile == NULL) { return; }
+  fprintf(pFile, "P6\n%d %d\n255\n", ffio->imageWidth, ffio->imageHeight);
+
+  fwrite(ffio->rawFrame, 1, ffio->imageByteSize, pFile);
+  fclose(pFile);
+}
+
 int main(int argc, char *argv[]){
   if(argc == 2){
     printf("Running with: %s %s\n", argv[0], argv[1]);
@@ -24,6 +37,15 @@ int main(int argc, char *argv[]){
   initFFIO(ffio, FFIO_MODE_DECODE, rtmp,
            false, NULL,
            false, NULL, 0, 0);
+
+  int ret;
+  for(int i=0; i<10; ++i){
+    ret = decodeOneFrame(ffio);
+    printf("decodeOneFrame returned %d, image seq: %d.\n", ret, ffio->frameSeq);
+    if(ret == 0){
+      saveRGB2File(ffio);
+    }
+  }
 
   finalizeFFIO(ffio);
   finalizeFFIO(ffio);

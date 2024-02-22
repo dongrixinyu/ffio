@@ -11,8 +11,8 @@
 #define FFIO_COLOR_DEPTH 3
 
 typedef enum FFIOMode {
-  FFIO_MODE_ENCODE = 0,
-  FFIO_MODE_DECODE
+  FFIO_MODE_DECODE = 0,
+  FFIO_MODE_ENCODE
 } FFIOMode;
 
 typedef enum FFIOState {
@@ -64,7 +64,7 @@ FFIO* finalizeFFIO(FFIO* ffio);
 /** decode one frame from the online video
  *
  * 1 means failed, 0 means success.
- * the result is stored at inputStreamObj->extractedFrame
+ * the result is stored at ffio->rawFrame or rawFrameShm.
  */
 int decodeOneFrame(FFIO* ffio);
 int decodeOneFrameToShm(FFIO* ffio, int shmOffset);
