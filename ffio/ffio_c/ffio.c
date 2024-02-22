@@ -7,9 +7,20 @@
 
 static void resetFFIO(FFIO* ffio){
   if(ffio==NULL){ return; }
-  ffio->ffioState = FFIO_STATE_NOT_READY;
-  ffio->ffioMode  = FFIO_MODE_DECODE;
-  ffio->frameSeq  = -1;
+
+  ffio->ffioState        = FFIO_STATE_NOT_READY;
+  ffio->ffioMode         = FFIO_MODE_DECODE;
+  ffio->frameSeq         = -1;
+  ffio->hw_enabled       = false;
+
+  ffio->shmEnabled       = false;
+  ffio->shmFd            = -1;
+  ffio->shmSize          = 0;
+
+  ffio->videoStreamIndex = -1;
+  ffio->imageWidth       = 0;
+  ffio->imageHeight      = 0;
+  ffio->imageByteSize    = 0;
 
   ffio->avFormatContext = NULL;
   ffio->avCodecContext  = NULL;
@@ -20,18 +31,8 @@ static void resetFFIO(FFIO* ffio){
   ffio->swsContext      = NULL;
   ffio->hwContext       = NULL;
 
-  ffio->videoStreamIndex = -1;
-  ffio->imageWidth       = 0;
-  ffio->imageHeight      = 0;
-  ffio->imageByteSize    = 0;
-
-  ffio->rawFrame    = NULL;
-  ffio->rawFrameShm = NULL;
-  ffio->shmEnabled  = false;
-  ffio->shmFd       = -1;
-  ffio->shmSize     = 0;
-
-  ffio->hw_enabled  = false;
+  ffio->rawFrame        = NULL;
+  ffio->rawFrameShm     = NULL;
 }
 
 static int ffio_init_avformat(FFIO* ffio){

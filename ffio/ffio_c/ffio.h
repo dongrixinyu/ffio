@@ -24,10 +24,21 @@ typedef enum FFIOState {
 } FFIOState;
 
 typedef struct FFIO{
-  char      targetUrl[MAX_URL_LENGTH];       // the path of mp4 or rtmp, rtsp
   FFIOState ffioState;                       // to indicate that if the stream has been opened successfully
   FFIOMode  ffioMode;                        // encode or decode
   int       frameSeq;                        // the sequence number of the current video frame
+  bool      hw_enabled;                      // indicate if using the hardware acceleration
+
+  bool      shmEnabled;
+  int       shmFd;
+  int       shmSize;
+
+  int       videoStreamIndex;                // which stream index to parse in the video
+  int       imageWidth;
+  int       imageHeight;
+  int       imageByteSize;
+
+  char      targetUrl[MAX_URL_LENGTH];       // the path of mp4 or rtmp, rtsp
 
   AVFormatContext   *avFormatContext;
   AVCodecContext    *avCodecContext;
@@ -38,18 +49,8 @@ typedef struct FFIO{
   struct SwsContext *swsContext;
   AVBufferRef       *hwContext;
 
-  int videoStreamIndex;                      // which stream index to parse in the video
-  int imageWidth;
-  int imageHeight;
-  int imageByteSize;
-
-  unsigned char *rawFrame;
-  unsigned char *rawFrameShm;
-  bool           shmEnabled;
-  int            shmFd;
-  int            shmSize;
-
-  bool hw_enabled;                           // indicate if using the hardware acceleration
+  unsigned char     *rawFrame;
+  unsigned char     *rawFrameShm;
 } FFIO;
 
 // Functions of FFIO lifecycle.
