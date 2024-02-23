@@ -286,14 +286,17 @@ static int decodeOneFrameToAVFrame(FFIO* ffio){
   }
 
   int read_ret, send_ret, recv_ret;
-  while( (read_ret = av_read_frame(ffio->avFormatContext, ffio->avPacket)) >= 0) {
+  while(true) {
+    av_packet_unref(ffio->avPacket);
+    read_ret = av_read_frame(ffio->avFormatContext, ffio->avPacket);
+    if(read_ret<0){ break; }
 
     if(ffio->avPacket->stream_index == ffio->videoStreamIndex) {
 ENDPOINT_RESEND_PACKET:
       send_ret = avcodec_send_packet(ffio->avCodecContext, ffio->avPacket);
       if(send_ret == AVERROR_EOF){
         goto ENDPOINT_AV_ERROR_EOF;
-      } else if (send_ret < 0){
+      } else if (send_ret < 0 && send_ret != AVERROR(EAGAIN)){
         char errbuf[200];
         av_strerror(send_ret, errbuf, sizeof(errbuf));
         av_log(NULL, AV_LOG_ERROR,
@@ -310,8 +313,11 @@ ENDPOINT_RESEND_PACKET:
       } else if (recv_ret == AVERROR_EOF){
         goto ENDPOINT_AV_ERROR_EOF;
       } else if (recv_ret == AVERROR(EAGAIN)){
-        if(send_ret == AVERROR(EAGAIN)){ usleep(10000); goto ENDPOINT_RESEND_PACKET; }
-        else{ continue; }
+        if(send_ret == AVERROR(EAGAIN)){
+          av_log(NULL, AV_LOG_WARNING, "both send_packet and recv_frame get AVERROR(EAGAIN).");
+          usleep(10000);
+          goto ENDPOINT_RESEND_PACKET;
+        } else { continue; }
       } else {
         char errbuf[200];
         av_strerror(recv_ret, errbuf, sizeof(errbuf));
