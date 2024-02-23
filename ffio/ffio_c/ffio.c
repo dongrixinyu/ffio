@@ -191,9 +191,31 @@ static int ffio_init_video_parameters(FFIO* ffio){
 }
 
 static int ffio_init_sws_context(FFIO* ffio){
+  printf("[pix_fmt]ffio->avFrame:  %s.\n",       av_get_pix_fmt_name(ffio->avFrame->format));
+  printf("[pix_fmt]ffio->hwFrame:  %s.\n",       av_get_pix_fmt_name(ffio->hwFrame->format));
+  printf("[pix_fmt]ffio->rgbFrame: %s.\n",       av_get_pix_fmt_name(ffio->rgbFrame->format));
+  printf("[pix_fmt]ffio->hw_pix_fmt: %s.\n",     av_get_pix_fmt_name(ffio->hw_pix_fmt));
+  printf("[pix_fmt]codec_ctx->pix_fmt: %s.\n",   av_get_pix_fmt_name(ffio->avCodecContext->pix_fmt));
+  printf("[pix_fmt]codec_ctx->sw_pix_fmt: %s.\n",av_get_pix_fmt_name(ffio->avCodecContext->sw_pix_fmt));
+
+  enum AVPixelFormat srcFormat = ffio->avCodecContext->pix_fmt;
+  if(ffio->hw_enabled){
+    if(ffio->avCodecContext->hw_frames_ctx == NULL || ffio->avCodecContext->hw_frames_ctx->data == NULL){
+      av_log(NULL, AV_LOG_ERROR,
+             "should get 1st frame to make hw_frames_ctx set before setting sws.\n");
+      return -1;
+    }
+    AVHWFramesContext *hw_frames_ctx = (AVHWFramesContext *)ffio->avCodecContext->hw_frames_ctx->data;
+    srcFormat = hw_frames_ctx->sw_format;
+    printf("[pix_fmt]hw_frames_ctx->sw_format: %s.\n",av_get_pix_fmt_name(hw_frames_ctx->sw_format));
+    printf("[pix_fmt]sws srcFormat: %s. (hw_frames_ctx->sw_format)\n",av_get_pix_fmt_name(srcFormat));
+  } else{
+    printf("[pix_fmt]sws srcFormat: %s. (codec_ctx->pix_fmt)\n",av_get_pix_fmt_name(srcFormat));
+  }
+
   if(ffio->ffioMode == FFIO_MODE_DECODE){
     ffio->swsContext = sws_getContext(
-        ffio->avCodecContext->width, ffio->avCodecContext->height, ffio->avCodecContext->pix_fmt,
+        ffio->avCodecContext->width, ffio->avCodecContext->height, srcFormat,
         ffio->avCodecContext->width, ffio->avCodecContext->height, AV_PIX_FMT_RGB24,
         SWS_FAST_BILINEAR, NULL, NULL, NULL
     );
@@ -291,9 +313,6 @@ int initFFIO(
   ret = ffio_init_video_parameters(ffio);
   if(ret != 0){ finalizeFFIO(ffio); return ret; }
 
-  ret = ffio_init_sws_context(ffio);
-  if(ret != 0){ finalizeFFIO(ffio); return ret; }
-
   ret = ffio_init_memory_for_rgb_bytes(ffio, mode, enableShm, shmName, shmSize, shmOffset);
   if(ret != 0){ finalizeFFIO(ffio); return ret; }
 
@@ -340,6 +359,16 @@ FFIO* finalizeFFIO(FFIO* ffio){
 }
 
 static int convertToRgbFrame(FFIO* ffio){
+
+  if(ffio->swsContext == NULL){
+    int ret = ffio_init_sws_context(ffio);
+    if(ret != 0){
+      finalizeFFIO(ffio);
+      ffio->ffioState = FFIO_STATE_CLOSED;
+      return -1;
+    }
+  }
+
   AVFrame *src_frame = ffio->avFrame;
   if( ffio->hw_enabled && (src_frame->format == ffio->hw_pix_fmt) ){
     int ret = av_hwframe_transfer_data(ffio->hwFrame, ffio->avFrame, 0);
