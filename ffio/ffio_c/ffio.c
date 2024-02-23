@@ -282,6 +282,23 @@ static int ffio_init_memory_for_rgb_bytes(
   return 0;
 }
 
+static void ffio_init_set_codec_params(FFIO* ffio, CodecParams* params){
+  if(params==NULL){ return; }
+
+  if(   params->width       <=   0 ){ params->width    = 1920;      }
+  if(   params->height      <=   0 ){ params->height   = 1080;      }
+  if(   params->bitrate     <=   0 ){ params->bitrate  = 2400*1024; }
+  if(   params->fps         <=   0 ){ params->fps      = 24;        }
+  if(   params->gop         <    0 ){ params->gop      = 48;        }
+  if(   params->b_frames    <    0 ){ params->b_frames = 0;         }
+  if(  (params->profile)[0] == '\0'){ snprintf(params->profile, sizeof(params->profile), "%s", "high"       ); }
+  if(  (params->preset )[0] == '\0'){ snprintf(params->preset,  sizeof(params->preset ), "%s", "veryfast"   ); }
+  if(  (params->tune   )[0] == '\0'){ snprintf(params->tune,    sizeof(params->tune   ), "%s", "zerolatency"); }
+  if(  (params->pix_fmt)[0] == '\0'){ snprintf(params->pix_fmt, sizeof(params->pix_fmt), "%s", "yuv420p"    ); }
+
+  ffio->codecParams = params;
+}
+
 static int convertToRgbFrame(FFIO* ffio){
 
   if(ffio->swsContext == NULL){
@@ -412,7 +429,7 @@ int initFFIO(
 
   ffio->ffioMode    = mode;
   ffio->hw_enabled  = hw_enabled;
-  ffio->codecParams = codecParams;
+  ffio_init_set_codec_params(ffio, codecParams);
   snprintf(ffio->targetUrl, sizeof(ffio->targetUrl), "%s", streamUrl);
 
   ret = ffio->ffioMode == FFIO_MODE_DECODE ?
