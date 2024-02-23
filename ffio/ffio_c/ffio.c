@@ -277,47 +277,56 @@ static int ffio_init_encode_avcodec(FFIO* ffio) {
   }
 }
 
-static int ffio_init_video_parameters(FFIO* ffio){
+static int ffio_init_frame_parameters(FFIO* ffio){
   ffio->imageWidth  = ffio->avCodecContext->width;
   ffio->imageHeight = ffio->avCodecContext->height;
 
+  int ret;
   ffio->rgbFrame->width  = ffio->imageWidth;
   ffio->rgbFrame->height = ffio->imageHeight;
   ffio->rgbFrame->format = AV_PIX_FMT_RGB24;
-
-  int ret = av_frame_get_buffer(ffio->rgbFrame, 0);
+  ret = av_frame_get_buffer(ffio->rgbFrame, 0);
   if(ret != 0){
     av_log(NULL, AV_LOG_ERROR, "Failed to allocate memory for rgbFrame.\n");
-    return 5;
+    return FFIO_ERROR_AVFRAME_ALLOCATION;
+  }
+
+  if(ffio->ffioMode == FFIO_MODE_ENCODE){
+    ffio->avFrame->width  = ffio->imageWidth;
+    ffio->avFrame->height = ffio->imageHeight;
+    ffio->avFrame->format = ffio->avCodecContext->pix_fmt;
+    ret = av_frame_get_buffer(ffio->avFrame, 0);
+    if(ret != 0){
+      av_log(NULL, AV_LOG_ERROR, "Failed to allocate memory for rgbFrame.\n");
+      return FFIO_ERROR_AVFRAME_ALLOCATION;
+    }
   }
 
   return 0;
 }
 
 static int ffio_init_sws_context(FFIO* ffio){
-  printf("[pix_fmt]ffio->avFrame:  %s.\n",       av_get_pix_fmt_name(ffio->avFrame->format));
-  printf("[pix_fmt]ffio->hwFrame:  %s.\n",       av_get_pix_fmt_name(ffio->hwFrame->format));
-  printf("[pix_fmt]ffio->rgbFrame: %s.\n",       av_get_pix_fmt_name(ffio->rgbFrame->format));
-  printf("[pix_fmt]ffio->hw_pix_fmt: %s.\n",     av_get_pix_fmt_name(ffio->hw_pix_fmt));
-  printf("[pix_fmt]codec_ctx->pix_fmt: %s.\n",   av_get_pix_fmt_name(ffio->avCodecContext->pix_fmt));
-  printf("[pix_fmt]codec_ctx->sw_pix_fmt: %s.\n",av_get_pix_fmt_name(ffio->avCodecContext->sw_pix_fmt));
-
-  enum AVPixelFormat srcFormat = ffio->avCodecContext->pix_fmt;
-  if(ffio->hw_enabled){
-    if(ffio->avCodecContext->hw_frames_ctx == NULL || ffio->avCodecContext->hw_frames_ctx->data == NULL){
-      av_log(NULL, AV_LOG_ERROR,
-             "should get 1st frame to make hw_frames_ctx set before setting sws.\n");
-      return -1;
-    }
-    AVHWFramesContext *hw_frames_ctx = (AVHWFramesContext *)ffio->avCodecContext->hw_frames_ctx->data;
-    srcFormat = hw_frames_ctx->sw_format;
-    printf("[pix_fmt]hw_frames_ctx->sw_format: %s.\n",av_get_pix_fmt_name(hw_frames_ctx->sw_format));
-    printf("[pix_fmt]sws srcFormat: %s. (hw_frames_ctx->sw_format)\n",av_get_pix_fmt_name(srcFormat));
-  } else{
-    printf("[pix_fmt]sws srcFormat: %s. (codec_ctx->pix_fmt)\n",av_get_pix_fmt_name(srcFormat));
-  }
-
   if(ffio->ffioMode == FFIO_MODE_DECODE){
+    printf("[pix_fmt]ffio->avFrame:  %s.\n",       av_get_pix_fmt_name(ffio->avFrame->format));
+    printf("[pix_fmt]ffio->hwFrame:  %s.\n",       av_get_pix_fmt_name(ffio->hwFrame->format));
+    printf("[pix_fmt]ffio->rgbFrame: %s.\n",       av_get_pix_fmt_name(ffio->rgbFrame->format));
+    printf("[pix_fmt]ffio->hw_pix_fmt: %s.\n",     av_get_pix_fmt_name(ffio->hw_pix_fmt));
+    printf("[pix_fmt]codec_ctx->sw_pix_fmt: %s.\n",av_get_pix_fmt_name(ffio->avCodecContext->sw_pix_fmt));
+    printf("[pix_fmt]codec_ctx->pix_fmt: %s.\n",   av_get_pix_fmt_name(ffio->avCodecContext->pix_fmt));
+    enum AVPixelFormat srcFormat = ffio->avCodecContext->pix_fmt;
+    if(ffio->hw_enabled){
+      if(ffio->avCodecContext->hw_frames_ctx == NULL || ffio->avCodecContext->hw_frames_ctx->data == NULL){
+        av_log(NULL, AV_LOG_ERROR,
+               "should get 1st frame to make hw_frames_ctx set before setting sws.\n");
+        return FFIO_ERROR_SWS_FAILURE;
+      }
+      AVHWFramesContext *hw_frames_ctx = (AVHWFramesContext *)ffio->avCodecContext->hw_frames_ctx->data;
+      srcFormat = hw_frames_ctx->sw_format;
+      printf("[pix_fmt]hw_frames_ctx->sw_format: %s.\n",av_get_pix_fmt_name(hw_frames_ctx->sw_format));
+      printf("[pix_fmt]sws srcFormat: %s. (hw_frames_ctx->sw_format)\n",av_get_pix_fmt_name(srcFormat));
+    } else{
+      printf("[pix_fmt]sws srcFormat: %s. (codec_ctx->pix_fmt)\n",av_get_pix_fmt_name(srcFormat));
+    }
     ffio->swsContext = sws_getContext(
         ffio->avCodecContext->width, ffio->avCodecContext->height, srcFormat,
         ffio->avCodecContext->width, ffio->avCodecContext->height, AV_PIX_FMT_RGB24,
@@ -325,9 +334,18 @@ static int ffio_init_sws_context(FFIO* ffio){
     );
   }
 
+  if(ffio->ffioMode == FFIO_MODE_ENCODE){
+    printf("[pix_fmt]codec_ctx->pix_fmt: %s.\n",   av_get_pix_fmt_name(ffio->avCodecContext->pix_fmt));
+    ffio->swsContext = sws_getContext(
+        ffio->avCodecContext->width, ffio->avCodecContext->height, AV_PIX_FMT_RGB24,
+        ffio->avCodecContext->width, ffio->avCodecContext->height, ffio->avCodecContext->pix_fmt,
+        SWS_FAST_BILINEAR, NULL, NULL, NULL
+    );
+  }
+
   if(!ffio->swsContext){
     av_log(NULL, AV_LOG_ERROR, "can not open sws codec.\n");
-    return 4;
+    return FFIO_ERROR_SWS_FAILURE;
   }else{
     return 0;
   }
@@ -486,20 +504,8 @@ FFIO *newFFIO(){
 }
 
 /**
- *  read the video context info, including format context and codec context.
- *
- *  params:
- *      hw_enabled: set to declare if use cuda gpu to accelerate.
- *      hw_device: which cuda to use, e.g. cuda:0
- *
- *  ret: int
- *      0: successfully start a video stream
- *      1: failing to open the target stream
- *      2: can not find the stream info
- *      3: can not process params to context
- *      4: can not open codec context
- *      5: failing to allocate memory
- *      6: ffio not available
+ *  Returns:
+ *    success - 0
  */
 int initFFIO(
     FFIO* ffio, FFIOMode mode, const char* streamUrl,
@@ -509,7 +515,7 @@ int initFFIO(
 ){
   int ret;
 
-  if(ffio==NULL || ffio->ffioState != FFIO_STATE_INIT){ return 6; }
+  if(ffio==NULL || ffio->ffioState != FFIO_STATE_INIT){ return FFIO_ERROR_FFIO_NOT_AVAILABLE; }
 
   ffio->ffioMode    = mode;
   ffio->hw_enabled  = hw_enabled;
@@ -531,14 +537,18 @@ int initFFIO(
   if( !(ffio->avFrame) || !(ffio->hwFrame) || !(ffio->rgbFrame) || !(ffio->avPacket) ){
     av_log(NULL, AV_LOG_ERROR, "failed to allocate avPacket or avFrame.\n");
     finalizeFFIO(ffio);
-    return 5;
+    return FFIO_ERROR_AVFRAME_ALLOCATION;
   }
-
-  ret = ffio_init_video_parameters(ffio);
+  ret = ffio_init_frame_parameters(ffio);
   if(ret != 0){ finalizeFFIO(ffio); return ret; }
 
   ret = ffio_init_memory_for_rgb_bytes(ffio, mode, enableShm, shmName, shmSize, shmOffset);
   if(ret != 0){ finalizeFFIO(ffio); return ret; }
+
+  if(mode==FFIO_MODE_ENCODE){
+    ret = ffio_init_sws_context(ffio);
+    if(ret != 0){ finalizeFFIO(ffio); return ret; }
+  }
 
   ffio->ffioState = FFIO_STATE_READY;
   av_log(NULL, AV_LOG_INFO, "succeeded to initialize ffio.\n");

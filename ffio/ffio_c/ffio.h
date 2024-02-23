@@ -23,6 +23,16 @@ typedef enum FFIOState {
   FFIO_STATE_CLOSED
 } FFIOState;
 
+typedef enum FFIOError {
+  FFIO_ERROR_FFIO_NOT_AVAILABLE = -100,
+  FFIO_ERROR_RECV_PACKET_OR_FRAME,
+  FFIO_ERROR_SEND_PACKET_OR_FRAME,
+  FFIO_ERROR_READ_OR_WRITE_TARGET,
+  FFIO_ERROR_STREAM_ENDING,
+  FFIO_ERROR_AVFRAME_ALLOCATION,
+  FFIO_ERROR_SWS_FAILURE,
+} FFIOError;
+
 typedef struct CodecParams {
   int  width;
   int  height;
@@ -58,9 +68,9 @@ typedef struct FFIO{
   AVCodecContext      *avCodecContext;
   AVCodec             *avCodec;
   AVPacket            *avPacket;
-  AVFrame             *avFrame;              // got from: avcodec_receive_frame()
-  AVFrame             *hwFrame;              // transferred from avFrame by hardware
-  AVFrame             *rgbFrame;             // transferred from avFrame or hwFrame
+  AVFrame             *avFrame;              // Decode:  codec    -> avFrame -> (hw_enabled? hwFrame) -> rgbFrame
+  AVFrame             *hwFrame;              // Encode:  rgbFrame -> avFrame -> (hw_enabled? hwFrame) -> codec
+  AVFrame             *rgbFrame;
   struct SwsContext   *swsContext;
 
   unsigned char       *rawFrame;
