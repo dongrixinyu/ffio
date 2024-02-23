@@ -262,6 +262,102 @@ static int ffio_init_memory_for_rgb_bytes(
   return 0;
 }
 
+static int convertToRgbFrame(FFIO* ffio){
+
+  if(ffio->swsContext == NULL){
+    int ret = ffio_init_sws_context(ffio);
+    if(ret != 0){
+      finalizeFFIO(ffio);
+      ffio->ffioState = FFIO_STATE_CLOSED;
+      return -1;
+    }
+  }
+
+  AVFrame *src_frame = ffio->avFrame;
+  if( ffio->hw_enabled && (src_frame->format == ffio->hw_pix_fmt) ){
+    int ret = av_hwframe_transfer_data(ffio->hwFrame, ffio->avFrame, 0);
+    if(ret<0) {
+      av_log(NULL, AV_LOG_ERROR, "failed to transfer avframe from hardware.\n");
+      return -1;
+    }
+    src_frame=ffio->hwFrame;
+  }
+
+  return sws_scale(
+      ffio->swsContext, (uint8_t const* const*)src_frame->data,
+      src_frame->linesize, 0, ffio->avCodecContext->height,
+      ffio->rgbFrame->data, ffio->rgbFrame->linesize
+  );
+}
+
+static int decodeOneFrameToAVFrame(FFIO* ffio){
+  if(ffio->ffioState == FFIO_STATE_READY){ ffio->ffioState = FFIO_STATE_RUNNING; }
+  if(ffio->ffioState != FFIO_STATE_RUNNING){
+    av_log(NULL, AV_LOG_ERROR,"ffio not ready.\n");
+    return -7;
+  }
+
+  int read_ret, send_ret, recv_ret;
+  while(true) {
+    av_packet_unref(ffio->avPacket);
+    read_ret = av_read_frame(ffio->avFormatContext, ffio->avPacket);
+    if(read_ret<0){ break; }
+
+    if(ffio->avPacket->stream_index == ffio->videoStreamIndex) {
+      ENDPOINT_RESEND_PACKET:
+      send_ret = avcodec_send_packet(ffio->avCodecContext, ffio->avPacket);
+      if(send_ret == AVERROR_EOF){
+        goto ENDPOINT_AV_ERROR_EOF;
+      } else if (send_ret < 0 && send_ret != AVERROR(EAGAIN)){
+        char errbuf[200];
+        av_strerror(send_ret, errbuf, sizeof(errbuf));
+        av_log(NULL, AV_LOG_ERROR,
+               "an error while avcodec_send_packet: %d - %s.\n", send_ret, errbuf);
+        return -2;
+      }
+
+      // send_ret == 0 or AVERROR(EAGAIN):
+      recv_ret = avcodec_receive_frame(ffio->avCodecContext, ffio->avFrame);
+      if(recv_ret == 0){
+        if( convertToRgbFrame(ffio) < 0 ){ return -8; }
+        ffio->frameSeq += 1;
+        return 0;
+      } else if (recv_ret == AVERROR_EOF){
+        goto ENDPOINT_AV_ERROR_EOF;
+      } else if (recv_ret == AVERROR(EAGAIN)){
+        if(send_ret == AVERROR(EAGAIN)){
+          av_log(NULL, AV_LOG_WARNING, "both send_packet and recv_frame get AVERROR(EAGAIN).");
+          usleep(10000);
+          goto ENDPOINT_RESEND_PACKET;
+        } else { continue; }
+      } else {
+        char errbuf[200];
+        av_strerror(recv_ret, errbuf, sizeof(errbuf));
+        av_log(NULL, AV_LOG_ERROR,
+               "an error while avcodec_receive_frame: %d - %s.\n", recv_ret, errbuf);
+        return -1;
+      }
+
+    } // if this is a packet of the desired stream.
+
+  }
+
+  if(read_ret == AVERROR_EOF){
+    avcodec_send_packet(ffio->avCodecContext, NULL);
+    ENDPOINT_AV_ERROR_EOF:
+    av_log(NULL, AV_LOG_INFO, "here is the end of this stream.\n");
+    ffio->ffioState = FFIO_STATE_END;
+    return 1;
+  }else{
+    char errbuf[200];
+    av_strerror(read_ret, errbuf, sizeof(errbuf));
+    av_log(NULL, AV_LOG_ERROR,
+           "an error while av_read_frame: %d - %s.\n", read_ret, errbuf);
+    return -6;
+  }
+
+}
+
 FFIO *newFFIO(){
   FFIO* ffio = (FFIO*)malloc(sizeof(FFIO));
   ffio_reset(ffio);
@@ -356,102 +452,6 @@ FFIO* finalizeFFIO(FFIO* ffio){
   ffio->ffioState = FFIO_STATE_CLOSED;
   av_log(NULL, AV_LOG_INFO, "finished to unref video stream context.\n");
   return ffio;
-}
-
-static int convertToRgbFrame(FFIO* ffio){
-
-  if(ffio->swsContext == NULL){
-    int ret = ffio_init_sws_context(ffio);
-    if(ret != 0){
-      finalizeFFIO(ffio);
-      ffio->ffioState = FFIO_STATE_CLOSED;
-      return -1;
-    }
-  }
-
-  AVFrame *src_frame = ffio->avFrame;
-  if( ffio->hw_enabled && (src_frame->format == ffio->hw_pix_fmt) ){
-    int ret = av_hwframe_transfer_data(ffio->hwFrame, ffio->avFrame, 0);
-    if(ret<0) {
-      av_log(NULL, AV_LOG_ERROR, "failed to transfer avframe from hardware.\n");
-      return -1;
-    }
-    src_frame=ffio->hwFrame;
-  }
-
-  return sws_scale(
-      ffio->swsContext, (uint8_t const* const*)src_frame->data,
-      src_frame->linesize, 0, ffio->avCodecContext->height,
-      ffio->rgbFrame->data, ffio->rgbFrame->linesize
-  );
-}
-
-static int decodeOneFrameToAVFrame(FFIO* ffio){
-  if(ffio->ffioState == FFIO_STATE_READY){ ffio->ffioState = FFIO_STATE_RUNNING; }
-  if(ffio->ffioState != FFIO_STATE_RUNNING){
-    av_log(NULL, AV_LOG_ERROR,"ffio not ready.\n");
-    return -7;
-  }
-
-  int read_ret, send_ret, recv_ret;
-  while(true) {
-    av_packet_unref(ffio->avPacket);
-    read_ret = av_read_frame(ffio->avFormatContext, ffio->avPacket);
-    if(read_ret<0){ break; }
-
-    if(ffio->avPacket->stream_index == ffio->videoStreamIndex) {
-ENDPOINT_RESEND_PACKET:
-      send_ret = avcodec_send_packet(ffio->avCodecContext, ffio->avPacket);
-      if(send_ret == AVERROR_EOF){
-        goto ENDPOINT_AV_ERROR_EOF;
-      } else if (send_ret < 0 && send_ret != AVERROR(EAGAIN)){
-        char errbuf[200];
-        av_strerror(send_ret, errbuf, sizeof(errbuf));
-        av_log(NULL, AV_LOG_ERROR,
-               "an error while avcodec_send_packet: %d - %s.\n", send_ret, errbuf);
-        return -2;
-      }
-
-      // send_ret == 0 or AVERROR(EAGAIN):
-      recv_ret = avcodec_receive_frame(ffio->avCodecContext, ffio->avFrame);
-      if(recv_ret == 0){
-        if( convertToRgbFrame(ffio) < 0 ){ return -8; }
-        ffio->frameSeq += 1;
-        return 0;
-      } else if (recv_ret == AVERROR_EOF){
-        goto ENDPOINT_AV_ERROR_EOF;
-      } else if (recv_ret == AVERROR(EAGAIN)){
-        if(send_ret == AVERROR(EAGAIN)){
-          av_log(NULL, AV_LOG_WARNING, "both send_packet and recv_frame get AVERROR(EAGAIN).");
-          usleep(10000);
-          goto ENDPOINT_RESEND_PACKET;
-        } else { continue; }
-      } else {
-        char errbuf[200];
-        av_strerror(recv_ret, errbuf, sizeof(errbuf));
-        av_log(NULL, AV_LOG_ERROR,
-               "an error while avcodec_receive_frame: %d - %s.\n", recv_ret, errbuf);
-        return -1;
-      }
-
-    } // if this is a packet of the desired stream.
-
-  }
-
-  if(read_ret == AVERROR_EOF){
-    avcodec_send_packet(ffio->avCodecContext, NULL);
-ENDPOINT_AV_ERROR_EOF:
-    av_log(NULL, AV_LOG_INFO, "here is the end of this stream.\n");
-    ffio->ffioState = FFIO_STATE_END;
-    return 1;
-  }else{
-    char errbuf[200];
-    av_strerror(read_ret, errbuf, sizeof(errbuf));
-    av_log(NULL, AV_LOG_ERROR,
-           "an error while av_read_frame: %d - %s.\n", read_ret, errbuf);
-    return -6;
-  }
-
 }
 
 /**
