@@ -5,6 +5,10 @@
 
 #include "ffio.h"
 
+static bool is_empty_string(const char *str) {
+  return str == NULL || *str == '\0';
+}
+
 static enum AVHWDeviceType hw_check_device_support(FFIO* ffio, const char* hw_device){
   /*
    * Check if device is supported and set `ffio->hw_pix_fmt` to proper value.
@@ -81,7 +85,7 @@ static int hw_init_decoder(FFIO* ffio, const char* hw_device){
 static void ffio_reset(FFIO* ffio){
   if(ffio==NULL){ return; }
 
-  ffio->ffioState        = FFIO_STATE_NOT_READY;
+  ffio->ffioState        = FFIO_STATE_INIT;
   ffio->ffioMode         = FFIO_MODE_DECODE;
   ffio->frameSeq         = -1;
   ffio->hw_enabled       = false;
@@ -113,65 +117,79 @@ static void ffio_reset(FFIO* ffio){
   ffio->codecParams     = NULL;
 }
 
-static int ffio_init_avformat(FFIO* ffio){
+static int ffio_init_decode_avformat(FFIO* ffio){
   int ret;
 
-  if(ffio->ffioMode == FFIO_MODE_DECODE){
-    ret = avformat_open_input(&ffio->avFormatContext, ffio->targetUrl,NULL, NULL);
-    if(ret < 0){
-      av_log(NULL, AV_LOG_ERROR, "can not open stream: `%s`.\n", ffio->targetUrl);
-      return 1;
-    }
+  ret = avformat_open_input(&ffio->avFormatContext, ffio->targetUrl,NULL, NULL);
+  if(ret < 0){
+    av_log(NULL, AV_LOG_ERROR, "can not open stream: `%s`.\n", ffio->targetUrl);
+    return 1;
+  }
 
-    ret = avformat_find_stream_info(ffio->avFormatContext, NULL);
-    if(ret < 0){
-      av_log(NULL, AV_LOG_ERROR, "can not find stream info.\n");
-      return 2;
-    }
+  ret = avformat_find_stream_info(ffio->avFormatContext, NULL);
+  if(ret < 0){
+    av_log(NULL, AV_LOG_ERROR, "can not find stream info.\n");
+    return 2;
   }
 
   av_log(NULL, AV_LOG_INFO, "succeed to init avformat.\n");
   return 0;
 }
+static int ffio_init_encode_avformat(FFIO* ffio){
+  char* fmt_name = ffio->codecParams->format;
+  if( fmt_name != NULL && fmt_name[0] == '\0'){ fmt_name = NULL; }
+  if( fmt_name == NULL ){
+    if     (strncmp(ffio->targetUrl, "rtmp://", strlen("rtmp://")) == 0){ fmt_name = "flv";    }
+    else if(strncmp(ffio->targetUrl, "srt://",  strlen("srt://") ) == 0){ fmt_name = "mpegts"; }
+  }
 
-static int ffio_init_avcodec(FFIO* ffio, const char *hw_device){
+  int ret = avformat_alloc_output_context2(&ffio->avFormatContext, NULL, fmt_name, ffio->targetUrl);
+  if( ret < 0 ){
+    av_log(NULL, AV_LOG_ERROR, "can not open stream: `%s`.\n", ffio->targetUrl);
+    return 1;
+  }
+  av_log(NULL, AV_LOG_INFO, "succeed to init avformat.\n");
+  return 0;
+}
+
+static int ffio_init_decode_avcodec(FFIO* ffio, const char *hw_device) {
   int ret;
 
-  if(ffio->ffioMode == FFIO_MODE_DECODE){
-    ffio->videoStreamIndex = av_find_best_stream(
-        ffio->avFormatContext, AVMEDIA_TYPE_VIDEO,
-        -1, -1,(const AVCodec **)&(ffio->avCodec), 0);
-    if(ffio->videoStreamIndex < 0){
-      av_log(NULL, AV_LOG_ERROR,"Failed to set stream index.\n");
-      return 2;
-    }
+  ffio->videoStreamIndex = av_find_best_stream(
+      ffio->avFormatContext, AVMEDIA_TYPE_VIDEO,
+      -1, -1,(const AVCodec **)&(ffio->avCodec), 0);
+  if(ffio->videoStreamIndex < 0){
+    av_log(NULL, AV_LOG_ERROR,"Failed to set stream index.\n");
+    return 2;
+  }
 
-    ffio->avCodecContext = avcodec_alloc_context3(ffio->avCodec);
-    if(!ffio->avCodecContext){
-      av_log(NULL, AV_LOG_ERROR,"Failed to init codec.\n");
-      return 4;
-    }
+  ffio->avCodecContext = avcodec_alloc_context3(ffio->avCodec);
+  if(!ffio->avCodecContext){
+    av_log(NULL, AV_LOG_ERROR,"Failed to init codec.\n");
+    return 4;
+  }
 
-    ret = avcodec_parameters_to_context(ffio->avCodecContext,
-                                        ffio->avFormatContext->streams[ffio->videoStreamIndex]->codecpar);
-    if(ret < 0){
-      av_log(NULL, AV_LOG_ERROR,"Failed to set codec parameters.\n");
-      return 4;
-    }
+  ret = avcodec_parameters_to_context(ffio->avCodecContext,
+                                      ffio->avFormatContext->streams[ffio->videoStreamIndex]->codecpar);
+  if(ret < 0){
+    av_log(NULL, AV_LOG_ERROR,"Failed to set codec parameters.\n");
+    return 4;
+  }
 
-    if(ffio->hw_enabled){
-      ret = hw_init_decoder(ffio, hw_device);
-      if(ret!=0){ return 4; }
-    }
-
+  if(ffio->hw_enabled){
+    ret = hw_init_decoder(ffio, hw_device);
+    if(ret!=0){ return 4; }
   }
 
   ret = avcodec_open2(ffio->avCodecContext, ffio->avCodec, NULL);
   if(ret < 0){
     av_log(NULL, AV_LOG_ERROR, "can not open codec.\n");
     return 4;
+  }else{
+    return 0;
   }
-
+}
+static int ffio_init_encode_avcodec(FFIO* ffio) {
   return 0;
 }
 
@@ -306,7 +324,7 @@ static int decodeOneFrameToAVFrame(FFIO* ffio){
     if(read_ret<0){ break; }
 
     if(ffio->avPacket->stream_index == ffio->videoStreamIndex) {
-      ENDPOINT_RESEND_PACKET:
+ENDPOINT_RESEND_PACKET:
       send_ret = avcodec_send_packet(ffio->avCodecContext, ffio->avPacket);
       if(send_ret == AVERROR_EOF){
         goto ENDPOINT_AV_ERROR_EOF;
@@ -346,7 +364,7 @@ static int decodeOneFrameToAVFrame(FFIO* ffio){
 
   if(read_ret == AVERROR_EOF){
     avcodec_send_packet(ffio->avCodecContext, NULL);
-    ENDPOINT_AV_ERROR_EOF:
+ENDPOINT_AV_ERROR_EOF:
     av_log(NULL, AV_LOG_INFO, "here is the end of this stream.\n");
     ffio->ffioState = FFIO_STATE_END;
     return 1;
@@ -380,6 +398,7 @@ FFIO *newFFIO(){
  *      3: can not process params to context
  *      4: can not open codec context
  *      5: failing to allocate memory
+ *      6: ffio not available
  */
 int initFFIO(
     FFIO* ffio, FFIOMode mode, const char* streamUrl,
@@ -389,15 +408,19 @@ int initFFIO(
 ){
   int ret;
 
+  if(ffio==NULL || ffio->ffioState != FFIO_STATE_INIT){ return 6; }
+
   ffio->ffioMode    = mode;
+  ffio->hw_enabled  = hw_enabled;
   ffio->codecParams = codecParams;
   snprintf(ffio->targetUrl, sizeof(ffio->targetUrl), "%s", streamUrl);
 
-  ret = ffio_init_avformat(ffio);
+  ret = ffio->ffioMode == FFIO_MODE_DECODE ?
+          ffio_init_decode_avformat(ffio) : ffio_init_encode_avformat(ffio);
   if(ret != 0){ finalizeFFIO(ffio); return ret; }
 
-  ffio->hw_enabled = hw_enabled;
-  ret = ffio_init_avcodec(ffio, hw_device);
+  ret = ffio->ffioMode == FFIO_MODE_DECODE ?
+          ffio_init_decode_avcodec(ffio, hw_device) : ffio_init_encode_avcodec(ffio);
   if(ret != 0){ finalizeFFIO(ffio); return ret; }
 
   ffio->avFrame  = av_frame_alloc();
@@ -422,8 +445,6 @@ int initFFIO(
 }
 
 FFIO* finalizeFFIO(FFIO* ffio){
-  ffio->ffioState = FFIO_STATE_NOT_READY;
-  ffio->frameSeq  = -1;
 
   if(ffio->swsContext)     { sws_freeContext(ffio->swsContext);                }
   if(ffio->avFrame)        { av_frame_free( &(ffio->avFrame) );                }

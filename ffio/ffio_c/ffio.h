@@ -16,7 +16,7 @@ typedef enum FFIOMode {
 } FFIOMode;
 
 typedef enum FFIOState {
-  FFIO_STATE_NOT_READY = 0,
+  FFIO_STATE_INIT = 0,
   FFIO_STATE_READY,
   FFIO_STATE_RUNNING,
   FFIO_STATE_END,
