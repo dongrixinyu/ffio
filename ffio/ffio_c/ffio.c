@@ -190,7 +190,91 @@ static int ffio_init_decode_avcodec(FFIO* ffio, const char *hw_device) {
   }
 }
 static int ffio_init_encode_avcodec(FFIO* ffio) {
-  return 0;
+  /*
+   * Refers to the official FFmpeg examples: encoder_video.c and transcoding.c
+   *
+   * Returns:
+   *   success - 0
+   *
+   * Steps 1: codec     = avcodec_find_encoder_by_name
+   * Steps 2: codec_ctx = avcodec_alloc_context3(codec)
+   * Steps 3: set codec_ctx params
+   * Steps 4: avcodec_open2(codec_ctx, codec)
+   * Steps 5: avformat_new_stream(avformat) and avcodec_parameters_from_context(stream <- codec_ctx)
+   * Steps 6: av_dump_format(avformat)
+   * Steps 7: avio_open(avformat) and avformat_write_header(avformat)
+   *
+   */
+  const char *codec_name = ffio->hw_enabled ? "h264_nvenc" : "libx264";
+  ffio->avCodec = (AVCodec*)avcodec_find_encoder_by_name(codec_name);
+  if (!ffio->avCodec){
+    av_log(NULL, AV_LOG_ERROR, "Codec '%s' not found.\n", codec_name);
+    return 2;
+  }
+
+  ffio->avCodecContext = avcodec_alloc_context3(ffio->avCodec);
+  if (!ffio->avCodecContext){
+    av_log(NULL, AV_LOG_ERROR, "Could not allocate video codec context.\n");
+    return 2;
+  }
+
+  ffio->avCodecContext->width        = ffio->codecParams->width;
+  ffio->avCodecContext->height       = ffio->codecParams->height;
+  ffio->avCodecContext->bit_rate     = ffio->codecParams->bitrate;
+  ffio->avCodecContext->gop_size     = ffio->codecParams->gop;
+  ffio->avCodecContext->max_b_frames = ffio->codecParams->b_frames;
+  ffio->avCodecContext->time_base    = (AVRational){1, ffio->codecParams->fps};
+  ffio->avCodecContext->framerate    = (AVRational){ffio->codecParams->fps, 1};
+
+  av_opt_set(ffio->avCodecContext->priv_data, "profile", ffio->codecParams->profile, 0);
+  av_opt_set(ffio->avCodecContext->priv_data, "preset",  ffio->codecParams->preset,  0);
+  av_opt_set(ffio->avCodecContext->priv_data, "tune",    ffio->codecParams->tune,    0);
+  ffio->avCodecContext->pix_fmt = av_get_pix_fmt(ffio->codecParams->pix_fmt);
+
+  // for compatibility: if GLOBAL_HEADER is needed by target format.
+  if (ffio->avFormatContext->flags & AVFMT_GLOBALHEADER){
+    ffio->avCodecContext->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
+  }
+
+  int ret = avcodec_open2(ffio->avCodecContext, ffio->avCodec, NULL);
+  if(ret < 0){
+    av_log(NULL, AV_LOG_ERROR, "can not open codec.\n");
+    return 4;
+  }else{
+    AVStream *stream = avformat_new_stream(ffio->avFormatContext, NULL);
+    if (!stream) {
+      av_log(NULL, AV_LOG_ERROR, "Failed allocating output AVStream.\n");
+      return 4;
+    }
+    ret = avcodec_parameters_from_context(stream->codecpar, ffio->avCodecContext);
+    if (ret < 0) {
+      av_log(NULL, AV_LOG_ERROR, "Failed to copy encoder parameters to output stream.\n");
+      return 4;
+    }
+    stream->time_base = ffio->avCodecContext->time_base;
+
+    av_dump_format(ffio->avFormatContext, 0, ffio->targetUrl, 1);
+
+    if (!(ffio->avFormatContext->oformat->flags & AVFMT_NOFILE)) {
+      ret = avio_open(&(ffio->avFormatContext->pb), ffio->targetUrl, AVIO_FLAG_WRITE);
+      if (ret < 0) {
+        char errbuf[200];
+        av_strerror(ret, errbuf, sizeof(errbuf));
+        av_log(NULL, AV_LOG_ERROR, "avio_open failed %d - %s.\n", ret, errbuf);
+        return 9;
+      }
+    }
+
+    ret = avformat_write_header(ffio->avFormatContext, NULL);
+    if (ret < 0) {
+      char errbuf[200];
+      av_strerror(ret, errbuf, sizeof(errbuf));
+      av_log(NULL, AV_LOG_ERROR, "avformat_write_header failed %d - %s.\n", ret, errbuf);
+      return 10;
+    }
+
+    return 0;
+  }
 }
 
 static int ffio_init_video_parameters(FFIO* ffio){
