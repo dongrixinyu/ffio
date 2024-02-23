@@ -5,7 +5,80 @@
 
 #include "ffio.h"
 
-static void resetFFIO(FFIO* ffio){
+static enum AVHWDeviceType hw_check_device_support(FFIO* ffio, const char* hw_device){
+  /*
+   * Check if device is supported and set `ffio->hw_pix_fmt` to proper value.
+   *
+   * Parameters:
+   *   hw_device - Execute `ffmpeg -hwaccels` to see available hw_device.
+   *               Such as hw_device = "cuda".
+   *
+   * Returns:
+   *   success - AVHWDeviceType
+   *   failure - AV_HWDEVICE_TYPE_NONE
+   */
+  enum AVHWDeviceType type = av_hwdevice_find_type_by_name(hw_device);
+  if (type == AV_HWDEVICE_TYPE_NONE) {
+    av_log(NULL, AV_LOG_ERROR,
+           "Device type %s is not supported.\n", hw_device);
+    return AV_HWDEVICE_TYPE_NONE;
+  }
+
+  for (int i=0; ;i++) {
+    const AVCodecHWConfig *config = avcodec_get_hw_config(ffio->avCodec, i);
+    if (!config) {
+      av_log(NULL, AV_LOG_WARNING,
+             "Decoder %s does not support device type %s.\n",
+             ffio->avCodec->name, av_hwdevice_get_type_name(type));
+      return AV_HWDEVICE_TYPE_NONE;
+    }
+    if (config->methods & AV_CODEC_HW_CONFIG_METHOD_HW_DEVICE_CTX &&
+        config->device_type == type) {
+      ffio->hw_pix_fmt = config->pix_fmt;
+      return type;
+    }
+  }
+}
+
+static enum AVPixelFormat hw_get_pix_fmts(AVCodecContext *ctx, const enum AVPixelFormat *pix_fmts){
+  /*
+   * Refers to the official FFmpeg examples: hw_decode.c
+   */
+  const enum AVPixelFormat target = *(enum AVPixelFormat*)(ctx->opaque);
+
+  const enum AVPixelFormat *p;
+  for (p = pix_fmts; *p != -1; p++) {
+    if (*p == target) { return *p; }
+  }
+  fprintf(stderr, "Failed to get HW surface format.\n");
+  return AV_PIX_FMT_NONE;
+}
+
+static int hw_init_decoder(FFIO* ffio, const char* hw_device){
+  enum AVHWDeviceType type = hw_check_device_support(ffio, hw_device);
+  if(type == AV_HWDEVICE_TYPE_NONE){ return -1; }
+
+  ffio->avCodecContext->opaque     = &(ffio->hw_pix_fmt);
+  ffio->avCodecContext->get_format = hw_get_pix_fmts;
+
+  int ret = av_hwdevice_ctx_create(
+      &(ffio->hwContext), type,
+      NULL, NULL, 0
+  );
+  if(ret != 0){
+    char errbuf[200];
+    av_strerror(ret, errbuf, sizeof(errbuf));
+    av_log(NULL, AV_LOG_ERROR,
+           "initialize hardware context failed, ret: %d - %s.\n", ret, errbuf);
+    return -1;
+  }else{
+    av_log(NULL, AV_LOG_INFO, "successfully initialize the nvidia cuda.\n");
+    ffio->avCodecContext->hw_device_ctx = av_buffer_ref(ffio->hwContext);
+    return 0;
+  }
+}
+
+static void ffio_reset(FFIO* ffio){
   if(ffio==NULL){ return; }
 
   ffio->ffioState        = FFIO_STATE_NOT_READY;
@@ -26,13 +99,16 @@ static void resetFFIO(FFIO* ffio){
   ffio->avCodecContext  = NULL;
   ffio->avCodec         = NULL;
   ffio->avPacket        = NULL;
-  ffio->yuvFrame        = NULL;
+  ffio->avFrame         = NULL;
+  ffio->hwFrame         = NULL;
   ffio->rgbFrame        = NULL;
   ffio->swsContext      = NULL;
-  ffio->hwContext       = NULL;
 
   ffio->rawFrame        = NULL;
   ffio->rawFrameShm     = NULL;
+
+  ffio->hwContext       = NULL;
+  ffio->hw_pix_fmt      = AV_PIX_FMT_NONE;
 }
 
 static int ffio_init_avformat(FFIO* ffio){
@@ -82,19 +158,9 @@ static int ffio_init_avcodec(FFIO* ffio, const char *hw_device){
     }
 
     if(ffio->hw_enabled){
-      ret = av_hwdevice_ctx_create(&(ffio->hwContext), AV_HWDEVICE_TYPE_CUDA,
-                                   hw_device, NULL, 0);
-      if(ret != 0){
-        char errbuf[200];
-        av_strerror(ret, errbuf, sizeof(errbuf));
-        av_log(NULL, AV_LOG_ERROR,
-               "initialize hardware context failed, ret: %d - %s.\n", ret, errbuf);
-        return 4;
-      }else{
-        av_log(NULL, AV_LOG_INFO, "successfully initialize the nvidia cuda.\n");
-        ffio->avCodecContext->hw_device_ctx = av_buffer_ref(ffio->hwContext);
-      }
-    } // end of hardware setting.
+      ret = hw_init_decoder(ffio, hw_device);
+      if(ret!=0){ return 4; }
+    }
 
   }
 
@@ -176,7 +242,7 @@ static int ffio_init_memory_for_rgb_bytes(
 
 FFIO *newFFIO(){
   FFIO* ffio = (FFIO*)malloc(sizeof(FFIO));
-  resetFFIO(ffio);
+  ffio_reset(ffio);
   return ffio;
 }
 
@@ -212,10 +278,11 @@ int initFFIO(
   ret = ffio_init_avcodec(ffio, hw_device);
   if(ret != 0){ finalizeFFIO(ffio); return ret; }
 
-  ffio->yuvFrame = av_frame_alloc();
+  ffio->avFrame  = av_frame_alloc();
+  ffio->hwFrame  = av_frame_alloc();
   ffio->rgbFrame = av_frame_alloc();
   ffio->avPacket = av_packet_alloc();
-  if( !(ffio->yuvFrame) || !(ffio->rgbFrame) || !(ffio->avPacket) ){
+  if( !(ffio->avFrame) || !(ffio->hwFrame) || !(ffio->rgbFrame) || !(ffio->avPacket) ){
     av_log(NULL, AV_LOG_ERROR, "failed to allocate avPacket or avFrame.\n");
     finalizeFFIO(ffio);
     return 5;
@@ -240,10 +307,12 @@ FFIO* finalizeFFIO(FFIO* ffio){
   ffio->frameSeq  = -1;
 
   if(ffio->swsContext)     { sws_freeContext(ffio->swsContext);                }
-  if(ffio->yuvFrame)       { av_frame_free( &(ffio->yuvFrame) );               }
+  if(ffio->avFrame)        { av_frame_free( &(ffio->avFrame) );                }
+  if(ffio->hwFrame)        { av_frame_free( &(ffio->hwFrame) );                }
   if(ffio->rgbFrame)       { av_frame_free( &(ffio->rgbFrame) );               }
   if(ffio->avPacket)       { av_packet_free( &(ffio->avPacket) );              }
   if(ffio->avCodecContext) { avcodec_free_context( &(ffio->avCodecContext) );  }
+  if(ffio->hwContext)      { av_buffer_unref(&(ffio->hwContext));              }
 
   if(ffio->avFormatContext){
     if(ffio->ffioMode == FFIO_MODE_DECODE){
@@ -264,16 +333,26 @@ FFIO* finalizeFFIO(FFIO* ffio){
 
   memset(ffio->targetUrl, '0', MAX_URL_LENGTH);
 
-  resetFFIO(ffio);
+  ffio_reset(ffio);
   ffio->ffioState = FFIO_STATE_CLOSED;
   av_log(NULL, AV_LOG_INFO, "finished to unref video stream context.\n");
   return ffio;
 }
 
-static int convertYUV2RGB(FFIO* ffio){
+static int convertToRgbFrame(FFIO* ffio){
+  AVFrame *src_frame = ffio->avFrame;
+  if( ffio->hw_enabled && (src_frame->format == ffio->hw_pix_fmt) ){
+    int ret = av_hwframe_transfer_data(ffio->hwFrame, ffio->avFrame, 0);
+    if(ret<0) {
+      av_log(NULL, AV_LOG_ERROR, "failed to transfer avframe from hardware.\n");
+      return -1;
+    }
+    src_frame=ffio->hwFrame;
+  }
+
   return sws_scale(
-      ffio->swsContext, (uint8_t const* const*)ffio->yuvFrame->data,
-      ffio->yuvFrame->linesize, 0, ffio->avCodecContext->height,
+      ffio->swsContext, (uint8_t const* const*)src_frame->data,
+      src_frame->linesize, 0, ffio->avCodecContext->height,
       ffio->rgbFrame->data, ffio->rgbFrame->linesize
   );
 }
@@ -305,9 +384,9 @@ ENDPOINT_RESEND_PACKET:
       }
 
       // send_ret == 0 or AVERROR(EAGAIN):
-      recv_ret = avcodec_receive_frame(ffio->avCodecContext, ffio->yuvFrame);
+      recv_ret = avcodec_receive_frame(ffio->avCodecContext, ffio->avFrame);
       if(recv_ret == 0){
-        convertYUV2RGB(ffio);
+        if( convertToRgbFrame(ffio) < 0 ){ return -8; }
         ffio->frameSeq += 1;
         return 0;
       } else if (recv_ret == AVERROR_EOF){
@@ -358,6 +437,7 @@ ENDPOINT_AV_ERROR_EOF:
  *     -5 means timeout to get the next packet, need to exit this function.
  *     -6 means other error concerning av_read_frame.
  *     -7 means ffio not get ready.
+ *     -8 means failed to convert frame to rgb format.
  *     -9 means shm not enabled.
  */
 int decodeOneFrame(FFIO* ffio){

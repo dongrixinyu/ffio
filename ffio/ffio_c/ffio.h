@@ -40,17 +40,20 @@ typedef struct FFIO{
 
   char      targetUrl[MAX_URL_LENGTH];       // the path of mp4 or rtmp, rtsp
 
-  AVFormatContext   *avFormatContext;
-  AVCodecContext    *avCodecContext;
-  AVCodec           *avCodec;
-  AVPacket          *avPacket;
-  AVFrame           *yuvFrame;
-  AVFrame           *rgbFrame;
-  struct SwsContext *swsContext;
-  AVBufferRef       *hwContext;
+  AVFormatContext     *avFormatContext;
+  AVCodecContext      *avCodecContext;
+  AVCodec             *avCodec;
+  AVPacket            *avPacket;
+  AVFrame             *avFrame;              // got from: avcodec_receive_frame()
+  AVFrame             *hwFrame;              // transferred from avFrame by hardware
+  AVFrame             *rgbFrame;             // transferred from avFrame or hwFrame
+  struct SwsContext   *swsContext;
 
-  unsigned char     *rawFrame;
-  unsigned char     *rawFrameShm;
+  unsigned char       *rawFrame;
+  unsigned char       *rawFrameShm;
+
+  AVBufferRef         *hwContext;
+  enum AVPixelFormat   hw_pix_fmt;
 } FFIO;
 
 // Functions of FFIO lifecycle.
