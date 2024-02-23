@@ -23,6 +23,20 @@ typedef enum FFIOState {
   FFIO_STATE_CLOSED
 } FFIOState;
 
+typedef struct CodecParams {
+  int  width;
+  int  height;
+  int  bitrate;
+  int  fps;
+  int  gop;
+  int  b_frames;
+  char profile[24];
+  char preset[24];
+  char tune[24];
+  char pix_fmt[24];
+  char format[24];
+} CodecParams;
+
 typedef struct FFIO{
   FFIOState ffioState;                       // to indicate that if the stream has been opened successfully
   FFIOMode  ffioMode;                        // encode or decode
@@ -54,6 +68,8 @@ typedef struct FFIO{
 
   AVBufferRef         *hwContext;
   enum AVPixelFormat   hw_pix_fmt;
+
+  CodecParams         *codecParams;
 } FFIO;
 
 // Functions of FFIO lifecycle.
@@ -61,7 +77,8 @@ FFIO* newFFIO();
 int initFFIO(
     FFIO* ffio, FFIOMode mode, const char* streamUrl,
     bool hw_enabled, const char* hw_device,
-    bool enableShm,  const char* shmName, int shmSize, int shmOffset
+    bool enableShm,  const char* shmName, int shmSize, int shmOffset,
+    CodecParams* codecParams
 );
 FFIO* finalizeFFIO(FFIO* ffio);
 

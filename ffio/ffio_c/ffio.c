@@ -109,6 +109,8 @@ static void ffio_reset(FFIO* ffio){
 
   ffio->hwContext       = NULL;
   ffio->hw_pix_fmt      = AV_PIX_FMT_NONE;
+
+  ffio->codecParams     = NULL;
 }
 
 static int ffio_init_avformat(FFIO* ffio){
@@ -382,11 +384,13 @@ FFIO *newFFIO(){
 int initFFIO(
     FFIO* ffio, FFIOMode mode, const char* streamUrl,
     bool hw_enabled, const char* hw_device,
-    bool enableShm,  const char* shmName, int shmSize, int shmOffset
+    bool enableShm,  const char* shmName, int shmSize, int shmOffset,
+    CodecParams* codecParams
 ){
   int ret;
 
-  ffio->ffioMode = mode;
+  ffio->ffioMode    = mode;
+  ffio->codecParams = codecParams;
   snprintf(ffio->targetUrl, sizeof(ffio->targetUrl), "%s", streamUrl);
 
   ret = ffio_init_avformat(ffio);

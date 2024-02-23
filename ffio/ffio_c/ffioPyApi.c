@@ -10,12 +10,14 @@ FFIO* api_newFFIO(){
 void api_initFFIO(
     FFIO* ffio, int mode, const char* streamUrl,
     bool hw_enabled, const char* hw_device,
-    bool enableShm,  const char* shmName, int shmSize, int shmOffset
+    bool enableShm,  const char* shmName, int shmSize, int shmOffset,
+    CodecParams* codecParams
 ){
   FFIOMode ffioMode = mode == 0 ? FFIO_MODE_DECODE : FFIO_MODE_ENCODE;
   int ret = initFFIO(ffio, ffioMode, streamUrl,
                      hw_enabled, hw_device,
-                     enableShm, shmName, shmSize, shmOffset
+                     enableShm, shmName, shmSize, shmOffset,
+                     codecParams
   );
   if(ret != 0){ finalizeFFIO(ffio); }
 }

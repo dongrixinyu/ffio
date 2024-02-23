@@ -20,23 +20,23 @@ static void saveRGB2File(const FFIO* ffio){
 }
 
 int main(int argc, char *argv[]){
-  if(argc == 2){
-    printf("Running with: %s %s\n", argv[0], argv[1]);
-  }else{
-    printf("Failed to run with wrong arguments.\n");
-    exit(1);
-  }
+  if(argc >= 2){ printf("Running with: %s %s\n", argv[0], argv[1]); }
+  else{ printf("Failed to run with wrong arguments.\n"); exit(1); }
+
   if(strncmp(argv[1], "rtmp://", 7) != 0){
     printf("Please provide a correct rtmp url.\n");
     exit(1);
   }
+  bool hw_enabled = false;
+  if(argc>=3 && strncmp(argv[2], "gpu", 3)==0 ){ hw_enabled = true; }
 
   char* rtmp = argv[1];
   FFIO* ffio = newFFIO();
 
+  CodecParams params;
   initFFIO(ffio, FFIO_MODE_DECODE, rtmp,
-           false, NULL,
-           false, NULL, 0, 0);
+           hw_enabled, NULL,
+           false, NULL, 0, 0, &params);
 
   int ret;
   for(int i=0; i<10; ++i){
