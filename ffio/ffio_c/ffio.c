@@ -759,6 +759,8 @@ FFIO* finalizeFFIO(FFIO* ffio){
     if(ffio->ffioMode == FFIO_MODE_DECODE){
       avformat_close_input( &(ffio->avFormatContext) );
     }else{
+      LOG_INFO("[E] write trailer to target: %s.", ffio->targetUrl);
+      av_write_trailer(ffio->avFormatContext);
       if( !(ffio->avFormatContext->oformat->flags & AVFMT_NOFILE) ){
         avio_closep(&(ffio->avFormatContext->pb) );
       }
@@ -776,7 +778,7 @@ FFIO* finalizeFFIO(FFIO* ffio){
 
   ffio_reset(ffio);
   ffio->ffioState = FFIO_STATE_CLOSED;
-  LOG_INFO_T(" finished to free ffio context.");
+  LOG_INFO_T("[%s] finished to free ffio context.", get_ffioMode(ffio));
   return ffio;
 }
 
