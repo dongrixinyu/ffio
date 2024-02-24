@@ -31,6 +31,12 @@
 #include "libswscale/swscale.h"
 #include <libavutil/pixdesc.h>
 
+#define LOG_INFO(fmt, ...)       av_log(NULL, AV_LOG_INFO,    "[info ]"     fmt "\n",                 ##__VA_ARGS__)
+#define LOG_INFO_T(fmt, ...)     av_log(NULL, AV_LOG_INFO,    "[info ][%s]" fmt "\n", get_str_time(), ##__VA_ARGS__)
+#define LOG_WARNING(fmt, ...)    av_log(NULL, AV_LOG_WARNING, "[warn ]"     fmt "\n",                 ##__VA_ARGS__)
+#define LOG_WARNING_T(fmt, ...)  av_log(NULL, AV_LOG_WARNING, "[warn ][%s]" fmt "\n", get_str_time(), ##__VA_ARGS__)
+#define LOG_ERROR(fmt, ...)      av_log(NULL, AV_LOG_ERROR,   "[error]"     fmt "\n",                 ##__VA_ARGS__)
+#define LOG_ERROR_T(fmt, ...)    av_log(NULL, AV_LOG_ERROR,   "[error][%s]" fmt "\n", get_str_time(), ##__VA_ARGS__)
 
 typedef struct Clicker
 {
