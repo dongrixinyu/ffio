@@ -25,8 +25,8 @@ typedef enum FFIOState {
 
 typedef enum FFIOError {
   FFIO_ERROR_FFIO_NOT_AVAILABLE = -100,
-  FFIO_ERROR_RECV_PACKET_OR_FRAME,
-  FFIO_ERROR_SEND_PACKET_OR_FRAME,
+  FFIO_ERROR_RECV_FROM_CODEC,
+  FFIO_ERROR_SEND_TO_CODEC,
   FFIO_ERROR_READ_OR_WRITE_TARGET,
   FFIO_ERROR_STREAM_ENDING,
   FFIO_ERROR_AVFRAME_ALLOCATION,
@@ -99,5 +99,8 @@ FFIO* finalizeFFIO(FFIO* ffio);
  */
 int decodeOneFrame(FFIO* ffio);
 int decodeOneFrameToShm(FFIO* ffio, int shmOffset);
+
+int encodeOneFrame(FFIO* ffio, unsigned char *RGBImage);
+bool encodeOneFrameFromShm(FFIO* ffio, int shmOffset);
 
 #endif //FFIO_C_FFIO_H
