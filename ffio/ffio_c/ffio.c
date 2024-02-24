@@ -772,7 +772,7 @@ int encodeOneFrame(FFIO* ffio, unsigned char* rgbBytes){
       return 0;
     } else {
       av_log(NULL, AV_LOG_ERROR,
-             "an error occurred while av_interleaved_write_frame: %d - %s.\n", recv_ret, av_err2str(recv_ret));
+             "an error occurred while av_interleaved_write_frame: %d - %s.\n", write_ret, av_err2str(write_ret));
       return FFIO_ERROR_READ_OR_WRITE_TARGET;
     }
   }

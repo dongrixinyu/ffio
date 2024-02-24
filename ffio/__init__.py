@@ -22,5 +22,5 @@ from ffio.util.logger import set_logger
 
 logging = set_logger(level='INFO')
 
-from ffio.ffio import FFIO
+from ffio.ffio import FFIO, CCodecParams
 

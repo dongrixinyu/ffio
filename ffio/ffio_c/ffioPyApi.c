@@ -49,3 +49,14 @@ bool api_decodeOneFrameToShm(FFIO* ffio, int shmOffset){
   int ret = decodeOneFrameToShm(ffio, shmOffset);
   return ret == 0 ? true : false;
 }
+
+int api_encodeOneFrame(FFIO* ffio, PyObject *PyRGBImage){
+  char *RGBImage = PyBytes_AsString(PyRGBImage);
+  Py_ssize_t RGBImageSize = PyBytes_GET_SIZE(PyRGBImage);
+
+  int ret = encodeOneFrame(ffio, (unsigned char *)RGBImage);
+  return ret;
+}
+bool api_encodeOneFrameFromShm(FFIO* ffio, int shmOffset){
+  return encodeOneFrameFromShm(ffio, shmOffset);
+}

@@ -22,4 +22,7 @@ void api_deleteFFIO(FFIO* ffio);
 PyObject* api_decodeOneFrame(FFIO* ffio);
 bool      api_decodeOneFrameToShm(FFIO* ffio, int shmOffset);
 
+int  api_encodeOneFrame(FFIO* ffio, PyObject *PyRGBImage);
+bool api_encodeOneFrameFromShm(FFIO* ffio, int shmOffset);
+
 #endif // FFIO_PYAPI_H
