@@ -39,7 +39,20 @@ static enum AVHWDeviceType hw_check_device_support(FFIO* ffio, const char* hw_de
     if (config->methods & AV_CODEC_HW_CONFIG_METHOD_HW_DEVICE_CTX &&
         config->device_type == type) {
       ffio->hw_pix_fmt = config->pix_fmt;
-      return type;
+      break;
+    }
+  }
+  return type;
+}
+
+static enum AVPixelFormat hw_find_best_hw_pix_fmt(AVCodec *codec, enum AVHWDeviceType type){
+  const AVCodecHWConfig* config = NULL;
+  for (int i = 0;; i++) {
+    config = avcodec_get_hw_config(codec, i);
+    if (config==NULL) { return AV_PIX_FMT_NONE; }
+    if (config->methods & AV_CODEC_HW_CONFIG_METHOD_HW_DEVICE_CTX &&
+        config->device_type == type) {
+      return config->pix_fmt;
     }
   }
 }
@@ -58,28 +71,71 @@ static enum AVPixelFormat hw_get_pix_fmts(AVCodecContext *ctx, const enum AVPixe
   return AV_PIX_FMT_NONE;
 }
 
+static int hw_init_encoder(FFIO* ffio, const char* hw_device){
+  /**
+   * Refers to the official FFmpeg examples: vaapi_encode.c
+   *
+   * hw_device: "cuda"
+   */
+  enum AVHWDeviceType hw_type = hw_check_device_support(ffio, hw_device);
+  if(hw_type == AV_HWDEVICE_TYPE_NONE){ return FFIO_ERROR_HARDWARE_ACCELERATION; }
+
+  int ret = av_hwdevice_ctx_create(&(ffio->hwContext), hw_type,NULL, NULL, 0);
+  if(ret != 0){
+    av_log(NULL, AV_LOG_ERROR,"failed to init hw_ctx, ret: %d - %s.\n", ret, av_err2str(ret));
+    return FFIO_ERROR_HARDWARE_ACCELERATION;
+  }
+
+  AVBufferRef *hw_frames_ref;
+  AVHWFramesContext *frames_ctx = NULL;
+
+  hw_frames_ref = av_hwframe_ctx_alloc(ffio->hwContext);
+  if(hw_frames_ref==NULL){
+    av_log(NULL, AV_LOG_ERROR, "Failed to create hw frame_ctx.\n");
+    return FFIO_ERROR_HARDWARE_ACCELERATION;
+  }
+
+  enum AVPixelFormat hw_pix_fmt = hw_find_best_hw_pix_fmt(ffio->avCodec, hw_type);
+  if(hw_pix_fmt==AV_PIX_FMT_NONE){
+    av_log(NULL, AV_LOG_ERROR, "Failed: hw_find_best_hw_pix_fmt.\n");
+    return FFIO_ERROR_HARDWARE_ACCELERATION;
+  }
+  frames_ctx = (AVHWFramesContext *)(hw_frames_ref->data);
+  frames_ctx->format    = hw_pix_fmt;
+  frames_ctx->sw_format = ffio->avCodec->pix_fmts[0];
+  frames_ctx->width     = ffio->codecParams->width;
+  frames_ctx->height    = ffio->codecParams->height;
+  frames_ctx->initial_pool_size = 20;
+  printf("[pix_fmt]hw frames_ctx->format:  %s.\n",    av_get_pix_fmt_name(frames_ctx->format));
+  printf("[pix_fmt]hw frames_ctx->sw_format:  %s.\n", av_get_pix_fmt_name(frames_ctx->sw_format));
+
+  ret = av_hwframe_ctx_init(hw_frames_ref);
+  if(ret<0){
+    av_log(NULL, AV_LOG_ERROR, "Failed to init hw frame_ctx, ret: %d - %s.\n", ret, av_err2str(ret));
+    av_buffer_unref(&hw_frames_ref);
+    return FFIO_ERROR_HARDWARE_ACCELERATION;
+  }
+
+  ffio->avCodecContext->hw_frames_ctx = av_buffer_ref(hw_frames_ref);
+  av_buffer_unref(&hw_frames_ref);
+  return ffio->avCodecContext->hw_frames_ctx==NULL ? AVERROR(ENOMEM) : 0;
+}
+
 static int hw_init_decoder(FFIO* ffio, const char* hw_device){
   enum AVHWDeviceType type = hw_check_device_support(ffio, hw_device);
-  if(type == AV_HWDEVICE_TYPE_NONE){ return -1; }
+  if(type == AV_HWDEVICE_TYPE_NONE){ return FFIO_ERROR_HARDWARE_ACCELERATION; }
 
   ffio->avCodecContext->opaque     = &(ffio->hw_pix_fmt);
   ffio->avCodecContext->get_format = hw_get_pix_fmts;
 
-  int ret = av_hwdevice_ctx_create(
-      &(ffio->hwContext), type,
-      NULL, NULL, 0
-  );
+  int ret = av_hwdevice_ctx_create(&(ffio->hwContext), type,NULL, NULL, 0);
   if(ret != 0){
-    char errbuf[200];
-    av_strerror(ret, errbuf, sizeof(errbuf));
-    av_log(NULL, AV_LOG_ERROR,
-           "initialize hardware context failed, ret: %d - %s.\n", ret, errbuf);
-    return -1;
-  }else{
-    av_log(NULL, AV_LOG_INFO, "successfully initialize the nvidia cuda.\n");
-    ffio->avCodecContext->hw_device_ctx = av_buffer_ref(ffio->hwContext);
-    return 0;
+    av_log(NULL, AV_LOG_ERROR,"failed to init hw_ctx, ret: %d - %s.\n", ret, av_err2str(ret));
+    return FFIO_ERROR_HARDWARE_ACCELERATION;
   }
+  av_log(NULL, AV_LOG_INFO, "successfully initialize the nvidia cuda.\n");
+  ffio->avCodecContext->hw_device_ctx = av_buffer_ref(ffio->hwContext);
+  return 0;
 }
 
 static void ffio_reset(FFIO* ffio){
@@ -189,7 +245,7 @@ static int ffio_init_decode_avcodec(FFIO* ffio, const char *hw_device) {
     return 0;
   }
 }
-static int ffio_init_encode_avcodec(FFIO* ffio) {
+static int ffio_init_encode_avcodec(FFIO* ffio, const char* hw_device) {
   /*
    * Refers to the official FFmpeg examples: encoder_video.c and transcoding.c
    *
@@ -236,7 +292,13 @@ static int ffio_init_encode_avcodec(FFIO* ffio) {
     ffio->avCodecContext->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
   }
 
-  int ret = avcodec_open2(ffio->avCodecContext, ffio->avCodec, NULL);
+  int ret;
+  if(ffio->hw_enabled){
+    ret = hw_init_encoder(ffio, hw_device);
+    if(ret!=0){ return 4; }
+  }
+
+  ret = avcodec_open2(ffio->avCodecContext, ffio->avCodec, NULL);
   if(ret < 0){
     av_log(NULL, AV_LOG_ERROR, "can not open codec.\n");
     return 4;
@@ -300,6 +362,14 @@ static int ffio_init_frame_parameters(FFIO* ffio){
     if(ret != 0){
       av_log(NULL, AV_LOG_ERROR, "Failed to allocate memory for rgbFrame.\n");
       return FFIO_ERROR_AVFRAME_ALLOCATION;
+    }
+
+    if(ffio->hw_enabled){
+      ret = av_hwframe_get_buffer(ffio->avCodecContext->hw_frames_ctx, ffio->hwFrame, 0);
+      if(ret<0){
+        av_log(NULL, AV_LOG_ERROR, "Failed to allocate memory for hwFrame.\n");
+        return FFIO_ERROR_AVFRAME_ALLOCATION;
+      }
     }
   }
 
@@ -550,7 +620,7 @@ int initFFIO(
   if(ret != 0){ finalizeFFIO(ffio); return ret; }
 
   ret = ffio->ffioMode == FFIO_MODE_DECODE ?
-          ffio_init_decode_avcodec(ffio, hw_device) : ffio_init_encode_avcodec(ffio);
+          ffio_init_decode_avcodec(ffio, hw_device) : ffio_init_encode_avcodec(ffio, hw_device);
   if(ret != 0){ finalizeFFIO(ffio); return ret; }
 
   ffio->avFrame  = av_frame_alloc();
