@@ -273,10 +273,6 @@ static int ffio_init_encode_avcodec(FFIO* ffio, const char* hw_device) {
    * Steps 2: codec_ctx = avcodec_alloc_context3(codec)
    * Steps 3: set codec_ctx params
    * Steps 4: avcodec_open2(codec_ctx, codec)
-   * Steps 5: avformat_new_stream(avformat) and avcodec_parameters_from_context(stream <- codec_ctx)
-   * Steps 6: av_dump_format(avformat)
-   * Steps 7: avio_open(avformat) and avformat_write_header(avformat)
-   *
    */
   const char *codec_name = ffio->hw_enabled ? "h264_nvenc" : "libx264";
   ffio->avCodec = (AVCodec*)avcodec_find_encoder_by_name(codec_name);
@@ -320,42 +316,56 @@ static int ffio_init_encode_avcodec(FFIO* ffio, const char* hw_device) {
   if(ret < 0){
     LOG_ERROR("[E][init] can not open codec.");
     return FFIO_ERROR_AVCODEC_FAILURE;
-  }else{
-    ffio->videoStreamIndex = 0;   // Only create one stream to output format.
-    AVStream *stream = avformat_new_stream(ffio->avFormatContext, NULL);
-    if (!stream) {
-      LOG_ERROR("[E][init] failed to create new AVStream.");
-      return FFIO_ERROR_AVFORMAT_FAILURE;
-    }
-    ret = avcodec_parameters_from_context(stream->codecpar, ffio->avCodecContext);
+  }
+  LOG_INFO("[E][init] succeeded to init codec ctx.");
+  return 0;
+}
+static int ffio_init_encode_create_stream(FFIO* ffio){
+  int ret;
+  ffio->videoStreamIndex = 0;   // Only create one stream to output format.
+  AVStream *stream = avformat_new_stream(ffio->avFormatContext, NULL);
+  if (!stream) {
+    LOG_ERROR("[E][init] failed to create new AVStream.");
+    return FFIO_ERROR_AVFORMAT_FAILURE;
+  }
+  ret = avcodec_parameters_from_context(stream->codecpar, ffio->avCodecContext);
+  if (ret < 0) {
+    LOG_ERROR("[E][init] failed to copy encoder parameters to AVStream.");
+    return FFIO_ERROR_AVFORMAT_FAILURE;
+  }
+  stream->time_base = ffio->avCodecContext->time_base;
+
+  av_dump_format(ffio->avFormatContext, 0, ffio->targetUrl, 1);
+
+  if (!(ffio->avFormatContext->oformat->flags & AVFMT_NOFILE)) {
+    ret = avio_open(&(ffio->avFormatContext->pb), ffio->targetUrl, AVIO_FLAG_WRITE);
     if (ret < 0) {
-      LOG_ERROR("[E][init] failed to copy encoder parameters to AVStream.");
-      return FFIO_ERROR_AVFORMAT_FAILURE;
-    }
-    stream->time_base = ffio->avCodecContext->time_base;
-
-    av_dump_format(ffio->avFormatContext, 0, ffio->targetUrl, 1);
-
-    if (!(ffio->avFormatContext->oformat->flags & AVFMT_NOFILE)) {
-      ret = avio_open(&(ffio->avFormatContext->pb), ffio->targetUrl, AVIO_FLAG_WRITE);
-      if (ret < 0) {
-        LOG_ERROR("[E][init] avio_open failed %d - %s.", ret, av_err2str(ret));
-        return FFIO_ERROR_READ_OR_WRITE_TARGET;
-      }
-    }
-
-    ret = avformat_write_header(ffio->avFormatContext, NULL);
-    if (ret < 0) {
-      LOG_ERROR("[E][init] avformat_write_header failed %d - %s.", ret, av_err2str(ret));
+      LOG_ERROR("[E][init] avio_open failed %d - %s.", ret, av_err2str(ret));
       return FFIO_ERROR_READ_OR_WRITE_TARGET;
     }
-
-    LOG_INFO("[E][init] succeeded to init codec ctx.");
-    return 0;
   }
+
+  ret = avformat_write_header(ffio->avFormatContext, NULL);
+  if (ret < 0) {
+    LOG_ERROR("[E][init] avformat_write_header failed %d - %s.", ret, av_err2str(ret));
+    return FFIO_ERROR_READ_OR_WRITE_TARGET;
+  }
+
+  LOG_INFO("[E][init] succeeded to create video stream and write header to target.");
+  return 0;
 }
 
-static int ffio_init_frame_parameters(FFIO* ffio){
+static int ffio_init_packet_and_frame(FFIO* ffio){
+  ffio->avFrame  = av_frame_alloc();
+  ffio->hwFrame  = av_frame_alloc();
+  ffio->rgbFrame = av_frame_alloc();
+  ffio->avPacket = av_packet_alloc();
+  if( !(ffio->avFrame) || !(ffio->hwFrame) || !(ffio->rgbFrame) || !(ffio->avPacket) ){
+    av_log(NULL, AV_LOG_ERROR, "failed to allocate avPacket or avFrame.\n");
+    finalizeFFIO(ffio);
+    return FFIO_ERROR_AVFRAME_ALLOCATION;
+  }
+
   ffio->imageWidth  = ffio->avCodecContext->width;
   ffio->imageHeight = ffio->avCodecContext->height;
 
@@ -718,16 +728,10 @@ int initFFIO(
           ffio_init_decode_avcodec(ffio, hw_device) : ffio_init_encode_avcodec(ffio, hw_device);
   if(ret != 0){ finalizeFFIO(ffio); return ret; }
 
-  ffio->avFrame  = av_frame_alloc();
-  ffio->hwFrame  = av_frame_alloc();
-  ffio->rgbFrame = av_frame_alloc();
-  ffio->avPacket = av_packet_alloc();
-  if( !(ffio->avFrame) || !(ffio->hwFrame) || !(ffio->rgbFrame) || !(ffio->avPacket) ){
-    av_log(NULL, AV_LOG_ERROR, "failed to allocate avPacket or avFrame.\n");
-    finalizeFFIO(ffio);
-    return FFIO_ERROR_AVFRAME_ALLOCATION;
-  }
-  ret = ffio_init_frame_parameters(ffio);
+  ret = ffio->ffioMode == FFIO_MODE_DECODE ? 0 : ffio_init_encode_create_stream(ffio);
+  if(ret != 0){ finalizeFFIO(ffio); return ret; }
+
+  ret = ffio_init_packet_and_frame(ffio);
   if(ret != 0){ finalizeFFIO(ffio); return ret; }
   LOG_INFO("[%s][init] succeeded to alloc AVFrame and AVPacket.", get_ffioMode(ffio));
 
