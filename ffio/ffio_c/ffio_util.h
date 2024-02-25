@@ -46,3 +46,7 @@ typedef struct Clicker
 int interrupt_callback(void *p);
 
 void av_log_ffio_callback(void *avClass, int level, const char *fmt, va_list vl);
+
+void print_avcodec_supported_pix_fmt(AVCodec *codec);
+enum AVPixelFormat find_avcodec_1st_sw_pix_fmt(AVCodec *codec);
+enum AVPixelFormat find_avcodec_1st_hw_pix_fmt(AVCodec *codec);

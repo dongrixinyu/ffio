@@ -85,6 +85,7 @@ typedef struct FFIO{
 
   AVBufferRef         *hwContext;
   enum AVPixelFormat   hw_pix_fmt;
+  enum AVPixelFormat   sw_pix_fmt;
 
   CodecParams         *codecParams;
   int64_t              time_start_at;

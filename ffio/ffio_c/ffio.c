@@ -27,55 +27,22 @@ static bool is_empty_string(const char *str) {
   return str == NULL || *str == '\0';
 }
 
-static enum AVHWDeviceType hw_check_device_support(FFIO* ffio, const char* hw_device){
-  /*
-   * Check if device is supported and set `ffio->hw_pix_fmt` to proper value.
-   *
-   * Parameters:
-   *   hw_device - Execute `ffmpeg -hwaccels` to see available hw_device.
-   *               Such as hw_device = "cuda".
-   *
-   * Returns:
-   *   success - AVHWDeviceType
-   *   failure - AV_HWDEVICE_TYPE_NONE
-   */
-  enum AVHWDeviceType type = av_hwdevice_find_type_by_name(hw_device);
-  if (type == AV_HWDEVICE_TYPE_NONE) {
-    av_log(NULL, AV_LOG_ERROR,
-           "Device type %s is not supported.\n", hw_device);
-    return AV_HWDEVICE_TYPE_NONE;
-  }
-
-  for (int i=0; ;i++) {
-    const AVCodecHWConfig *config = avcodec_get_hw_config(ffio->avCodec, i);
-    if (!config) {
-      av_log(NULL, AV_LOG_WARNING,
-             "Decoder %s does not support device type %s.\n",
-             ffio->avCodec->name, av_hwdevice_get_type_name(type));
-      return AV_HWDEVICE_TYPE_NONE;
-    }
-    if (config->methods & AV_CODEC_HW_CONFIG_METHOD_HW_DEVICE_CTX &&
-        config->device_type == type) {
-      ffio->hw_pix_fmt = config->pix_fmt;
-      break;
-    }
-  }
-  return type;
-}
-
-static enum AVPixelFormat hw_find_best_hw_pix_fmt(AVCodec *codec, enum AVHWDeviceType type){
-  const AVCodecHWConfig* config = NULL;
-  for (int i = 0;; i++) {
-    config = avcodec_get_hw_config(codec, i);
-    if (config==NULL) { return AV_PIX_FMT_NONE; }
-    if (config->methods & AV_CODEC_HW_CONFIG_METHOD_HW_DEVICE_CTX &&
-        config->device_type == type) {
-      return config->pix_fmt;
+static void hw_set_pix_fmt_according_avcodec(FFIO* ffio, const char* hw_device){
+  if(ffio->hw_enabled){
+    if( strncmp(hw_device, "cuda", strlen("cuda")) == 0 ){
+      ffio->hw_pix_fmt = AV_PIX_FMT_CUDA;
+      ffio->sw_pix_fmt = AV_PIX_FMT_NV12;
+    } else if( strncmp(hw_device, "videotoolbox", strlen("videotoolbox")) == 0 ){
+      ffio->hw_pix_fmt = AV_PIX_FMT_VIDEOTOOLBOX;
+      ffio->sw_pix_fmt = AV_PIX_FMT_NV12;
+    } else {
+      ffio->hw_pix_fmt = find_avcodec_1st_hw_pix_fmt(ffio->avCodec);
+      ffio->sw_pix_fmt = find_avcodec_1st_sw_pix_fmt(ffio->avCodec);
     }
   }
 }
-
-static enum AVPixelFormat hw_get_pix_fmts(AVCodecContext *ctx, const enum AVPixelFormat *pix_fmts){
+static enum AVPixelFormat hw_callback_for_get_pix_fmts(
+    AVCodecContext *ctx, const enum AVPixelFormat *pix_fmts){
   /*
    * Refers to the official FFmpeg examples: hw_decode.c
    */
@@ -95,8 +62,11 @@ static int hw_init_encoder(FFIO* ffio, const char* hw_device){
    *
    * hw_device: "cuda"
    */
-  enum AVHWDeviceType hw_type = hw_check_device_support(ffio, hw_device);
+  enum AVHWDeviceType hw_type = av_hwdevice_find_type_by_name(hw_device);
   if(hw_type == AV_HWDEVICE_TYPE_NONE){ return FFIO_ERROR_HARDWARE_ACCELERATION; }
+
+  hw_set_pix_fmt_according_avcodec(ffio, hw_device);
+  ffio->avCodecContext->pix_fmt = ffio->hw_pix_fmt;
 
   int ret = av_hwdevice_ctx_create(&(ffio->hwContext), hw_type,NULL, NULL, 0);
   if(ret != 0){
@@ -104,28 +74,19 @@ static int hw_init_encoder(FFIO* ffio, const char* hw_device){
     return FFIO_ERROR_HARDWARE_ACCELERATION;
   }
 
-  AVBufferRef *hw_frames_ref;
-  AVHWFramesContext *frames_ctx = NULL;
-
-  hw_frames_ref = av_hwframe_ctx_alloc(ffio->hwContext);
+  AVBufferRef* hw_frames_ref = av_hwframe_ctx_alloc(ffio->hwContext);
   if(hw_frames_ref==NULL){
     LOG_ERROR("[E][init][hw] failed to alloc hw frame_ctx.");
     return FFIO_ERROR_HARDWARE_ACCELERATION;
   }
 
-  LOG_INFO("[E][init][hw] Try to find best hw_pix_fmt...");
-  enum AVPixelFormat hw_pix_fmt = hw_find_best_hw_pix_fmt(ffio->avCodec, hw_type);
-  if(hw_pix_fmt==AV_PIX_FMT_NONE){
-    LOG_ERROR("[E][init][hw] Failed: hw_pix_fmt not found.");
-    return FFIO_ERROR_HARDWARE_ACCELERATION;
-  }
-  frames_ctx = (AVHWFramesContext *)(hw_frames_ref->data);
-  frames_ctx->format    = hw_pix_fmt;
-  frames_ctx->sw_format = ffio->avCodec->pix_fmts[0];
+  AVHWFramesContext* frames_ctx = (AVHWFramesContext *)(hw_frames_ref->data);
+  frames_ctx->format    = ffio->hw_pix_fmt;
+  frames_ctx->sw_format = ffio->sw_pix_fmt;
   frames_ctx->width     = ffio->codecParams->width;
   frames_ctx->height    = ffio->codecParams->height;
   frames_ctx->initial_pool_size = 20;
-  LOG_INFO("[E][init][hw][pix_fmt] format:  %s.",    av_get_pix_fmt_name(frames_ctx->format));
+  LOG_INFO("[E][init][hw][pix_fmt]    format:  %s.",    av_get_pix_fmt_name(frames_ctx->format));
   LOG_INFO("[E][init][hw][pix_fmt] sw_format:  %s.", av_get_pix_fmt_name(frames_ctx->sw_format));
 
   ret = av_hwframe_ctx_init(hw_frames_ref);
@@ -141,11 +102,12 @@ static int hw_init_encoder(FFIO* ffio, const char* hw_device){
 }
 
 static int hw_init_decoder(FFIO* ffio, const char* hw_device){
-  enum AVHWDeviceType type = hw_check_device_support(ffio, hw_device);
+  enum AVHWDeviceType type = av_hwdevice_find_type_by_name(hw_device);
   if(type == AV_HWDEVICE_TYPE_NONE){ return FFIO_ERROR_HARDWARE_ACCELERATION; }
 
+  hw_set_pix_fmt_according_avcodec(ffio, hw_device);
   ffio->avCodecContext->opaque     = &(ffio->hw_pix_fmt);
-  ffio->avCodecContext->get_format = hw_get_pix_fmts;
+  ffio->avCodecContext->get_format = hw_callback_for_get_pix_fmts;
 
   int ret = av_hwdevice_ctx_create(&(ffio->hwContext), type,NULL, NULL, 0);
   if(ret != 0){
@@ -188,6 +150,7 @@ static void ffio_reset(FFIO* ffio){
 
   ffio->hwContext       = NULL;
   ffio->hw_pix_fmt      = AV_PIX_FMT_NONE;
+  ffio->sw_pix_fmt      = AV_PIX_FMT_NONE;
 
   ffio->codecParams     = NULL;
   ffio->time_start_at   = -1;
@@ -307,7 +270,7 @@ static int ffio_init_encode_avcodec(FFIO* ffio, const char* hw_device) {
     av_opt_set(ffio->avCodecContext->priv_data, "tune", ffio->codecParams->tune, 0);
   }
   ffio->avCodecContext->pix_fmt = is_empty_string(ffio->codecParams->pix_fmt) ?
-      ffio->avCodec->pix_fmts[0] : av_get_pix_fmt(ffio->codecParams->pix_fmt);
+      find_avcodec_1st_sw_pix_fmt(ffio->avCodec) : av_get_pix_fmt(ffio->codecParams->pix_fmt);
 
   // for compatibility: if GLOBAL_HEADER is needed by target format.
   if (ffio->avFormatContext->oformat->flags & AVFMT_GLOBALHEADER){
@@ -392,7 +355,7 @@ static int ffio_init_packet_and_frame(FFIO* ffio){
   if(ffio->ffioMode == FFIO_MODE_ENCODE){
     ffio->avFrame->width  = ffio->imageWidth;
     ffio->avFrame->height = ffio->imageHeight;
-    ffio->avFrame->format = ffio->avCodecContext->pix_fmt;
+    ffio->avFrame->format = ffio->hw_enabled ? ffio->sw_pix_fmt : ffio->avCodecContext->pix_fmt;
     ret = av_frame_get_buffer(ffio->avFrame, 0);
     if(ret != 0){
       LOG_ERROR("[E][init] failed to alloc avFrame.");
@@ -443,7 +406,8 @@ static int ffio_init_sws_context(FFIO* ffio){
     LOG_INFO("[E][init][pix_fmt] codec_ctx->pix_fmt: %s.", av_get_pix_fmt_name(ffio->avCodecContext->pix_fmt));
     ffio->swsContext = sws_getContext(
         ffio->avCodecContext->width, ffio->avCodecContext->height, AV_PIX_FMT_RGB24,
-        ffio->avCodecContext->width, ffio->avCodecContext->height, ffio->avCodecContext->pix_fmt,
+        ffio->avCodecContext->width, ffio->avCodecContext->height,
+        ffio->hw_enabled ? ffio->sw_pix_fmt : ffio->avCodecContext->pix_fmt,
         SWS_FAST_BILINEAR, NULL, NULL, NULL
     );
   }
