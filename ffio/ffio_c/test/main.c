@@ -39,7 +39,7 @@ int main(int argc, char *argv[]){
 
   CodecParams params = {
       0, 0, 0, 0, 0, 0,
-      "", "", "", "", ""
+      "", "", "", "", "", ""
   };
   initFFIO(i_ffio, FFIO_MODE_DECODE, i_url,
            hw_enabled, NULL,

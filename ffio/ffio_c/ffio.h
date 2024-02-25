@@ -51,6 +51,7 @@ typedef struct CodecParams {
   char tune[24];
   char pix_fmt[24];
   char format[24];
+  char codec[24];
 } CodecParams;
 
 typedef struct FFIO{

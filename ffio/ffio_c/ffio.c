@@ -280,7 +280,7 @@ static int ffio_init_encode_avcodec(FFIO* ffio, const char* hw_device) {
    * Steps 3: set codec_ctx params
    * Steps 4: avcodec_open2(codec_ctx, codec)
    */
-  const char *codec_name = ffio->hw_enabled ? "h264_nvenc" : "libx264";
+  const char *codec_name = ffio->codecParams->codec;
   ffio->avCodec = (AVCodec*)avcodec_find_encoder_by_name(codec_name);
   if (!ffio->avCodec){
     LOG_ERROR("[E][init] Codec '%s' not found.", codec_name);
@@ -491,7 +491,7 @@ static int ffio_init_memory_for_rgb_bytes(
   return 0;
 }
 
-static int ffio_init_check_and_set_codec_params(FFIO* ffio, CodecParams* params){
+static int ffio_init_check_and_set_codec_params(FFIO* ffio, CodecParams* params, const char* hw_device){
   if(params==NULL){
     LOG_ERROR("[%s] Please provide a non-NULL codec params.", get_ffioMode(ffio));
     return FFIO_ERROR_WRONG_CODEC_PARAMS;
@@ -505,6 +505,24 @@ static int ffio_init_check_and_set_codec_params(FFIO* ffio, CodecParams* params)
   if(   params->b_frames    <    0 ){ params->b_frames = 0;         }
   if(  (params->profile)[0] == '\0'){ snprintf(params->profile, sizeof(params->profile), "%s", "main"       ); }
   if(  (params->preset )[0] == '\0'){ snprintf(params->preset,  sizeof(params->preset ), "%s", "veryfast"   ); }
+
+  if(  (params->codec  )[0] == '\0'){
+
+    if(ffio->hw_enabled){
+      if( strncmp(hw_device, "cuda", strlen("cuda")) == 0 ){
+        snprintf(params->codec, sizeof(params->codec), "%s", "h264_nvenc");
+      }else if( strncmp(hw_device, "videotoolbox", strlen("videotoolbox")) == 0 ){
+        snprintf(params->codec, sizeof(params->codec), "%s", "h264_videotoolbox");
+      }else{
+        LOG_ERROR("[%s] hw acceleration for [%s] is currently not supported for ffio.",
+                  get_ffioMode(ffio), hw_device);
+        return FFIO_ERROR_HARDWARE_ACCELERATION;
+      }
+    }else{
+      snprintf(params->codec, sizeof(params->codec), "%s", "libx264");
+    }
+
+  }
 
   ffio->codecParams = params;
   return 0;
@@ -727,7 +745,7 @@ int initFFIO(
 
   ffio->ffioMode    = mode;
   ffio->hw_enabled  = hw_enabled;
-  ffio_init_check_and_set_codec_params(ffio, codecParams);
+  ffio_init_check_and_set_codec_params(ffio, codecParams, hw_device);
   snprintf(ffio->targetUrl, sizeof(ffio->targetUrl), "%s", streamUrl);
   LOG_INFO_T("[%s][init] codec params is checked. Target: %s.", get_ffioMode(ffio), streamUrl);
 

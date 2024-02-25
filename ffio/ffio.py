@@ -38,6 +38,7 @@ class CCodecParams(Structure):
   tune       : str
   pix_fmt    : str
   format     : str
+  codec      : str
 
   _fields_ = [
     ("width",    c_int),
@@ -50,7 +51,8 @@ class CCodecParams(Structure):
     ("preset",   c_char * 24),
     ("tune",     c_char * 24),
     ("pix_fmt",  c_char * 24),
-    ("format",   c_char * 24)
+    ("format",   c_char * 24),
+    ("codec",    c_char * 24)
   ]
 
 
