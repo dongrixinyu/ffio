@@ -66,6 +66,8 @@ static int hw_init_encoder(FFIO* ffio, const char* hw_device){
   if(hw_type == AV_HWDEVICE_TYPE_NONE){ return FFIO_ERROR_HARDWARE_ACCELERATION; }
 
   hw_set_pix_fmt_according_avcodec(ffio, hw_device);
+  LOG_INFO("[E][init][hw] force set codec_ctx pix_fmt to hw_pix_fmt: %s.",
+           av_get_pix_fmt_name(ffio->hw_pix_fmt) );
   ffio->avCodecContext->pix_fmt = ffio->hw_pix_fmt;
 
   int ret = av_hwdevice_ctx_create(&(ffio->hwContext), hw_type,NULL, NULL, 0);
@@ -155,7 +157,7 @@ static void ffio_reset(FFIO* ffio){
   ffio->codecParams     = NULL;
   ffio->time_start_at   = -1;
 
-  LOG_INFO_T("[FFIO_STATE_INIT] set contents to NULL.");
+  LOG_INFO_T("[FFIO_STATE_INIT] set ffio contents to NULL.");
 }
 
 static int ffio_init_decode_avformat(FFIO* ffio){

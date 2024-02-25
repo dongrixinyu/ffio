@@ -112,12 +112,12 @@ void print_avcodec_supported_pix_fmt(AVCodec *codec){
 enum AVPixelFormat find_avcodec_1st_sw_pix_fmt(AVCodec *codec){
   for(int i=0;;++i){
     if( codec->pix_fmts==NULL || codec->pix_fmts[i]==AV_PIX_FMT_NONE ) {
-      LOG_WARNING("[pix_fmt] find sw_pix_fmt for codec: %s.", av_get_pix_fmt_name(AV_PIX_FMT_NONE));
+      LOG_WARNING("[pix_fmt] auto find sw_pix_fmt for codec: %s.", av_get_pix_fmt_name(AV_PIX_FMT_NONE));
       return AV_PIX_FMT_NONE;
     }
     const AVPixFmtDescriptor *desc = av_pix_fmt_desc_get(codec->pix_fmts[i]);
     if( !(desc->flags & AV_PIX_FMT_FLAG_HWACCEL) ){
-      LOG_WARNING("[pix_fmt] find sw_pix_fmt for codec: %s.", av_get_pix_fmt_name(codec->pix_fmts[i]));
+      LOG_WARNING("[pix_fmt] auto find sw_pix_fmt for codec: %s.", av_get_pix_fmt_name(codec->pix_fmts[i]));
       return codec->pix_fmts[i];
     }
   }
@@ -125,12 +125,12 @@ enum AVPixelFormat find_avcodec_1st_sw_pix_fmt(AVCodec *codec){
 enum AVPixelFormat find_avcodec_1st_hw_pix_fmt(AVCodec *codec){
   for(int i=0;;++i){
     if( codec->pix_fmts==NULL || codec->pix_fmts[i]==AV_PIX_FMT_NONE ) {
-      LOG_WARNING("[pix_fmt] find hw_pix_fmt for codec: %s.", av_get_pix_fmt_name(AV_PIX_FMT_NONE));
+      LOG_WARNING("[pix_fmt] auto find hw_pix_fmt for codec: %s.", av_get_pix_fmt_name(AV_PIX_FMT_NONE));
       return AV_PIX_FMT_NONE;
     }
     const AVPixFmtDescriptor *desc = av_pix_fmt_desc_get(codec->pix_fmts[i]);
     if( (desc->flags & AV_PIX_FMT_FLAG_HWACCEL) ){
-      LOG_WARNING("[pix_fmt] find hw_pix_fmt for codec: %s.", av_get_pix_fmt_name(codec->pix_fmts[i]));
+      LOG_WARNING("[pix_fmt] auto find hw_pix_fmt for codec: %s.", av_get_pix_fmt_name(codec->pix_fmts[i]));
       return codec->pix_fmts[i];
     }
   }
