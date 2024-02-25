@@ -5,6 +5,7 @@ cmake_minimum_required(VERSION 3.0)
 project(ffio)
 
 add_compile_options(-O3)
+#add_compile_options(-O0 -g -DDEBUG)
 
 set(CMAKE_BUILD_TYPE "Release")
 set(CMAKE_PREFIX_PATH ${CMAKE_PREFIX_PATH} ${FFMPEG_LIB_DIR_PATH})

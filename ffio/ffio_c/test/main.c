@@ -20,6 +20,12 @@ static void saveRGB2File(const FFIO* ffio){
 }
 
 int main(int argc, char *argv[]){
+#ifdef DEBUG
+  av_log_set_level(AV_LOG_DEBUG);
+#else
+  av_log_set_level(AV_LOG_INFO);
+#endif
+
   if( argc == 1 ){ printf("Please run with args: i_url [o_url] [gpu|cpu].\n"); exit(1); }
   printf("Running with: %s %s %s.\n", argv[0], argv[1], argc == 3 ? argv[2] : "" );
 

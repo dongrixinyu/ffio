@@ -702,6 +702,12 @@ static int encodeOneFrameFromRGBFrame(FFIO* ffio, unsigned char* rgbBytes){
         LOG_INFO_T("[E] encoded %d frames.", ffio->frameSeq);
       }
       ffio->frameSeq += 1;
+#ifdef DEBUG
+      LOG_DEBUG("[E][%d] (frame){pts: %d, dts: %d} (packet){pts: %d, dts: %d}.",
+                ffio->frameSeq,
+                (int)srcFrame->pts,       (int)srcFrame->pkt_dts,
+                (int)ffio->avPacket->pts, (int)ffio->avPacket->dts);
+#endif
       return 0;
     } else {
       LOG_ERROR("[E] error occurred while av_interleaved_write_frame: %d - %s.", write_ret, av_err2str(write_ret));
