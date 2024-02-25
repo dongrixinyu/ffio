@@ -303,8 +303,11 @@ static int ffio_init_encode_avcodec(FFIO* ffio, const char* hw_device) {
 
   av_opt_set(ffio->avCodecContext->priv_data, "profile", ffio->codecParams->profile, 0);
   av_opt_set(ffio->avCodecContext->priv_data, "preset",  ffio->codecParams->preset,  0);
-  av_opt_set(ffio->avCodecContext->priv_data, "tune",    ffio->codecParams->tune,    0);
-  ffio->avCodecContext->pix_fmt = av_get_pix_fmt(ffio->codecParams->pix_fmt);
+  if(!is_empty_string(ffio->codecParams->tune)){
+    av_opt_set(ffio->avCodecContext->priv_data, "tune", ffio->codecParams->tune, 0);
+  }
+  ffio->avCodecContext->pix_fmt = is_empty_string(ffio->codecParams->pix_fmt) ?
+      ffio->avCodec->pix_fmts[0] : av_get_pix_fmt(ffio->codecParams->pix_fmt);
 
   // for compatibility: if GLOBAL_HEADER is needed by target format.
   if (ffio->avFormatContext->oformat->flags & AVFMT_GLOBALHEADER){
@@ -488,8 +491,11 @@ static int ffio_init_memory_for_rgb_bytes(
   return 0;
 }
 
-static void ffio_init_set_codec_params(FFIO* ffio, CodecParams* params){
-  if(params==NULL){ return; }
+static int ffio_init_check_and_set_codec_params(FFIO* ffio, CodecParams* params){
+  if(params==NULL){
+    LOG_ERROR("[%s] Please provide a non-NULL codec params.", get_ffioMode(ffio));
+    return FFIO_ERROR_WRONG_CODEC_PARAMS;
+  }
 
   if(   params->width       <=   0 ){ params->width    = 1920;      }
   if(   params->height      <=   0 ){ params->height   = 1080;      }
@@ -497,14 +503,11 @@ static void ffio_init_set_codec_params(FFIO* ffio, CodecParams* params){
   if(   params->fps         <=   0 ){ params->fps      = 24;        }
   if(   params->gop         <    0 ){ params->gop      = 48;        }
   if(   params->b_frames    <    0 ){ params->b_frames = 0;         }
-  if(  (params->profile)[0] == '\0'){ snprintf(params->profile, sizeof(params->profile), "%s", "high"       ); }
+  if(  (params->profile)[0] == '\0'){ snprintf(params->profile, sizeof(params->profile), "%s", "main"       ); }
   if(  (params->preset )[0] == '\0'){ snprintf(params->preset,  sizeof(params->preset ), "%s", "veryfast"   ); }
-  if(  (params->pix_fmt)[0] == '\0'){ snprintf(params->pix_fmt, sizeof(params->pix_fmt), "%s", "yuv420p"    ); }
-  if(  (params->tune   )[0] == '\0'){
-    snprintf(params->tune, sizeof(params->tune), "%s", ffio->hw_enabled ?  "ll" : "zerolatency" );
-  }
 
   ffio->codecParams = params;
+  return 0;
 }
 
 static AVFrame* convertFromRGBFrame(FFIO* ffio, unsigned char* rgbBytes){
@@ -724,7 +727,7 @@ int initFFIO(
 
   ffio->ffioMode    = mode;
   ffio->hw_enabled  = hw_enabled;
-  ffio_init_set_codec_params(ffio, codecParams);
+  ffio_init_check_and_set_codec_params(ffio, codecParams);
   snprintf(ffio->targetUrl, sizeof(ffio->targetUrl), "%s", streamUrl);
   LOG_INFO_T("[%s][init] codec params is checked. Target: %s.", get_ffioMode(ffio), streamUrl);
 
