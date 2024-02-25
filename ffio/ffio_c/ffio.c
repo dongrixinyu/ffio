@@ -17,7 +17,12 @@ static char* get_str_time(){
 static char* get_ffioMode(FFIO* ffio){
   return ffio->ffioMode == FFIO_MODE_DECODE ? "D" : "E";
 }
-
+static int64_t get_current_pts(FFIO* ffio){
+  int64_t current_time = av_gettime();
+  if (ffio->time_start_at == -1) { ffio->time_start_at = current_time; }
+  int64_t dt = current_time - ffio->time_start_at;
+  return av_rescale_q(dt, (AVRational){1, AV_TIME_BASE}, ffio->avCodecContext->time_base);
+}
 static bool is_empty_string(const char *str) {
   return str == NULL || *str == '\0';
 }
@@ -185,6 +190,7 @@ static void ffio_reset(FFIO* ffio){
   ffio->hw_pix_fmt      = AV_PIX_FMT_NONE;
 
   ffio->codecParams     = NULL;
+  ffio->time_start_at   = -1;
 
   LOG_INFO_T("[FFIO_STATE_INIT] set contents to NULL.");
 }
@@ -292,7 +298,7 @@ static int ffio_init_encode_avcodec(FFIO* ffio, const char* hw_device) {
   ffio->avCodecContext->bit_rate     = ffio->codecParams->bitrate;
   ffio->avCodecContext->gop_size     = ffio->codecParams->gop;
   ffio->avCodecContext->max_b_frames = ffio->codecParams->b_frames;
-  ffio->avCodecContext->time_base    = (AVRational){1, ffio->codecParams->fps};
+  ffio->avCodecContext->time_base    = FFIO_TIME_BASE;
   ffio->avCodecContext->framerate    = (AVRational){ffio->codecParams->fps, 1};
 
   av_opt_set(ffio->avCodecContext->priv_data, "profile", ffio->codecParams->profile, 0);
@@ -642,6 +648,7 @@ static int encodeOneFrameFromRGBFrame(FFIO* ffio, unsigned char* rgbBytes){
 
   AVFrame  *srcFrame = convertFromRGBFrame(ffio, rgbBytes);
   AVStream *stream   = ffio->avFormatContext->streams[ffio->videoStreamIndex];
+  srcFrame->pts      = get_current_pts(ffio);
 
   int write_ret, send_ret, recv_ret;
   while(true) {

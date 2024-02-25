@@ -9,6 +9,7 @@
 
 #define MAX_URL_LENGTH   256
 #define FFIO_COLOR_DEPTH 3
+#define FFIO_TIME_BASE   (AVRational){1, 1000}
 
 typedef enum FFIOMode {
   FFIO_MODE_DECODE = 0,
@@ -84,6 +85,7 @@ typedef struct FFIO{
   enum AVPixelFormat   hw_pix_fmt;
 
   CodecParams         *codecParams;
+  int64_t              time_start_at;
 } FFIO;
 
 // Functions of FFIO lifecycle.
