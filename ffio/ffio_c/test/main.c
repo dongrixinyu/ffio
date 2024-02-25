@@ -38,11 +38,11 @@ int main(int argc, char *argv[]){
   FFIO* o_ffio = newFFIO();
 
   CodecParams i_params = {
-      0, 0, 0, 0, 0, 0,
+      0, 0, 0, 0, 0, 0, FFIO_PTS_TRICK_EVEN,
       "", "", "", "", "", ""
   };
   CodecParams o_params = {
-      0, 0, 0, 0, 0, 0,
+      0, 0, 0, 0, 0, 0, FFIO_PTS_TRICK_EVEN,
       "", "", "", "", "", ""
   };
   initFFIO(i_ffio, FFIO_MODE_DECODE, i_url,

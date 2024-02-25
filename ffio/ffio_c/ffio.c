@@ -17,14 +17,45 @@ static char* get_str_time(){
 static char* get_ffioMode(FFIO* ffio){
   return ffio->ffioMode == FFIO_MODE_DECODE ? "D" : "E";
 }
-static int64_t get_current_pts(FFIO* ffio){
-  int64_t current_time = av_gettime();
-  if (ffio->time_start_at == -1) { ffio->time_start_at = current_time; }
-  int64_t dt = current_time - ffio->time_start_at;
-  return av_rescale_q(dt, (AVRational){1, AV_TIME_BASE}, ffio->avCodecContext->time_base);
-}
 static bool is_empty_string(const char *str) {
   return str == NULL || *str == '\0';
+}
+
+static int64_t pts_get_current_even(FFIO* ffio){
+  static int64_t last_time = -1;
+
+  int64_t current_time = av_gettime();
+
+  if(last_time == -1){ last_time = current_time; }
+  int64_t dt       = current_time - last_time;
+  int64_t pts_diff = av_rescale_q(dt, (AVRational){1, AV_TIME_BASE}, ffio->avCodecContext->time_base);
+  last_time        = current_time;
+
+  if(ffio->pts_anchor == -1){
+    ffio->pts_anchor = 0;
+    return ffio->pts_anchor;
+  }
+
+  if(pts_diff<=4){ ffio->pts_anchor += 1; }
+  else{
+    ffio->pts_anchor += pts_diff - 2;
+    LOG_WARNING_T("[%s] get pts with large gap: %d ms.", get_ffioMode(ffio), (int)(dt/1000));
+  }
+  return ffio->pts_anchor;
+}
+static int64_t pts_get_current_relative(FFIO* ffio){
+  int64_t current_time = av_gettime();
+  // here, ffio->pts_anchor is used as "time start at".
+  if (ffio->pts_anchor == -1) { ffio->pts_anchor = current_time; }
+  int64_t dt = current_time - ffio->pts_anchor;
+  return av_rescale_q(dt, (AVRational){1, AV_TIME_BASE}, ffio->avCodecContext->time_base);
+}
+static int64_t pts_get_current_increase(FFIO* ffio){
+  ffio->pts_anchor = ffio->pts_anchor == -1 ? 0 : ++(ffio->pts_anchor);
+  return ffio->pts_anchor;
+}
+static int64_t pts_get_current_direct(FFIO* ffio){
+  return ffio->pts_anchor;
 }
 
 static void hw_set_pix_fmt_according_avcodec(FFIO* ffio, const char* hw_device){
@@ -138,6 +169,8 @@ static void ffio_reset(FFIO* ffio){
   ffio->imageHeight      = 0;
   ffio->imageByteSize    = 0;
 
+  ffio->pts_anchor       = -1;
+
   ffio->avFormatContext = NULL;
   ffio->avCodecContext  = NULL;
   ffio->avCodec         = NULL;
@@ -155,7 +188,6 @@ static void ffio_reset(FFIO* ffio){
   ffio->sw_pix_fmt      = AV_PIX_FMT_NONE;
 
   ffio->codecParams     = NULL;
-  ffio->time_start_at   = -1;
 
   LOG_INFO_T("[FFIO_STATE_INIT] set ffio contents to NULL.");
 }
@@ -263,7 +295,8 @@ static int ffio_init_encode_avcodec(FFIO* ffio, const char* hw_device) {
   ffio->avCodecContext->bit_rate     = ffio->codecParams->bitrate;
   ffio->avCodecContext->gop_size     = ffio->codecParams->gop;
   ffio->avCodecContext->max_b_frames = ffio->codecParams->b_frames;
-  ffio->avCodecContext->time_base    = FFIO_TIME_BASE;
+  ffio->avCodecContext->time_base    = ffio->codecParams->pts_trick == FFIO_PTS_TRICK_RELATIVE ?
+      FFIO_TIME_BASE_MILLIS : (AVRational){1, ffio->codecParams->fps, };
   ffio->avCodecContext->framerate    = (AVRational){ffio->codecParams->fps, 1};
 
   av_opt_set(ffio->avCodecContext->priv_data, "profile", ffio->codecParams->profile, 0);
@@ -480,6 +513,22 @@ static int ffio_init_check_and_set_codec_params(FFIO* ffio, CodecParams* params,
     }
 
   }
+  
+  switch(params->pts_trick){
+    case FFIO_PTS_TRICK_DIRECT:
+      LOG_INFO("[%s] using FFIO_PTS_TRICK_DIRECT.",   get_ffioMode(ffio));
+      ffio->get_current_pts = pts_get_current_direct;              break;
+    case FFIO_PTS_TRICK_RELATIVE:
+      LOG_INFO("[%s] using FFIO_PTS_TRICK_RELATIVE.", get_ffioMode(ffio));
+      ffio->get_current_pts = pts_get_current_relative;            break;
+    case FFIO_PTS_TRICK_INCREASE:
+      LOG_INFO("[%s] using FFIO_PTS_TRICK_INCREASE.", get_ffioMode(ffio));
+      ffio->get_current_pts = pts_get_current_increase;            break;
+    case FFIO_PTS_TRICK_EVEN:
+    default:
+      LOG_INFO("[%s] using FFIO_PTS_TRICK_EVEN.",     get_ffioMode(ffio));
+      ffio->get_current_pts = pts_get_current_even;
+  }
 
   ffio->codecParams = params;
   return 0;
@@ -617,7 +666,7 @@ static int encodeOneFrameFromRGBFrame(FFIO* ffio, unsigned char* rgbBytes){
 
   AVFrame  *srcFrame = convertFromRGBFrame(ffio, rgbBytes);
   AVStream *stream   = ffio->avFormatContext->streams[ffio->videoStreamIndex];
-  srcFrame->pts      = get_current_pts(ffio);
+  srcFrame->pts      = ffio->get_current_pts(ffio);
 
   int write_ret, send_ret, recv_ret;
   while(true) {

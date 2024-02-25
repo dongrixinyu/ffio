@@ -22,7 +22,8 @@ class CFFIO(Structure):
     ("video_stream_index", c_int),
     ("image_width",        c_int),
     ("image_height",       c_int),
-    ("image_byte_size",    c_int)
+    ("image_byte_size",    c_int),
+    ("pts_anchor",         c_int)
   ]
 
 
@@ -33,6 +34,7 @@ class CCodecParams(Structure):
   fps        : int
   gop        : int
   b_frames   : int
+  pts_trick  : int
   profile    : str
   preset     : str
   tune       : str
@@ -41,18 +43,19 @@ class CCodecParams(Structure):
   codec      : str
 
   _fields_ = [
-    ("width",    c_int),
-    ("height",   c_int),
-    ("bitrate",  c_int),
-    ("fps",      c_int),
-    ("gop",      c_int),
-    ("b_frames", c_int),
-    ("profile",  c_char * 24),
-    ("preset",   c_char * 24),
-    ("tune",     c_char * 24),
-    ("pix_fmt",  c_char * 24),
-    ("format",   c_char * 24),
-    ("codec",    c_char * 24)
+    ("width",      c_int),
+    ("height",     c_int),
+    ("bitrate",    c_int),
+    ("fps",        c_int),
+    ("gop",        c_int),
+    ("b_frames",   c_int),
+    ("pts_trick",  c_int),
+    ("profile",    c_char * 24),
+    ("preset",     c_char * 24),
+    ("tune",       c_char * 24),
+    ("pix_fmt",    c_char * 24),
+    ("format",     c_char * 24),
+    ("codec",      c_char * 24)
   ]
 
 

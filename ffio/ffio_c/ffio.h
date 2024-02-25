@@ -7,9 +7,9 @@
 
 #include "ffio_util.h"
 
-#define MAX_URL_LENGTH   256
-#define FFIO_COLOR_DEPTH 3
-#define FFIO_TIME_BASE   (AVRational){1, 1000}
+#define MAX_URL_LENGTH             256
+#define FFIO_COLOR_DEPTH           3
+#define FFIO_TIME_BASE_MILLIS     (AVRational){1, 1000}
 
 typedef enum FFIOMode {
   FFIO_MODE_DECODE = 0,
@@ -39,6 +39,13 @@ typedef enum FFIOError {
   FFIO_ERROR_WRONG_CODEC_PARAMS
 } FFIOError;
 
+typedef enum FFIOPTSTrick {
+  FFIO_PTS_TRICK_EVEN = 0,
+  FFIO_PTS_TRICK_RELATIVE,
+  FFIO_PTS_TRICK_DIRECT,
+  FFIO_PTS_TRICK_INCREASE
+} FFIOPTSTrick;
+
 typedef struct CodecParams {
   int  width;
   int  height;
@@ -46,6 +53,7 @@ typedef struct CodecParams {
   int  fps;
   int  gop;
   int  b_frames;
+  int  pts_trick;
   char profile[24];
   char preset[24];
   char tune[24];
@@ -54,7 +62,8 @@ typedef struct CodecParams {
   char codec[24];
 } CodecParams;
 
-typedef struct FFIO{
+typedef struct FFIO FFIO;
+struct FFIO{
   FFIOState ffioState;                       // to indicate that if the stream has been opened successfully
   FFIOMode  ffioMode;                        // encode or decode
   int       frameSeq;                        // the sequence number of the current video frame
@@ -68,6 +77,8 @@ typedef struct FFIO{
   int       imageWidth;
   int       imageHeight;
   int       imageByteSize;
+
+  int64_t   pts_anchor;
 
   char      targetUrl[MAX_URL_LENGTH];       // the path of mp4 or rtmp, rtsp
 
@@ -88,8 +99,9 @@ typedef struct FFIO{
   enum AVPixelFormat   sw_pix_fmt;
 
   CodecParams         *codecParams;
-  int64_t              time_start_at;
-} FFIO;
+
+  int64_t (*get_current_pts)(FFIO *);
+};
 
 // Functions of FFIO lifecycle.
 FFIO* newFFIO();
