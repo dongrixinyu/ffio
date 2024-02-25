@@ -377,26 +377,17 @@ static int ffio_init_packet_and_frame(FFIO* ffio){
 }
 
 static int ffio_init_sws_context(FFIO* ffio){
+  LOG_INFO("[%s][init][pix_fmt]      ffio->avFrame    : %s.", get_ffioMode(ffio), av_get_pix_fmt_name(ffio->avFrame->format));
+  LOG_INFO("[%s][init][pix_fmt]      ffio->hwFrame    : %s.", get_ffioMode(ffio), av_get_pix_fmt_name(ffio->hwFrame->format));
+  LOG_INFO("[%s][init][pix_fmt]      ffio->rgbFrame   : %s.", get_ffioMode(ffio), av_get_pix_fmt_name(ffio->rgbFrame->format));
+  LOG_INFO("[%s][init][pix_fmt]      ffio->hw_pix_fmt : %s.", get_ffioMode(ffio), av_get_pix_fmt_name(ffio->hw_pix_fmt));
+  LOG_INFO("[%s][init][pix_fmt]      ffio->sw_pix_fmt : %s.", get_ffioMode(ffio), av_get_pix_fmt_name(ffio->sw_pix_fmt));
+  LOG_INFO("[%s][init][pix_fmt] codec_ctx->sw_pix_fmt : %s.", get_ffioMode(ffio), av_get_pix_fmt_name(ffio->avCodecContext->sw_pix_fmt));
+  LOG_INFO("[%s][init][pix_fmt] codec_ctx->pix_fmt    : %s.", get_ffioMode(ffio), av_get_pix_fmt_name(ffio->avCodecContext->pix_fmt));
+
   if(ffio->ffioMode == FFIO_MODE_DECODE){
-    LOG_INFO("[D][init][pix_fmt]      ffio->avFrame    : %s.", av_get_pix_fmt_name(ffio->avFrame->format));
-    LOG_INFO("[D][init][pix_fmt]      ffio->hwFrame    : %s.", av_get_pix_fmt_name(ffio->hwFrame->format));
-    LOG_INFO("[D][init][pix_fmt]      ffio->rgbFrame   : %s.", av_get_pix_fmt_name(ffio->rgbFrame->format));
-    LOG_INFO("[D][init][pix_fmt]      ffio->hw_pix_fmt : %s.", av_get_pix_fmt_name(ffio->hw_pix_fmt));
-    LOG_INFO("[D][init][pix_fmt] codec_ctx->sw_pix_fmt : %s.", av_get_pix_fmt_name(ffio->avCodecContext->sw_pix_fmt));
-    LOG_INFO("[D][init][pix_fmt] codec_ctx->pix_fmt    : %s.", av_get_pix_fmt_name(ffio->avCodecContext->pix_fmt));
-    enum AVPixelFormat srcFormat = ffio->avCodecContext->pix_fmt;
-    if(ffio->hw_enabled){
-      if(ffio->avCodecContext->hw_frames_ctx == NULL || ffio->avCodecContext->hw_frames_ctx->data == NULL){
-        LOG_ERROR("[D][init][hw] should get at least one frame to make hw_frames_ctx set to setting sws.");
-        return FFIO_ERROR_SWS_FAILURE;
-      }
-      AVHWFramesContext *hw_frames_ctx = (AVHWFramesContext *)ffio->avCodecContext->hw_frames_ctx->data;
-      srcFormat = hw_frames_ctx->sw_format;
-      LOG_INFO("[D][init][hw][pix_fmt] hw_frames_ctx->sw_format: %s.",av_get_pix_fmt_name(hw_frames_ctx->sw_format));
-      LOG_INFO("[D][init][hw][pix_fmt] sws srcFormat: %s. (hw_frames_ctx->sw_format)",av_get_pix_fmt_name(srcFormat));
-    } else{
-      LOG_INFO("[D][init][pix_fmt] sws srcFormat: %s. (codec_ctx->pix_fmt)",av_get_pix_fmt_name(srcFormat));
-    }
+    enum AVPixelFormat srcFormat = ffio->hw_enabled ? ffio->sw_pix_fmt : ffio->avCodecContext->pix_fmt;
+    LOG_INFO("[D][init][pix_fmt]    swscale src_fmt    : %s.", av_get_pix_fmt_name(srcFormat));
     ffio->swsContext = sws_getContext(
         ffio->avCodecContext->width, ffio->avCodecContext->height, srcFormat,
         ffio->avCodecContext->width, ffio->avCodecContext->height, AV_PIX_FMT_RGB24,
@@ -405,11 +396,11 @@ static int ffio_init_sws_context(FFIO* ffio){
   }
 
   if(ffio->ffioMode == FFIO_MODE_ENCODE){
-    LOG_INFO("[E][init][pix_fmt] codec_ctx->pix_fmt: %s.", av_get_pix_fmt_name(ffio->avCodecContext->pix_fmt));
+    enum AVPixelFormat dstFormat = ffio->hw_enabled ? ffio->sw_pix_fmt : ffio->avCodecContext->pix_fmt;
+    LOG_INFO("[E][init][pix_fmt]    swscale dst_fmt    : %s.", av_get_pix_fmt_name(dstFormat));
     ffio->swsContext = sws_getContext(
         ffio->avCodecContext->width, ffio->avCodecContext->height, AV_PIX_FMT_RGB24,
-        ffio->avCodecContext->width, ffio->avCodecContext->height,
-        ffio->hw_enabled ? ffio->sw_pix_fmt : ffio->avCodecContext->pix_fmt,
+        ffio->avCodecContext->width, ffio->avCodecContext->height, dstFormat,
         SWS_FAST_BILINEAR, NULL, NULL, NULL
     );
   }
@@ -517,16 +508,6 @@ static AVFrame* convertFromRGBFrame(FFIO* ffio, unsigned char* rgbBytes){
 }
 
 static int convertToRgbFrame(FFIO* ffio){
-
-  if(ffio->swsContext == NULL){
-    int ret = ffio_init_sws_context(ffio);
-    if(ret != 0){
-      finalizeFFIO(ffio);
-      ffio->ffioState = FFIO_STATE_CLOSED;
-      return -1;
-    }
-  }
-
   AVFrame *src_frame = ffio->avFrame;
   if( ffio->hw_enabled && (src_frame->format == ffio->hw_pix_fmt) ){
     int ret = av_hwframe_transfer_data(ffio->hwFrame, ffio->avFrame, 0);
@@ -736,10 +717,8 @@ int initFFIO(
   if(ret != 0){ finalizeFFIO(ffio); return ret; }
   LOG_INFO("[%s][init] succeeded to bind rawFrame and rawFrameShm.", get_ffioMode(ffio));
 
-  if(mode==FFIO_MODE_ENCODE){
-    ret = ffio_init_sws_context(ffio);
-    if(ret != 0){ finalizeFFIO(ffio); return ret; }
-  }
+  ret = ffio_init_sws_context(ffio);
+  if(ret != 0){ finalizeFFIO(ffio); return ret; }
 
   ffio->ffioState = FFIO_STATE_READY;
   LOG_INFO_T("[%s][init] succeeded to initialize ffio.", get_ffioMode(ffio));
