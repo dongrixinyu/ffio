@@ -102,17 +102,18 @@ static void log_packet(const AVFormatContext *fmt_ctx, const AVPacket *pkt, cons
 }
 
 void print_avcodec_supported_pix_fmt(AVCodec *codec){
+  LOG_INFO("[pix_fmt] codec %s supports pix_fmt: ", codec->name);
   for(int i=0;;++i){
     if( codec->pix_fmts==NULL || codec->pix_fmts[i]==AV_PIX_FMT_NONE ) { break; }
     const AVPixFmtDescriptor *desc = av_pix_fmt_desc_get(codec->pix_fmts[i]);
     char* hw_support = (desc->flags & AV_PIX_FMT_FLAG_HWACCEL) ? "HWACCEL" : "NON-HW";
-    LOG_INFO("[pix_fmt] supported: %d %s %s.", i, av_get_pix_fmt_name(codec->pix_fmts[i]), hw_support);
+    LOG_INFO("[pix_fmt]    %-4d  %-20s  %s.", i, av_get_pix_fmt_name(codec->pix_fmts[i]), hw_support);
   }
 }
 enum AVPixelFormat find_avcodec_1st_sw_pix_fmt(AVCodec *codec){
   for(int i=0;;++i){
     if( codec->pix_fmts==NULL || codec->pix_fmts[i]==AV_PIX_FMT_NONE ) {
-      LOG_WARNING("[pix_fmt] auto find sw_pix_fmt for codec: %s.", av_get_pix_fmt_name(AV_PIX_FMT_NONE));
+      LOG_WARNING("[pix_fmt] auto find sw_pix_fmt for codec: %s", av_get_pix_fmt_name(AV_PIX_FMT_NONE));
       return AV_PIX_FMT_NONE;
     }
     const AVPixFmtDescriptor *desc = av_pix_fmt_desc_get(codec->pix_fmts[i]);

@@ -37,27 +37,37 @@ int main(int argc, char *argv[]){
   FFIO* i_ffio = newFFIO();
   FFIO* o_ffio = newFFIO();
 
-  CodecParams params = {
+  CodecParams i_params = {
+      0, 0, 0, 0, 0, 0,
+      "", "", "", "", "", ""
+  };
+  CodecParams o_params = {
       0, 0, 0, 0, 0, 0,
       "", "", "", "", "", ""
   };
   initFFIO(i_ffio, FFIO_MODE_DECODE, i_url,
-           hw_enabled, NULL,
-           false, NULL, 0, 0, &params);
+           hw_enabled, "videotoolbox",
+           false, NULL, 0, 0, &i_params);
   if(o_url!=NULL){
     initFFIO(o_ffio, FFIO_MODE_ENCODE, o_url,
-             hw_enabled, NULL,
-             false, NULL, 0, 0, &params);
+             hw_enabled, "videotoolbox",
+             false, NULL, 0, 0, &o_params);
   }
+
+  if( i_ffio->ffioState != FFIO_STATE_READY || o_ffio->ffioState != FFIO_STATE_READY){
+    LOG_ERROR(" failed to init ffio.");   exit(1);
+  }
+
+  print_avcodec_supported_pix_fmt(o_ffio->avCodec);
 
   int ret;
   for(int i=0; i<200; ++i){
     ret = decodeOneFrame(i_ffio);
-    printf("[%d] decodeOneFrame returned %d.\n", i_ffio->frameSeq, ret);
+    LOG_INFO("[%d] decodeOneFrame returned %d.", i_ffio->frameSeq, ret);
     if( ret==0 && i<10){ saveRGB2File(i_ffio); }
     if( ret==0 && o_url!=NULL){
       ret = encodeOneFrame(o_ffio, i_ffio->rawFrame);
-      printf("[%d] encodeOneFrame returned %d.\n", o_ffio->frameSeq, ret);
+      LOG_INFO("[%d] encodeOneFrame returned %d.", o_ffio->frameSeq, ret);
     }
   }
 
