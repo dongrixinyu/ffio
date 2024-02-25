@@ -307,7 +307,7 @@ static int ffio_init_encode_avcodec(FFIO* ffio, const char* hw_device) {
   ffio->avCodecContext->pix_fmt = av_get_pix_fmt(ffio->codecParams->pix_fmt);
 
   // for compatibility: if GLOBAL_HEADER is needed by target format.
-  if (ffio->avFormatContext->flags & AVFMT_GLOBALHEADER){
+  if (ffio->avFormatContext->oformat->flags & AVFMT_GLOBALHEADER){
     ffio->avCodecContext->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
   }
 
@@ -351,6 +351,7 @@ static int ffio_init_encode_create_stream(FFIO* ffio){
     }
   }
 
+  // stream->time_base may be changed after this.
   ret = avformat_write_header(ffio->avFormatContext, NULL);
   if (ret < 0) {
     LOG_ERROR("[E][init] avformat_write_header failed %d - %s.", ret, av_err2str(ret));
