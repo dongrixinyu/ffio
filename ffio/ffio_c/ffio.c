@@ -664,7 +664,9 @@ static int encodeOneFrameFromRGBFrame(FFIO* ffio, unsigned char* rgbBytes){
     av_packet_rescale_ts(ffio->avPacket,
                          ffio->avCodecContext->time_base,
                          stream->time_base);
-    write_ret = av_interleaved_write_frame(ffio->avFormatContext, ffio->avPacket);
+    // Our program runs synchronously,
+    // so using av_write_frame() is sufficient, compared to av_interleaved_write_frame()
+    write_ret = av_write_frame(ffio->avFormatContext, ffio->avPacket);
     if(write_ret==0){
       if( (ffio->frameSeq)%200 == 0){
         LOG_INFO_T("[E] encoded %d frames.", ffio->frameSeq);
