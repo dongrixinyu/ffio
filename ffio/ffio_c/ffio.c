@@ -22,33 +22,44 @@ static bool is_empty_string(const char *str) {
 }
 
 static int64_t pts_get_current_even(FFIO* ffio){
-  static int64_t last_time = -1;
+  static int64_t last_time  = -1;
+  static int     drop_count =  0;
 
   int64_t current_time = av_gettime();
 
-  if(last_time == -1){ last_time = current_time; }
-  int64_t dt       = current_time - last_time;
-  int64_t pts_diff = av_rescale_q(dt, (AVRational){1, AV_TIME_BASE}, ffio->avCodecContext->time_base);
+  if(ffio->time_start_at == -1){ ffio->time_start_at = current_time; last_time = current_time; }
+  int64_t dt_last  = current_time - last_time;
+  int64_t dt_rltv  = current_time - ffio->time_start_at;
+  int64_t pts_diff = av_rescale_q(dt_last, (AVRational){1, AV_TIME_BASE}, ffio->avCodecContext->time_base);
+  int64_t pts_rltv = av_rescale_q(dt_rltv, (AVRational){1, AV_TIME_BASE}, ffio->avCodecContext->time_base);
   last_time        = current_time;
+
+  if(ffio->pts_anchor > pts_rltv + FFIO_PTS_GAP_TOLERANCE_EVEN){
+    ++drop_count;
+    LOG_DEBUG_T("[%s] Sending too fast, exceeding the preset FPS, new pkt should be discarded. "
+                "(pts: %d, duration: %ds, dropped: %d)",
+                get_ffioMode(ffio), (int)ffio->pts_anchor, (int)dt_rltv/1000000, drop_count);
+    return -1;
+  }
 
   if(ffio->pts_anchor == -1){
     ffio->pts_anchor = 0;
     return ffio->pts_anchor;
   }
 
-  if(pts_diff<=4){ ffio->pts_anchor += 1; }
+  if(pts_diff<=FFIO_PTS_GAP_TOLERANCE_EVEN){ ffio->pts_anchor += 1; }
   else{
-    ffio->pts_anchor += pts_diff - 2;
-    LOG_WARNING_T("[%s] get pts with large gap: %d ms.", get_ffioMode(ffio), (int)(dt/1000));
+    ffio->pts_anchor += pts_diff - FFIO_PTS_GAP_TOLERANCE_EVEN;
+    LOG_WARNING_T("[%s] get pts with large gap: %d ms.", get_ffioMode(ffio), (int)(dt_last/1000));
   }
   return ffio->pts_anchor;
 }
 static int64_t pts_get_current_relative(FFIO* ffio){
   int64_t current_time = av_gettime();
-  // here, ffio->pts_anchor is used as "time start at".
-  if (ffio->pts_anchor == -1) { ffio->pts_anchor = current_time; }
-  int64_t dt = current_time - ffio->pts_anchor;
-  return av_rescale_q(dt, (AVRational){1, AV_TIME_BASE}, ffio->avCodecContext->time_base);
+  if (ffio->time_start_at == -1) { ffio->time_start_at = current_time; }
+  int64_t dt = current_time - ffio->time_start_at;
+  ffio->pts_anchor = av_rescale_q(dt, (AVRational){1, AV_TIME_BASE}, ffio->avCodecContext->time_base);
+  return ffio->pts_anchor;
 }
 static int64_t pts_get_current_increase(FFIO* ffio){
   ffio->pts_anchor = ffio->pts_anchor == -1 ? 0 : ++(ffio->pts_anchor);
@@ -188,6 +199,7 @@ static void ffio_reset(FFIO* ffio){
   ffio->sw_pix_fmt      = AV_PIX_FMT_NONE;
 
   ffio->codecParams     = NULL;
+  ffio->time_start_at   = -1;
 
   LOG_INFO_T("[FFIO_STATE_INIT] set ffio contents to NULL.");
 }
@@ -667,6 +679,7 @@ static int encodeOneFrameFromRGBFrame(FFIO* ffio, unsigned char* rgbBytes){
   AVFrame  *srcFrame = convertFromRGBFrame(ffio, rgbBytes);
   AVStream *stream   = ffio->avFormatContext->streams[ffio->videoStreamIndex];
   srcFrame->pts      = ffio->get_current_pts(ffio);
+  if(srcFrame->pts == -1){ return 0; }
 
   int write_ret, send_ret, recv_ret;
   while(true) {

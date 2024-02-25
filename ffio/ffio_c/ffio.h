@@ -7,9 +7,10 @@
 
 #include "ffio_util.h"
 
-#define MAX_URL_LENGTH             256
-#define FFIO_COLOR_DEPTH           3
-#define FFIO_TIME_BASE_MILLIS     (AVRational){1, 1000}
+#define MAX_URL_LENGTH                  256
+#define FFIO_COLOR_DEPTH                3
+#define FFIO_PTS_GAP_TOLERANCE_EVEN     6
+#define FFIO_TIME_BASE_MILLIS          (AVRational){1, 1000}
 
 typedef enum FFIOMode {
   FFIO_MODE_DECODE = 0,
@@ -99,6 +100,7 @@ struct FFIO{
   enum AVPixelFormat   sw_pix_fmt;
 
   CodecParams         *codecParams;
+  int64_t              time_start_at;
 
   int64_t (*get_current_pts)(FFIO *);
 };
