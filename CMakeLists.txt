@@ -50,6 +50,7 @@ elseif(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 endif()
 
 set(LIB_SOURCE_FILES ${LIB_SOURCE_FILES} ${PROJECT_SOURCE_DIR}/ffio/ffio_c/ffio.c)
+set(LIB_SOURCE_FILES ${LIB_SOURCE_FILES} ${PROJECT_SOURCE_DIR}/ffio/ffio_c/ffio_util.c)
 set(LIB_SOURCE_FILES ${LIB_SOURCE_FILES} ${PROJECT_SOURCE_DIR}/ffio/ffio_c/ffioPyApi.c)
 add_library(interfaceAPI SHARED ${LIB_SOURCE_FILES})
 
