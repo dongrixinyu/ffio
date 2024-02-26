@@ -18,11 +18,11 @@ typedef enum FFIOMode {
 } FFIOMode;
 
 typedef enum FFIOState {
-  FFIO_STATE_INIT = 0,
-  FFIO_STATE_READY,
-  FFIO_STATE_RUNNING,
-  FFIO_STATE_END,
-  FFIO_STATE_CLOSED
+  FFIO_STATE_INIT = 0,         //  Just reset all ffio contents to NULL.
+  FFIO_STATE_READY,            //  Succeeded to call initFFIO(). Available for decoding or encoding.
+  FFIO_STATE_RUNNING,          //  Normally running. Available for decoding or encoding.
+  FFIO_STATE_END,              //  Reached the end of video.
+  FFIO_STATE_CLOSED            //  Set by finalizeFFIO().
 } FFIOState;
 
 typedef enum FFIOError {

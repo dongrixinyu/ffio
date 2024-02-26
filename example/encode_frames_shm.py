@@ -16,7 +16,7 @@ def test():
 
   i_url  = "rtmp://..."
   o_url  = "rtmp://..."
-  i_pipe = ffio.FFIO( i_url, 0, True,
+  i_pipe = ffio.FFIO( i_url, ffio.FFIOMode.DECODE, True,
                       your_shm.name, shm_size, shm_offset=some_data_bytes)
   params = ffio.CCodecParams()
   params.width    = 1920
@@ -27,7 +27,7 @@ def test():
   params.b_frames = 0
   params.profile  = b"baseline"
   params.preset   = b"fast"
-  o_pipe = ffio.FFIO( o_url, 1, True,
+  o_pipe = ffio.FFIO( o_url, ffio.FFIOMode.ENCODE, True,
                       your_shm.name, shm_size, shm_offset=some_data_bytes, codec_params=params)
 
   if i_pipe.ffio_state and o_pipe.ffio_state:

@@ -4,7 +4,9 @@ import cv2
 import base64
 import numpy as np
 
+from enum   import Enum
 from PIL    import Image
+from typing import Optional
 from ctypes import Structure, PyDLL, POINTER, c_int, c_bool, c_char_p, py_object, c_char, byref
 
 DIR_PATH = os.path.dirname(os.path.abspath(__file__))
@@ -88,19 +90,25 @@ c_lib.api_encodeOneFrameFromShm.argtypes = [POINTER(CFFIO), c_int]
 c_lib.api_encodeOneFrameFromShm.restype  = c_bool
 
 
+class FFIOMode(Enum):
+  DECODE = 0
+  ENCODE = 1
+
+
 class FFIO(object):
-  _c_ffio_ptr  : POINTER(CFFIO)
-  target_url   : str
-  mode         : int      # mode == 0 ? decode : encode
-  frame_seq_py : int      # from this py class:FFIO
-  frame_seq_c  : int      # from c struct:FFIO
+  _c_ffio_ptr  : Optional[POINTER(CFFIO)]
+  target_url   : Optional[str]
+  mode         : FFIOMode                   # decode or encode
+  frame_seq_py : int                        # from this py class:FFIO
+  frame_seq_c  : int                        # from c struct:FFIO          @property
   shm_enabled  : bool
   width        : int
   height       : int
-  ffio_state   : int
-  codec_params : CCodecParams
+  ffio_state   : int                        # from c struct:FFIO          @property
+  codec_params : Optional[CCodecParams]
 
-  def __init__(self, target_url: str, mode: int = 0, hw_enabled: bool = False,
+  def __init__(self, target_url: str, mode: FFIOMode = FFIOMode.DECODE,
+               hw_enabled: bool = False,
                shm_name: str = None, shm_size: int = 0, shm_offset: int = 0,
                codec_params: CCodecParams = None):
     start_time = time.time()
@@ -111,19 +119,23 @@ class FFIO(object):
     self.codec_params = codec_params if codec_params is not None else CCodecParams()
     self._c_ffio_ptr  = c_lib.api_newFFIO()
 
+    int_mode = 0 if mode == FFIOMode.DECODE else 1
+    default_hw_device = "cuda".encode()
     if shm_name is None:
       self.shm_enabled = False
       c_lib.api_initFFIO(
-        self._c_ffio_ptr, mode, self.target_url.encode(),
-        hw_enabled, "cuda".encode(),
+        self._c_ffio_ptr,
+        int_mode, self.target_url.encode(),
+        hw_enabled, default_hw_device,
         self.shm_enabled, "".encode(), 0, 0,
         byref(self.codec_params)
       )
     else:
       self.shm_enabled = True
       c_lib.api_initFFIO(
-        self._c_ffio_ptr, mode, self.target_url.encode(),
-        hw_enabled, "cuda".encode(),
+        self._c_ffio_ptr,
+        int_mode, self.target_url.encode(),
+        hw_enabled, default_hw_device,
         self.shm_enabled, shm_name.encode(), shm_size, shm_offset,
         byref(self.codec_params)
       )
@@ -131,17 +143,19 @@ class FFIO(object):
     end_time = time.time()
 
     if self._c_ffio_ptr.contents.ffio_state == 1:  # succeeded
-      print(f"inited ffio after: {(end_time-start_time):.4f} seconds.")
-      print(f"open stream with: {self._c_ffio_ptr.contents.image_width}x{self._c_ffio_ptr.contents.image_height}.")
+      print(f"[ffio_py][{self.mode.name}] inited ffio after: {(end_time-start_time):.4f} seconds.")
+      print(f"[ffio_py][{self.mode.name}] open stream with: "
+            f"{self._c_ffio_ptr.contents.image_width}x{self._c_ffio_ptr.contents.image_height}.")
 
       self.width  = self._c_ffio_ptr.contents.image_width
       self.height = self._c_ffio_ptr.contents.image_height
     else:
-      print(f"failed to initialize ffio after: {(end_time-start_time):.4f} seconds.")
+      print(f"[ffio_py][{self.mode.name}] failed to initialize ffio after: {(end_time-start_time):.4f} seconds.")
       c_lib.api_deleteFFIO(self._c_ffio_ptr)
 
   @property
   def ffio_state(self) -> bool:
+    # see FFIOState defined in ffio.h
     state = self._c_ffio_ptr.contents.ffio_state
     return True if state == 1 or state == 2 else False
 
@@ -173,20 +187,13 @@ class FFIO(object):
         return base64_image_code
 
     elif ret_type is int:
-      if ret == -5:
-        # it means that the stream is empty,
-        # now you should close the stream context object manually
-        return -5
-      elif ret == -4:
-        # Packet mismatch. Unable to seek to the next packet
-        # now you should close the stream context object manually
-        return -4
-      else:
-        # other errors
-        return 1
+      return False
 
   def decode_one_frame_to_shm(self, offset=0) -> bool:
-    # get RGB bytes to shm.
+    # decode one frame from target video, and write raw rgb bytes of that frame to shm.
+    ret = c_lib.api_decodeOneFrameToShm(self._c_ffio_ptr, offset)
+    if ret:
+      self.frame_seq_py += 1
     return c_lib.api_decodeOneFrameToShm(self._c_ffio_ptr, offset)
 
   def encode_one_frame(self, rgb_image) -> bool:
@@ -197,20 +204,29 @@ class FFIO(object):
         self.frame_seq_py += 1
         return True
       return False
+
     elif rgb_image_type == np.ndarray:
       rgb_image_bytes = rgb_image.tobytes()
       return self.encode_one_frame(rgb_image_bytes)
     elif rgb_image_type == Image:
-      return False
+      return False  # not implemented yet.
+
     return False
 
   def encode_one_frame_from_shm(self, offset=0) -> bool:
-    return c_lib.api_encodeOneFrameFromShm(self._c_ffio_ptr, offset)
+    # encode one rgb data frame from shm, and write it to target video.
+    ret = c_lib.api_encodeOneFrameFromShm(self._c_ffio_ptr, offset)
+    if ret:
+      self.frame_seq_py += 1
+    return ret
 
   def release_memory(self):
     c_lib.api_finalizeFFIO(self._c_ffio_ptr)
     c_lib.api_deleteFFIO(self._c_ffio_ptr)
 
+    self.target_url   = None
+    self._c_ffio_ptr  = None
+    self.codec_params = None
     self.width        = 0
     self.height       = 0
     self.frame_seq_py = 0
