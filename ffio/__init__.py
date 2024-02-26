@@ -7,20 +7,9 @@
 # Description: An easy-to-use Python wrapper for FFmpeg-C-API.
 # Website: http://www.jionlp.com
 
-import os
 
-__version__ = '1.0.3'
+from ffio.ffio import FFIO, CCodecParams, FFIOMode
 
-HOME_DIR = os.path.expanduser('~')
-LOG_DIR = os.path.join(HOME_DIR, '.cache/ffio')
 
-if not os.path.exists(LOG_DIR):
-    os.makedirs(LOG_DIR)
-
-# set logger
-from ffio.util.logger import set_logger
-
-logging = set_logger(level='INFO')
-
-from ffio.ffio import FFIO, CCodecParams
+__version__ = '2.0.0'
 
