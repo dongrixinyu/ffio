@@ -1,30 +1,61 @@
 #!/bin/bash
 
+global_ffmpeg_include_path=""
+global_ffmpeg_lib_path=""
+global_python_include_path=""
+global_python_lib_path=""
+check_and_set_ffmpeg_path() {
+  if command -v pkg-config &> /dev/null            \
+    && pkg-config --cflags libavcodec &> /dev/null \
+    && pkg-config --libs   libavcodec &> /dev/null ; then
+      echo "[ffio_build] checking ffmpeg includes and libs path by pkg-config..."
+      global_ffmpeg_include_path=$(pkg-config --cflags libavcodec 2> /dev/null | sed 's/-I//g')
+      global_ffmpeg_lib_path=$(    pkg-config --libs   libavcodec 2> /dev/null | sed 's/-L//g' | awk '{print $1}')
+  else
+    echo "[ffio_build] checking ffmpeg includes path by searching the path of avutil.h..."
+    local avutil_header_file_path=`find /usr -name avutil.h`
+    local avutil_include_path=`dirname ${avutil_header_file_path}`
+    global_ffmpeg_include_path=`dirname ${avutil_include_path}`
+
+    echo "[ffio_build] checking ffmpeg libs path by searching the path of libavutil.so..."
+    local avutil_lib_file_path=`find /usr -name libavutil.so`
+    global_ffmpeg_lib_path=`dirname ${avutil_lib_file_path}`
+  fi
+  echo "find ffmpeg includes path: ${global_ffmpeg_include_path}"
+  echo "find ffmpeg libs     path: ${global_ffmpeg_lib_path}"
+}
+check_and_set_python_path(){
+  if command -v python3-config &> /dev/null   \
+    && python3-config --includes &> /dev/null \
+    && python3-config --ldflags  &> /dev/null ; then
+      echo "[ffio_build] checking python3 includes and libs path by python3-config..."
+      global_python_include_path=$(python3-config --includes 2> /dev/null | sed 's/-I//g' | awk '{print $1}')
+      local python_lib_dir_path=$( python3-config --ldflags  2> /dev/null | sed 's/-L//g' | awk '{print $1}')
+      global_python_lib_path=`find $python_lib_dir_path -name 'libpython*' | grep -E "\.(dylib|so)$" | head -n 1`
+  else
+    echo "[ffio_build] checking python3 includes and libs path by trying python3 commands..."
+    PYTHON_CMD=$(command -v python3 &> /dev/null && echo "python3" || echo "python")
+    global_python_include_path=$($PYTHON_CMD -c "from distutils.sysconfig import get_python_inc; print(get_python_inc())")
+    global_python_lib_path=$($PYTHON_CMD -c "import distutils.sysconfig as sysconfig;print(sysconfig.get_config_var('LIBDIR') + '/' + sysconfig.get_config_var('LDLIBRARY'))")
+  fi
+
+  echo "find python3 includes path: ${global_python_include_path}"
+  echo "find python3 libs     path: ${global_python_lib_path}"
+}
+
+check_and_set_ffmpeg_path
+check_and_set_python_path
+
 if [ ! -d ffio/build ]; then
-    mkdir ffio/build
+  mkdir ffio/build
 else
-    rm -rf ffio/build/*
+  rm -rf ffio/build/*
 fi
-
-# we assume that the include directory and the dynamic lib path is located under /usr.
-# This ffmepg_include_path will be in effect:
-# if you install ffmpeg lib by `apt install libavutil-dev` etc.
-# or if you install ffmpeg by the given Dockerfile located in this repo.
-avutil_header_file_path=`find /usr -name avutil.h`
-avutil_include_path=`dirname ${avutil_header_file_path}`
-ffmpeg_include_path=`dirname ${avutil_include_path}`
-echo "FFMPEG_INCLUDE_PATH: ${ffmpeg_include_path}"
-
-avutil_lib_file_path=`find /usr -name libavutil.so`
-ffmpeg_lib_dir_path=`dirname ${avutil_lib_file_path}`
-echo "FFMPEG_LIB_DIR_PATH: ${ffmpeg_lib_dir_path}"
-
 cd ffio/build
 cmake ../.. \
-    -DPYTHON_INCLUDE_DIRS=$(python -c "from distutils.sysconfig import get_python_inc; print(get_python_inc())")  \
-    -DPYTHON_LIBRARIES=$(python -c "import distutils.sysconfig as sysconfig; print(sysconfig.get_config_var('LIBDIR') + '/' + sysconfig.get_config_var('LDLIBRARY'))") \
-    -DFFMPEG_INCLUDE_DIRS=${ffmpeg_include_path} \
-    -DFFMPEG_LIB_DIR_PATH=${ffmpeg_lib_dir_path}
-    # -DFFMPEG_LIBRARIES=${ffmpeg_base_dir}/lib
+    -DPYTHON_INCLUDE_DIRS=${global_python_include_path}  \
+    -DPYTHON_LIBRARIES=${global_python_lib_path}         \
+    -DFFMPEG_INCLUDE_DIRS=${global_ffmpeg_include_path}  \
+    -DFFMPEG_LIB_DIR_PATH=${global_ffmpeg_lib_path}
 
 make

@@ -4,10 +4,11 @@ import cv2
 import base64
 import numpy as np
 
-from enum   import Enum
-from PIL    import Image
-from typing import Optional
-from ctypes import Structure, PyDLL, POINTER, c_int, c_bool, c_char_p, py_object, c_char, byref
+from enum    import Enum
+from pathlib import Path
+from typing  import Optional
+from PIL     import Image
+from ctypes  import Structure, PyDLL, POINTER, c_int, c_bool, c_char_p, py_object, c_char, byref
 
 DIR_PATH = os.path.dirname(os.path.abspath(__file__))
 
@@ -61,7 +62,10 @@ class CCodecParams(Structure):
   ]
 
 
-c_lib = PyDLL(os.path.join(DIR_PATH, 'build', 'libinterfaceAPI.so'))
+c_lib_path = ( os.path.join(DIR_PATH, 'build', 'libinterfaceAPI.dylib')
+               if Path(os.path.join(DIR_PATH, 'build', 'libinterfaceAPI.dylib')).is_file()
+               else os.path.join(DIR_PATH, 'build', 'libinterfaceAPI.so'))
+c_lib = PyDLL(c_lib_path)
 
 c_lib.api_newFFIO.argtypes = []
 c_lib.api_newFFIO.restype  = POINTER(CFFIO)
@@ -106,6 +110,9 @@ class FFIO(object):
   height       : int
   ffio_state   : int                        # from c struct:FFIO          @property
   codec_params : Optional[CCodecParams]
+  hw_device    : str
+
+  hw_device = "cuda"   # or try others listed by ` ffmpeg -hwaccels` for your device.
 
   def __init__(self, target_url: str, mode: FFIOMode = FFIOMode.DECODE,
                hw_enabled: bool = False,
@@ -120,13 +127,12 @@ class FFIO(object):
     self._c_ffio_ptr  = c_lib.api_newFFIO()
 
     int_mode = 0 if mode == FFIOMode.DECODE else 1
-    default_hw_device = "cuda".encode()
     if shm_name is None:
       self.shm_enabled = False
       c_lib.api_initFFIO(
         self._c_ffio_ptr,
         int_mode, self.target_url.encode(),
-        hw_enabled, default_hw_device,
+        hw_enabled, self.hw_device.encode(),
         self.shm_enabled, "".encode(), 0, 0,
         byref(self.codec_params)
       )
@@ -135,7 +141,7 @@ class FFIO(object):
       c_lib.api_initFFIO(
         self._c_ffio_ptr,
         int_mode, self.target_url.encode(),
-        hw_enabled, default_hw_device,
+        hw_enabled, self.hw_device.encode(),
         self.shm_enabled, shm_name.encode(), shm_size, shm_offset,
         byref(self.codec_params)
       )
