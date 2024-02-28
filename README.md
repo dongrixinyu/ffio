@@ -53,14 +53,14 @@ We provide 3 methods to install ffio.
 
 If you are not familiar with C, and not willing to deal with anything about C:
 
-## 1. pull docker image from docker hub (**recommended**)
+## 1. Pull docker image from docker hub (**recommended**)
 ```
 $ docker pull jionlp/ffio:latest
 $ docker run -it jionlp/ffio:latest /bin/bash  # run into the container.
 $ (in docker container) python
 ```
 
-## 2. Quick start
+#### Quick start
 - It takes only two lines of code to run a decoder to extract images from a video.
 
 ```python
@@ -69,9 +69,9 @@ decoder = ffio.FFIO("/path/to/target")
 image   = decoder.decode_one_frame()
 ```
 
-Or, if you wanna build a docker by yourself from a custom GitHub branch.
+Or, if you wanna build a docker by yourself from a custom GitHub branch: 
 
-## 2. build docker image by yourself from GitHub
+## 2. Build docker image by yourself from GitHub
 
 You can first clone this repo via git, and then build a docker with all libs installed. 
 You do not need to configure compilation params anymore.
@@ -82,7 +82,7 @@ $ cd ffio
 $ docker build -t jionlp/ffio:(your custom version) .
 ```
 
-If you wanna run ffio in your host OS, rather than a docker container, you can
+If you wanna run ffio in your host OS, rather than a docker container, you can:
 
 ## 3. Install ffio by yourself
 
