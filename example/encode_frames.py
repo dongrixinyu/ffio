@@ -10,96 +10,65 @@
 # Strongly recommend to use this piece of code in a sub-process.
 # Cause decoding an online video stream consumes about 100M memory and 40% CPU.
 
-import os
-import pdb
+import sys
 import time
-
 import cv2
+import numpy as np
 import ffio
 
-
-print_gap = 200  # print log every `print_gap` frames
-
-# replace these rtmp stream path with your custom one.
-input_stream_path = "rtmp://ip:port/path/to/your/input/stream"
-output_stream_path = "rtmp://ip:port/path/to/your/output/stream"
-
-input_stream_state = False  # to control whether to restart the input stream context
-output_stream_state = False  # control whether to restart the output stream context
-
-while True:
-
-    # initialize the input stream context
-    while True:
-        print('init input stream context ... ')
-        input_stream_obj = ffio.InputStreamParser(
-            input_stream_path, use_cuda=True)
-        if input_stream_obj.stream_state is True:
-            # it means that the input stream context has been opened successfully.
-            # otherwise, the input stream can not be reached,
-            # probably the path is wrong or input stream is empty
-            input_stream_state = input_stream_obj.stream_state
-            break
-
-    # initialize the output stream context
-    while True:
-        print('init output stream context ... ')
-        output_stream_obj = ffio.OutputStreamParser(
-            output_stream_path, input_stream_obj=input_stream_obj,
-            preset="medium", use_cuda=True)
-
-        # in the initialization phase of ffio.OutputStreamParser,
-        # you can inherit the params from input stream context, such as fps, width, height
-        # just like the above code.
-        # Besides, you can designate every params according to your needs as below.
-        # set `input_stream_obj=None`,
-        # output_stream_obj = ffio.OutputStreamParser(
-        #     output_stream_path, input_stream_obj=None,
-        #     framerate_num=25, framerate_den=1, image_width=540, image_height=360,
-        #     preset="ultrafast")
-
-        if output_stream_obj.stream_state is True:
-            # it means that the output stream context has been opened successfully.
-            # otherwise, the output stream can not be reached,
-            # probably the path is wrong or output stream is empty
-            output_stream_state = output_stream_obj.stream_state
-
-            break
+if len(sys.argv) < 3:
+  print("Usage: ")
+  print("  python3 example/encode_frames.py [src_path] [dst_path]")
+  sys.exit(1)
+i_path = sys.argv[1]
+o_path = sys.argv[2]
 
 
-    # to get frames in a loop until encountering an error
-    while True:
-        frame = input_stream_obj.decode_one_frame(image_format='numpy')
-        if type(frame) is int:
-            if frame == -5:
-                input_stream_state = input_stream_obj.stream_state
-                break
-            elif frame == -4:
-                input_stream_state = input_stream_obj.stream_state
-                break
+def main():
+  params = ffio.CCodecParams()
+  params.width    = 1920
+  params.height   = 1080
+  params.bitrate  = 2400*1024
+  params.fps      = 24
+  params.gop      = 48
+  params.b_frames = 0
+  params.profile  = b"baseline"
+  params.preset   = b"fast"
+  encoder = ffio.FFIO( o_path, mode=ffio.FFIOMode.ENCODE, hw_enabled=True, codec_params=params)
+  decoder = ffio.FFIO( i_path, mode=ffio.FFIOMode.DECODE, hw_enabled=True)
 
-        else:
-            # to add a dynamic rectangle to the output stream frames.
-            base_coor = output_stream_obj.output_frame_number
-            while base_coor + 100 > output_stream_obj.height:
-                base_coor -= output_stream_obj.height
-            frame = cv2.rectangle(
-                frame, (base_coor, base_coor), (base_coor + 99, base_coor + 99),
-                (255, 0, 0), 3)
+  if decoder.ffio_state and encoder.ffio_state:
+    time_total = 0
+    idx        = 0
+    while idx < 100:
+      time_before = time.time()
+      frame = decoder.decode_one_frame(image_format='numpy')
+      if type(frame) is np.ndarray:
+        # The frame returned is read-only, so make a copy if you need to modify its contents.
+        # If you don't want to do this, try to follow the examples with using shared memory.
+        frame = _draw(frame.copy(), idx)
+        if encoder.encode_one_frame(frame):
+          dt          = time.time() - time_before
+          time_total += dt
+          idx        += 1
+          avg         = time_total * 1000 / idx
+          fps         = 1000 / avg
+          print(f"{idx}: dt:{dt * 1000:.2f}ms, avg:{avg:.2f}ms, {fps:.2f}fps, "
+                f"total: {time_total:.2f}s, shape:{frame.shape}")
 
-            # encode images to the output stream
-            ret = output_stream_obj.encode_one_frame(frame)
-            if ret == 0:
-                if output_stream_obj.output_frame_number % print_gap == 0:
-                    print('Successfully encode one frame {}.'.format(
-                        output_stream_obj.output_frame_number))
-                # pass
-            else:
-                break
+    # Attention !!
+    # Force quitting this script will result in a memory leak.
+    # Ensure the following process is executed.
+  decoder.release_memory()
+  encoder.release_memory()
 
-    # then reconnect to the input and output stream and rebuild input and output
-    # stream context in the next loop. You have to release the memory containing
-    # input and output stream context manually.
-    output_stream_obj.release_memory()
-    input_stream_obj.release_memory()
-    print('successfully release memory of input and output stream context.')
+
+def _draw(frame: np.ndarray, seq: int):
+  diff    = seq % 100
+  coord_x = 20 + diff*4
+  coord_y = 10 + diff*2
+  cv2.rectangle(frame, (coord_x, coord_y), (coord_x+200, coord_y+150), (0, 255, 0), 2)
+  return frame
+
+
+main()

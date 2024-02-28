@@ -56,7 +56,7 @@ def test():
       in_index    = idx % 30
       avg         = time_total * 1000 / (idx-10)
       fps         = 1000 / avg
-      print(f"{idx}: dt:{dt * 1000:.2f}ms, avg:{avg:.2f}ms, {fps}fps, "
+      print(f"{idx}: dt:{dt * 1000:.2f}ms, avg:{avg:.2f}ms, {fps:.2f}fps, "
             f"total: {time_total:.3f}s, shape:{frame.shape}")
   # Attention !!
   # Force quitting this script will result in a memory leak.
