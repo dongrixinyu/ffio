@@ -42,8 +42,8 @@ RUN apt-get install nvidia-gds -y
 ENV PATH=/usr/local/cuda-$CUDA_MAJOR_VERSION/bin${PATH:+:${PATH}}
 
 
-# koisi-io config to request github
-# ENV http_proxy=http://192.168.126.62:6152
+# http proxy if necessary.
+# ENV http_proxy=http://127.0.0.1:7890
 # ENV https_proxy=$http_proxy
 
 

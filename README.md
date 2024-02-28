@@ -9,8 +9,8 @@
 
 
 **ffio** is not just another wrapper of the FFmpeg executable.  
-It directly integrates the FFmpeg C API, mainly designed for streaming, 
-specifically deals with raw RGB data.
+It directly integrates the FFmpeg C API, and is mainly designed for streaming 
+that specifically deals with raw RGB data.
 
 
 # Insight
@@ -27,10 +27,10 @@ There are primarily two ways to utilize ffio:
 2. **Encoding**: encode provided RGB images, write them into a local video file or a live stream. 
 
 Naturally, you can chain two ffio instances together to facilitate video transformation.
-However, if further processing with raw RGB images is not required, 
-consider simply using `ffmpeg` as a more straightforward solution. 
+However, if you don't have to do some stuff with raw RGB images, simply 
+consider using ffmpeg as a more straightforward solution.
 
-Just keep in mind, `images in raw format` are the main character of **ffio**.
+Just keep in mind, the main character in **ffio** are `images in raw format`.
 
 # Features
 - [x] **Easy to use**: You don't have to tackle the complex video processing problems concerning FFmpeg anymore.
@@ -40,10 +40,10 @@ you can now interact directly with ffmpeg's C context.
 - [x] **Hardware acceleration support**: Simply turn `hw_enabled` to `True` to enable hardware acceleration when creating ffio.
 Nvidia CUDA is currently available.
 - [x] **Shared memory support**: Interact with image data across multiple processes using shared memory, 
-reducing redundant data copying.
+reducing redundant data copying.(Currently, only passed tests on Linux platforms.)
 - [ ] **Send or recv SEI packets**
 - [ ] **Handle image with other formats**
-- [ ] **Handles non-video data**. Audio, subtitle.
+- [ ] **Handle non-video data**. Audio, or subtitle.
 
 # Installation
 
@@ -61,12 +61,11 @@ $ (in docker container) python
 ```
 
 ## 2. Quick start
-- It takes only three lines of code to run a decoder to extract images from a video.
+- It takes only two lines of code to run a decoder to extract images from a video.
 
 ```python
 import ffio
-url     = "path_to_file or url_for_live_stream"
-decoder = ffio.FFIO(url)
+decoder = ffio.FFIO("/path/to/target")
 image   = decoder.decode_one_frame()
 ```
 
