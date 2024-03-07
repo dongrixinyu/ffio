@@ -40,8 +40,8 @@ static int64_t pts_get_current_even(FFIO* ffio){
                 "(pts: %d, duration: %.2fs, dropped: %d)",
                 get_ffioMode(ffio), (int)ffio->pts_anchor, (float)dt_rltv/1000000.0, drop_count);
     return -1;
-  }else if(ffio->pts_anchor < pts_rltv + FFIO_PTS_GAP_TOLERANCE_EVEN){
-    ffio->pts_anchor = pts_rltv + FFIO_PTS_GAP_TOLERANCE_EVEN;
+  }else if(ffio->pts_anchor < pts_rltv - FFIO_PTS_GAP_TOLERANCE_EVEN){
+    ffio->pts_anchor = pts_rltv - FFIO_PTS_GAP_TOLERANCE_EVEN;
 #ifdef DEBUG
     LOG_DEBUG_T("[%s] Sending too slow, this pkt will be set with tolerant pts. "
                 "(tolerant_pts: %d, duration: %.2fs, pts_rltv: %d)",
