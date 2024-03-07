@@ -41,10 +41,10 @@ typedef enum FFIOError {
 } FFIOError;
 
 typedef enum FFIOPTSTrick {
-  FFIO_PTS_TRICK_EVEN = 0,
-  FFIO_PTS_TRICK_RELATIVE,
-  FFIO_PTS_TRICK_DIRECT,
-  FFIO_PTS_TRICK_INCREASE
+  FFIO_PTS_TRICK_EVEN = 0,                   // For     live-streaming scenarios.
+  FFIO_PTS_TRICK_INCREASE,                   // For non-live-streaming scenarios.
+  FFIO_PTS_TRICK_RELATIVE,                   // If you are calling encodeOneFrame() at a stable rate.
+  FFIO_PTS_TRICK_DIRECT                      // Manually set `ffio->pts_anchor` every time before encodeOneFrame().
 } FFIOPTSTrick;
 
 typedef struct CodecParams {

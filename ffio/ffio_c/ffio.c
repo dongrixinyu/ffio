@@ -22,6 +22,11 @@ static bool is_empty_string(const char *str) {
 }
 
 static int64_t pts_get_current_even(FFIO* ffio){
+  /*
+   * For live-streaming scenarios.
+   * Will handle frame being sent too quickly or too slowly,
+   * to push the live stream at a stable and smooth frame rate.
+   */
   static int64_t last_time  = -1;
   static int     drop_count =  0;
 
@@ -63,6 +68,10 @@ static int64_t pts_get_current_even(FFIO* ffio){
   return ffio->pts_anchor;
 }
 static int64_t pts_get_current_relative(FFIO* ffio){
+  /*
+   * You can use this function,
+   * if you sure you are calling encodeOneFrame() at a stable rate.
+   */
   int64_t current_time = av_gettime();
   if (ffio->time_start_at == -1) { ffio->time_start_at = current_time; }
   int64_t dt = current_time - ffio->time_start_at;
@@ -70,10 +79,18 @@ static int64_t pts_get_current_relative(FFIO* ffio){
   return ffio->pts_anchor;
 }
 static int64_t pts_get_current_increase(FFIO* ffio){
+  /*
+   * Simply increase pts every time you call encodeOneFrame().
+   * For example, when you are getting source images from local files.
+   */
   ffio->pts_anchor = ffio->pts_anchor == -1 ? 0 : ++(ffio->pts_anchor);
   return ffio->pts_anchor;
 }
 static int64_t pts_get_current_direct(FFIO* ffio){
+  /*
+   * Use this function, you should take responsibility to
+   * manually set `ffio->pts_anchor` before calling encodeOneFrame().
+   */
   return ffio->pts_anchor;
 }
 
