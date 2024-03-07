@@ -666,7 +666,7 @@ ENDPOINT_DECODE_EOF:
   }
 
 }
-static int encodeOneFrameFromRGBFrame(FFIO* ffio, unsigned char* rgbBytes){
+static int encodeOneFrameFromRGBFrame(FFIO* ffio, unsigned char* rgbBytes, const char* seiMsg){
   /*
    * Refers to the official FFmpeg examples: transcoding.c and vaapi_transcode.c
    *
@@ -687,7 +687,10 @@ static int encodeOneFrameFromRGBFrame(FFIO* ffio, unsigned char* rgbBytes){
   AVFrame  *srcFrame = convertFromRGBFrame(ffio, rgbBytes);
   AVStream *stream   = ffio->avFormatContext->streams[ffio->videoStreamIndex];
   srcFrame->pts      = ffio->get_current_pts(ffio);
-  if(srcFrame->pts == -1){ return 0; }
+  if(srcFrame->pts == -1){
+    // skip this frame, maybe get frame too fast.
+    return 0;
+  }
 
   int write_ret, send_ret, recv_ret;
   while(true) {
@@ -700,21 +703,34 @@ static int encodeOneFrameFromRGBFrame(FFIO* ffio, unsigned char* rgbBytes){
       goto ENDPOINT_ENCODE_EOF;
     } else if (recv_ret==AVERROR(EAGAIN)){
       if(send_ret==AVERROR(EAGAIN)){
-        LOG_WARNING("both receive_packet and send_frame get AVERROR(EAGAIN).");
+        LOG_WARNING("both receive_packet and send_frame get AVERROR(EAGAIN), so resend frame to codec.");
         usleep(10000);
         continue;
+      }else{
+        /*
+         * Send a frame to codec successfully(send_ret == 0),
+         * but this frame not encoded yet, will receive it again when next time
+         * this encodeOneFrameFromRGBFrame() called.
+         */
+        return 0;
       }
-      return 0;
     } else if (recv_ret<0){
-      LOG_ERROR("[E] error occurred while avcodec_receive_packet: %d - %s.", recv_ret, av_err2str(recv_ret));
+      LOG_ERROR("[E] error occurred while recv packet from codec: %d - %s.", recv_ret, av_err2str(recv_ret));
       return FFIO_ERROR_RECV_FROM_CODEC;
     }
 
-    // recv_ret == 0
+    // recv_ret == 0 and send_ret == 0
     ffio->avPacket->stream_index = ffio->videoStreamIndex;
     av_packet_rescale_ts(ffio->avPacket,
                          ffio->avCodecContext->time_base,
                          stream->time_base);
+
+    if(seiMsg!=NULL){
+      extend_sei_to_av_packet(ffio->codecParams->use_h264_AnnexB_sei,
+                              ffio->avPacket,
+                              ffio->codecParams->sei_uuid, seiMsg);
+    }
+
     // Our program runs synchronously,
     // so using av_write_frame() is sufficient, compared to av_interleaved_write_frame()
     write_ret = av_write_frame(ffio->avFormatContext, ffio->avPacket);
@@ -742,7 +758,7 @@ ENDPOINT_ENCODE_EOF:
     ffio->ffioState = FFIO_STATE_END;
     return FFIO_ERROR_STREAM_ENDING;
   }else{
-    LOG_ERROR("[E] error while avcodec_send_frame: %d - %s.", recv_ret, av_err2str(recv_ret));
+    LOG_ERROR("[E] error while send frame to codec: %d - %s.", send_ret, av_err2str(send_ret));
     return FFIO_ERROR_SEND_TO_CODEC;
   }
 }
@@ -868,10 +884,10 @@ int decodeOneFrameToShm(FFIO* ffio, int shmOffset){
   if(ret == 0){ memcpy(ffio->rawFrameShm + shmOffset, ffio->rgbFrame->data[0], ffio->imageByteSize); }
   return ret;
 }
-int encodeOneFrame(FFIO* ffio, unsigned char* rgbBytes){
-  return encodeOneFrameFromRGBFrame(ffio, rgbBytes);
+int encodeOneFrame(FFIO* ffio, unsigned char* rgbBytes, const char* seiMsg){
+  return encodeOneFrameFromRGBFrame(ffio, rgbBytes, seiMsg);
 }
-bool encodeOneFrameFromShm(FFIO* ffio, int shmOffset){
-  int ret = encodeOneFrameFromRGBFrame(ffio, ffio->rawFrameShm + shmOffset);
+bool encodeOneFrameFromShm(FFIO* ffio, int shmOffset, const char* seiMsg){
+  int ret = encodeOneFrameFromRGBFrame(ffio, ffio->rawFrameShm + shmOffset, seiMsg);
   return ret == 0 ? true : false;
 }

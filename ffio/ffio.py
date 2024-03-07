@@ -100,9 +100,9 @@ c_lib.api_decodeOneFrame.restype       = py_object
 c_lib.api_decodeOneFrameToShm.argtypes = [POINTER(CFFIO), c_int]
 c_lib.api_decodeOneFrameToShm.restype  = c_bool
 
-c_lib.api_encodeOneFrame.argtypes        = [POINTER(CFFIO), py_object]
+c_lib.api_encodeOneFrame.argtypes        = [POINTER(CFFIO), py_object, c_char_p]
 c_lib.api_encodeOneFrame.restype         = c_int
-c_lib.api_encodeOneFrameFromShm.argtypes = [POINTER(CFFIO), c_int]
+c_lib.api_encodeOneFrameFromShm.argtypes = [POINTER(CFFIO), c_int, c_char_p]
 c_lib.api_encodeOneFrameFromShm.restype  = c_bool
 
 
@@ -214,10 +214,10 @@ class FFIO(object):
       self.frame_seq_py += 1
     return c_lib.api_decodeOneFrameToShm(self._c_ffio_ptr, offset)
 
-  def encode_one_frame(self, rgb_image) -> bool:
+  def encode_one_frame(self, rgb_image, sei_msg: Optional[bytes] = None) -> bool:
     rgb_image_type = type(rgb_image)
     if rgb_image_type is bytes:
-      ret = c_lib.api_encodeOneFrame(self._c_ffio_ptr, rgb_image)
+      ret = c_lib.api_encodeOneFrame(self._c_ffio_ptr, rgb_image, sei_msg)
       if ret == 0:
         self.frame_seq_py += 1
         return True
@@ -231,9 +231,9 @@ class FFIO(object):
 
     return False
 
-  def encode_one_frame_from_shm(self, offset=0) -> bool:
+  def encode_one_frame_from_shm(self, offset: int = 0, sei_msg: Optional[bytes] = None) -> bool:
     # encode one rgb data frame from shm, and write it to target video.
-    ret = c_lib.api_encodeOneFrameFromShm(self._c_ffio_ptr, offset)
+    ret = c_lib.api_encodeOneFrameFromShm(self._c_ffio_ptr, offset, sei_msg)
     if ret:
       self.frame_seq_py += 1
     return ret

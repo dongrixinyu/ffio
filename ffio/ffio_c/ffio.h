@@ -125,7 +125,7 @@ FFIO* finalizeFFIO(FFIO* ffio);
 int decodeOneFrame(FFIO* ffio);
 int decodeOneFrameToShm(FFIO* ffio, int shmOffset);
 
-int encodeOneFrame(FFIO* ffio, unsigned char *RGBImage);
-bool encodeOneFrameFromShm(FFIO* ffio, int shmOffset);
+int encodeOneFrame(FFIO* ffio, unsigned char *RGBImage, const char* seiMsg);
+bool encodeOneFrameFromShm(FFIO* ffio, int shmOffset, const char* seiMsg);
 
 #endif //FFIO_C_FFIO_H

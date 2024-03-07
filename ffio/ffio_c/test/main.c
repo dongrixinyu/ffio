@@ -45,12 +45,12 @@ int main(int argc, char *argv[]){
 
   CodecParams i_params = {
       0, 0, 0, 0, 0, 0, FFIO_PTS_TRICK_EVEN,
-      "", "", "", "", "", ""
+      "", "", "", "", "", "",
+      {0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88,
+       0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88},
+       true
   };
-  CodecParams o_params = {
-      0, 0, 0, 0, 0, 0, FFIO_PTS_TRICK_EVEN,
-      "", "", "", "", "", ""
-  };
+  CodecParams o_params = i_params;
   initFFIO(i_ffio, FFIO_MODE_DECODE, i_url,
            hw_enabled, "videotoolbox",
            false, NULL, 0, 0, &i_params);
@@ -72,7 +72,7 @@ int main(int argc, char *argv[]){
     LOG_INFO("[%d] decodeOneFrame returned %d.", i_ffio->frameSeq, ret);
     if( ret==0 && i<10){ saveRGB2File(i_ffio); }
     if( ret==0 && o_url!=NULL){
-      ret = encodeOneFrame(o_ffio, i_ffio->rawFrame);
+      ret = encodeOneFrame(o_ffio, i_ffio->rawFrame, "\"hello.\"");
       LOG_INFO("[%d] encodeOneFrame returned %d.", o_ffio->frameSeq, ret);
     }
   }
