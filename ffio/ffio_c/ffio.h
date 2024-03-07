@@ -48,19 +48,21 @@ typedef enum FFIOPTSTrick {
 } FFIOPTSTrick;
 
 typedef struct CodecParams {
-  int  width;
-  int  height;
-  int  bitrate;
-  int  fps;
-  int  gop;
-  int  b_frames;
-  int  pts_trick;
-  char profile[24];
-  char preset[24];
-  char tune[24];
-  char pix_fmt[24];
-  char format[24];
-  char codec[24];
+  int      width;
+  int      height;
+  int      bitrate;
+  int      fps;
+  int      gop;
+  int      b_frames;
+  int      pts_trick;                        // see: enum FFIOPTSTrick & FFIO.get_current_pts()
+  char     profile [24];
+  char     preset  [24];
+  char     tune    [24];
+  char     pix_fmt [24];
+  char     format  [24];
+  char     codec   [24];
+  uint8_t  sei_uuid[16];
+  bool     use_h264_AnnexB_sei;              // whether to use AnnexB as h.264 NALU format when creating sei frame.
 } CodecParams;
 
 typedef struct FFIO FFIO;

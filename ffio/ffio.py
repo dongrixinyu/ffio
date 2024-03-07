@@ -8,7 +8,7 @@ from enum    import Enum
 from pathlib import Path
 from typing  import Optional
 from PIL     import Image
-from ctypes  import Structure, PyDLL, POINTER, c_int, c_bool, c_char_p, py_object, c_char, byref
+from ctypes  import Structure, PyDLL, POINTER, c_int, c_bool, c_char_p, py_object, c_char, byref, c_ubyte
 
 DIR_PATH = os.path.dirname(os.path.abspath(__file__))
 
@@ -38,28 +38,40 @@ class CCodecParams(Structure):
   gop        : int
   b_frames   : int
   pts_trick  : int
-  profile    : str
-  preset     : str
-  tune       : str
-  pix_fmt    : str
-  format     : str
-  codec      : str
+  profile    : bytes
+  preset     : bytes
+  tune       : bytes
+  pix_fmt    : bytes
+  format     : bytes
+  codec      : bytes
+  sei_uuid   : c_ubyte * 16
+  use_h264_AnnexB_sei : bool
 
   _fields_ = [
-    ("width",      c_int),
-    ("height",     c_int),
-    ("bitrate",    c_int),
-    ("fps",        c_int),
-    ("gop",        c_int),
-    ("b_frames",   c_int),
-    ("pts_trick",  c_int),
-    ("profile",    c_char * 24),
-    ("preset",     c_char * 24),
-    ("tune",       c_char * 24),
-    ("pix_fmt",    c_char * 24),
-    ("format",     c_char * 24),
-    ("codec",      c_char * 24)
+    ("width",               c_int),
+    ("height",              c_int),
+    ("bitrate",             c_int),
+    ("fps",                 c_int),
+    ("gop",                 c_int),
+    ("b_frames",            c_int),
+    ("pts_trick",           c_int),
+    ("profile",             c_char * 24),
+    ("preset",              c_char * 24),
+    ("tune",                c_char * 24),
+    ("pix_fmt",             c_char * 24),
+    ("format",              c_char * 24),
+    ("codec",               c_char * 24),
+    ('sei_uuid',            c_ubyte * 16),
+    ('use_h264_AnnexB_sei', c_bool)
   ]
+
+  def __init__(self):
+    super(CCodecParams, self).__init__()
+    self.use_h264_AnnexB_sei = True
+    self.sei_uuid = (c_ubyte * 16).from_buffer_copy(b'\x0f\xf1\x0f\xf1'
+                                                    b'\x00\x11\x22\x33'
+                                                    b'\xa0\xb1\xc2\xd3'
+                                                    b'\x00\x11\x22\x33')
 
 
 c_lib_path = ( os.path.join(DIR_PATH, 'build', 'libinterfaceAPI.dylib')
@@ -169,7 +181,7 @@ class FFIO(object):
   def frame_seq_c(self):
     return self._c_ffio_ptr.contents.frame_seq
 
-  def decode_one_frame(self, image_format: str = "numpy"):
+  def decode_one_frame(self, image_format: Optional[str] = "numpy"):
     # image_format: numpy, Image, base64, None
     ret = c_lib.api_decodeOneFrame(self._c_ffio_ptr)
     ret_type = type(ret)

@@ -31,6 +31,8 @@
 #include "libswscale/swscale.h"
 #include <libavutil/pixdesc.h>
 
+#define MAX_SEI_LENGTH           4096
+
 #define LOG_DEBUG(fmt, ...)      av_log(NULL, AV_LOG_DEBUG,   "[ffio_c][debug]"     fmt "\n",                 ##__VA_ARGS__)
 #define LOG_DEBUG_T(fmt, ...)    av_log(NULL, AV_LOG_DEBUG,   "[ffio_c][debug][%s]" fmt "\n", get_str_time(), ##__VA_ARGS__)
 #define LOG_INFO(fmt, ...)       av_log(NULL, AV_LOG_INFO,    "[ffio_c][info ]"     fmt "\n",                 ##__VA_ARGS__)
