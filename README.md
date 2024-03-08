@@ -41,7 +41,7 @@ you can now interact directly with ffmpeg's C context.
 Nvidia CUDA is currently available.
 - [x] **Shared memory support**: Interact with image data across multiple processes using shared memory, 
 reducing redundant data copying.(Currently, only passed tests on Linux platforms.)
-- [ ] **Send or recv SEI packets**
+- [x] **Send or recv SEI packets**
 - [ ] **Handle image with other formats**
 - [ ] **Handle non-video data**. Audio, or subtitle.
 
