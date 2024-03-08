@@ -42,12 +42,9 @@ def main():
     idx        = 0
     while idx < 100:
       time_before = time.time()
-      frame = decoder.decode_one_frame(image_format='numpy')
-      if type(frame) is np.ndarray:
-        # The frame returned is read-only, so make a copy if you need to modify its contents.
-        # If you don't want to do this, try to follow the examples with using shared memory.
-        frame = _draw(frame.copy(), idx)
-        if encoder.encode_one_frame(frame):
+      if frame := decoder.decode_one_frame():
+        frame = _draw(frame.as_numpy(), idx)
+        if encoder.encode_one_frame(frame, "ffio sei msg.".encode()):
           dt          = time.time() - time_before
           time_total += dt
           idx        += 1

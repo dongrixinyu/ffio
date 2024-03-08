@@ -1,8 +1,56 @@
 import os
+import base64
+import numpy as np
 
-from enum    import Enum
+from enum    import IntEnum
 from pathlib import Path
 from ctypes  import Structure, PyDLL, POINTER, c_int, c_bool, c_char_p, py_object, c_char, c_ubyte
+from PIL     import Image
+from io      import BytesIO
+
+
+class FFIOMode(IntEnum):
+  DECODE = 0
+  ENCODE = 1
+
+
+class FFIOFrameType(IntEnum):
+  FFIO_FRAME_TYPE_ERROR = -1
+  FFIO_FRAME_TYPE_RGB   = 0
+  FFIO_FRAME_TYPE_EOF   = 1
+
+
+class CFFIOFrame(Structure):
+  type    : int    # see  c: enum FFIOFrameType
+  err     : int    # see  c: enum FFIOError
+  _width  : int
+  _height : int
+  sei_msg : bytes
+  data    : POINTER(c_ubyte)
+  _fields_ = [
+    ("type",    c_int),
+    ("err",     c_int),
+    ("_width",  c_int),
+    ("_height", c_int),
+    ("sei_msg", c_char_p),
+    ("data",    POINTER(c_ubyte))
+  ]
+
+  def __bool__(self):
+    return self.type == FFIOFrameType.FFIO_FRAME_TYPE_RGB.value
+
+  def as_numpy(self) -> np.ndarray:
+    return np.ctypeslib.as_array(self.data, shape=(self._height, self._width, 3))
+
+  def as_image(self) -> Image:
+    return Image.fromarray(self.as_numpy(), 'RGB')
+
+  def as_base64(self) -> str:
+    image  = self.as_image()
+    buffer = BytesIO()
+    image.save(buffer, format="JPEG")
+    base64_str = base64.b64encode(buffer.getvalue()).decode()
+    return base64_str
 
 
 class CFFIO(Structure):
@@ -91,17 +139,11 @@ c_lib.api_deleteFFIO.argtypes   = [POINTER(CFFIO)]
 c_lib.api_deleteFFIO.restype    = None
 
 c_lib.api_decodeOneFrame.argtypes        = [POINTER(CFFIO)]
-c_lib.api_decodeOneFrame.restype         = py_object
+c_lib.api_decodeOneFrame.restype         = POINTER(CFFIOFrame)
 c_lib.api_decodeOneFrameToShm.argtypes   = [POINTER(CFFIO), c_int]
-c_lib.api_decodeOneFrameToShm.restype    = c_bool
+c_lib.api_decodeOneFrameToShm.restype    = POINTER(CFFIOFrame)
 
 c_lib.api_encodeOneFrame.argtypes        = [POINTER(CFFIO), py_object, c_char_p]
 c_lib.api_encodeOneFrame.restype         = c_int
 c_lib.api_encodeOneFrameFromShm.argtypes = [POINTER(CFFIO), c_int, c_char_p]
 c_lib.api_encodeOneFrameFromShm.restype  = c_bool
-
-
-class FFIOMode(Enum):
-  DECODE = 0
-  ENCODE = 1
-

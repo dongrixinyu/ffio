@@ -15,7 +15,6 @@
 
 import sys
 import ffio
-from PIL import Image
 
 
 if len(sys.argv) < 2:
@@ -39,8 +38,8 @@ while read_idx < read_num:
     Loop to decode frames from video.
   """
   while read_idx < read_num:
-    rgb_bytes = decoder.decode_one_frame(image_format='numpy')
-    if type(rgb_bytes) is int:
+    frame = decoder.decode_one_frame()
+    if not frame:
       """
         When `decode_one_frame()` failed to get frame, 
         you should release current FFIO instance by calling `release_memory()`.
@@ -51,7 +50,7 @@ while read_idx < read_num:
     else:
       read_idx += 1
       print(f"success get frame: [{read_idx}].")
-      image = Image.fromarray(rgb_bytes, 'RGB')
+      image = frame.as_image()
       image.save(f"output-{read_idx}.jpeg", 'JPEG')
 
   decoder.release_memory()

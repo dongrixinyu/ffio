@@ -1,13 +1,12 @@
+import platform
 import time
-import cv2
-import base64
 import numpy as np
 
-from typing  import Optional
+from typing  import Optional, Union
 from PIL     import Image
 from ctypes  import POINTER, byref
 
-from ffio.ffio_c import CFFIO, CCodecParams, FFIOMode, c_lib
+from ffio.ffio_c import c_lib, CFFIO, CCodecParams, CFFIOFrame, FFIOMode
 
 
 class FFIO(object):
@@ -23,7 +22,8 @@ class FFIO(object):
   codec_params : Optional[CCodecParams]
   hw_device    : str
 
-  hw_device = "cuda"   # or try others listed by ` ffmpeg -hwaccels` for your device.
+  # or try others listed by ` ffmpeg -hwaccels` on your device.
+  hw_device = "cuda" if platform.system() != 'Darwin' else "videotoolbox"
 
   def __init__(self, target_url: str, mode: FFIOMode = FFIOMode.DECODE,
                hw_enabled: bool = False,
@@ -80,40 +80,20 @@ class FFIO(object):
   def frame_seq_c(self):
     return self._c_ffio_ptr.contents.frame_seq
 
-  def decode_one_frame(self, image_format: Optional[str] = "numpy"):
-    # image_format: numpy, Image, base64, None
-    ret = c_lib.api_decodeOneFrame(self._c_ffio_ptr)
-    ret_type = type(ret)
-    if ret_type is bytes:  # rgb data of image will return with type: bytes.
+  def decode_one_frame(self) -> CFFIOFrame:
+    ret : POINTER(CFFIOFrame) = c_lib.api_decodeOneFrame(self._c_ffio_ptr)
+    if ret.contents:
       self.frame_seq_py += 1
-      if image_format is None:
-        return ret
-      elif image_format == 'numpy':
-        np_buffer = np.frombuffer(ret, dtype=np.uint8)
-        np_frame  = np.reshape(np_buffer, (self.height, self.width, 3))
-        return np_frame
-      elif image_format == 'Image':
-        rgb_image = Image.frombytes("RGB", (self.width, self.height), ret)
-        return rgb_image
-      elif image_format == 'base64':
-        np_buffer = np.frombuffer(ret, dtype=np.uint8)
-        np_frame  = np.reshape(np_buffer, (self.height, self.width, 3))
-        bgr_image = cv2.cvtColor(np_frame, cv2.COLOR_RGB2BGR)
-        np_image  = cv2.imencode('.jpg', bgr_image)[1]
-        base64_image_code = base64.b64encode(np_image).decode()
-        return base64_image_code
+    return ret.contents
 
-    elif ret_type is int:
-      return False
-
-  def decode_one_frame_to_shm(self, offset=0) -> bool:
+  def decode_one_frame_to_shm(self, offset=0) -> CFFIOFrame:
     # decode one frame from target video, and write raw rgb bytes of that frame to shm.
-    ret = c_lib.api_decodeOneFrameToShm(self._c_ffio_ptr, offset)
-    if ret:
+    ret: POINTER(CFFIOFrame) = c_lib.api_decodeOneFrameToShm(self._c_ffio_ptr, offset)
+    if ret.contents:
       self.frame_seq_py += 1
-    return c_lib.api_decodeOneFrameToShm(self._c_ffio_ptr, offset)
+    return ret.contents
 
-  def encode_one_frame(self, rgb_image, sei_msg: Optional[bytes, np.ndarray] = None) -> bool:
+  def encode_one_frame(self, rgb_image, sei_msg: Union[bytes, np.ndarray] = None) -> bool:
     rgb_image_type = type(rgb_image)
     if rgb_image_type is bytes:
       ret = c_lib.api_encodeOneFrame(self._c_ffio_ptr, rgb_image, sei_msg)
