@@ -411,8 +411,10 @@ static int ffio_init_packet_and_frame(FFIO* ffio){
     return FFIO_ERROR_AVFRAME_ALLOCATION;
   }
 
-  ffio->imageWidth  = ffio->avCodecContext->width;
-  ffio->imageHeight = ffio->avCodecContext->height;
+  ffio->imageWidth   = ffio->avCodecContext->width;
+  ffio->imageHeight  = ffio->avCodecContext->height;
+  ffio->frame.width  = ffio->imageWidth;
+  ffio->frame.height = ffio->imageHeight;
 
   int ret;
   ffio->rgbFrame->width  = ffio->imageWidth;
@@ -611,7 +613,7 @@ static int convertToRgbFrame(FFIO* ffio){
   );
 }
 
-static int decodeOneFrameToAVFrame(FFIO* ffio){
+static FFIOError decodeOneFrameToAVFrame(FFIO* ffio){
   /*
    * Returns:
    *   success - 0
@@ -648,11 +650,11 @@ ENDPOINT_RESEND_PACKET:
       recv_ret = avcodec_receive_frame(ffio->avCodecContext, ffio->avFrame);
       if(recv_ret == 0){
         if( convertToRgbFrame(ffio) < 0 ){ return FFIO_ERROR_SWS_FAILURE; }
-        if( (ffio->frameSeq)%200 == 0){
+        if( (ffio->frameSeq)%LOG_PRINT_FRAME_GAP == 0){
           LOG_INFO_T("[D] decoded %d frames.", ffio->frameSeq);
         }
         ffio->frameSeq += 1;
-        return 0;
+        return FFIO_ERROR_SUCCESS;
       } else if (recv_ret == AVERROR_EOF){
         goto ENDPOINT_DECODE_EOF;
       } else if (recv_ret == AVERROR(EAGAIN)){
@@ -683,7 +685,7 @@ ENDPOINT_DECODE_EOF:
   }
 
 }
-static int encodeOneFrameFromRGBFrame(FFIO* ffio, unsigned char* rgbBytes, const char* seiMsg){
+static FFIOError encodeOneFrameFromRGBFrame(FFIO* ffio, unsigned char* rgbBytes, const char* seiMsg){
   /*
    * Refers to the official FFmpeg examples: transcoding.c and vaapi_transcode.c
    *
@@ -752,7 +754,7 @@ static int encodeOneFrameFromRGBFrame(FFIO* ffio, unsigned char* rgbBytes, const
     // so using av_write_frame() is sufficient, compared to av_interleaved_write_frame()
     write_ret = av_write_frame(ffio->avFormatContext, ffio->avPacket);
     if(write_ret==0){
-      if( (ffio->frameSeq)%200 == 0){
+      if( (ffio->frameSeq)%LOG_PRINT_FRAME_GAP == 0){
         LOG_INFO_T("[E] encoded %d frames.", ffio->frameSeq);
       }
       ffio->frameSeq += 1;
@@ -762,7 +764,7 @@ static int encodeOneFrameFromRGBFrame(FFIO* ffio, unsigned char* rgbBytes, const
                 (int)srcFrame->pts,       (int)srcFrame->pkt_dts,
                 (int)ffio->avPacket->pts, (int)ffio->avPacket->dts);
 #endif
-      return 0;
+      return FFIO_ERROR_SUCCESS;
     } else {
       LOG_ERROR("[E] error occurred while av_interleaved_write_frame: %d - %s.", write_ret, av_err2str(write_ret));
       return FFIO_ERROR_READ_OR_WRITE_TARGET;
@@ -886,20 +888,43 @@ FFIO* finalizeFFIO(FFIO* ffio){
  **   (raw data)       [encoding]    (encoded data)
  *
  */
-int decodeOneFrame(FFIO* ffio){
-  int ret = decodeOneFrameToAVFrame(ffio);
-  if(ret == 0){
-    // memcpy might be dismissed to accelerate.
-    memcpy(ffio->rawFrame, ffio->rgbFrame->data[0], ffio->imageByteSize);
-  }
-  return ret;
-}
-int decodeOneFrameToShm(FFIO* ffio, int shmOffset){
-  if(!ffio->shmEnabled){ return FFIO_ERROR_SHM_FAILURE; }
+FFIOFrame* decodeOneFrame(FFIO* ffio){
+  FFIOError ret = decodeOneFrameToAVFrame(ffio);
 
-  int ret = decodeOneFrameToAVFrame(ffio);
-  if(ret == 0){ memcpy(ffio->rawFrameShm + shmOffset, ffio->rgbFrame->data[0], ffio->imageByteSize); }
-  return ret;
+  ffio->frame.type = FFIO_FRAME_TYPE_ERROR;
+  ffio->frame.err  = ret;
+  switch (ret) {
+    case FFIO_ERROR_SUCCESS:
+      memcpy(ffio->rawFrame, ffio->rgbFrame->data[0], ffio->imageByteSize);
+      ffio->frame.type = FFIO_FRAME_TYPE_RGB;
+      ffio->frame.data = ffio->rawFrame;
+      break;
+    case FFIO_ERROR_STREAM_ENDING:
+      ffio->frame.type = FFIO_FRAME_TYPE_EOF;
+    default:
+      ffio->frame.data = NULL; ffio->frame.sei_msg = NULL;
+  }
+
+  return &(ffio->frame);
+}
+FFIOFrame* decodeOneFrameToShm(FFIO* ffio, int shmOffset){
+  FFIOError ret = ffio->shmEnabled ? decodeOneFrameToAVFrame(ffio) : FFIO_ERROR_SHM_FAILURE;
+
+  ffio->frame.type = FFIO_FRAME_TYPE_ERROR;
+  ffio->frame.err  = ret;
+  switch (ret) {
+    case FFIO_ERROR_SUCCESS:
+      memcpy(ffio->rawFrameShm + shmOffset, ffio->rgbFrame->data[0], ffio->imageByteSize);
+      ffio->frame.type = FFIO_FRAME_TYPE_RGB;
+      ffio->frame.data = ffio->rawFrameShm + shmOffset;
+      break;
+    case FFIO_ERROR_STREAM_ENDING:
+      ffio->frame.type = FFIO_FRAME_TYPE_EOF;
+    default:
+      ffio->frame.data = NULL; ffio->frame.sei_msg = NULL;
+  }
+
+  return &(ffio->frame);
 }
 int encodeOneFrame(FFIO* ffio, unsigned char* rgbBytes, const char* seiMsg){
   return encodeOneFrameFromRGBFrame(ffio, rgbBytes, seiMsg);

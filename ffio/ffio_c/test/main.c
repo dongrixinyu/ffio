@@ -66,12 +66,13 @@ int main(int argc, char *argv[]){
 
   print_avcodec_supported_pix_fmt(o_ffio->avCodec);
 
+  FFIOFrame* frame;
   int ret;
   for(int i=0; i<200; ++i){
-    ret = decodeOneFrame(i_ffio);
+    frame = decodeOneFrame(i_ffio);
     LOG_INFO("[%d] decodeOneFrame returned %d.", i_ffio->frameSeq, ret);
-    if( ret==0 && i<10){ saveRGB2File(i_ffio); }
-    if( ret==0 && o_url!=NULL){
+    if( frame->err==0 && i<10){ saveRGB2File(i_ffio); }
+    if( frame->err==0 && o_url!=NULL){
       ret = encodeOneFrame(o_ffio, i_ffio->rawFrame, "\"hello.\"");
       LOG_INFO("[%d] encodeOneFrame returned %d.", o_ffio->frameSeq, ret);
     }

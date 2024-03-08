@@ -4,7 +4,7 @@
 #define WAIT_FOR_STREAM_TIMEOUT 5
 
 // write log to file in every PRINT_FRAME_GAP frames to make sure correctness.
-#define PRINT_FRAME_GAP 200
+#define LOG_PRINT_FRAME_GAP 500
 
 #include <stdio.h>
 #include <unistd.h>

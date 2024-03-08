@@ -30,24 +30,12 @@ void api_deleteFFIO(FFIO* ffio){
   free( ffio );
 }
 
-PyObject* api_decodeOneFrame(FFIO* ffio){
-  int ret;
-
-  ret = decodeOneFrame(ffio);
-  if (ret == 0) {
-    PyObject *outputImageBuffer = PyBytes_FromStringAndSize(
-        (char *)ffio->rawFrame, ffio->imageByteSize
-    );
-    return outputImageBuffer;
-  } else {
-    PyObject *outputNum = PyLong_FromSsize_t((Py_ssize_t)ret);
-    return outputNum;
-  }
+FFIOFrame* api_decodeOneFrame(FFIO* ffio){
+  return decodeOneFrame(ffio);
 }
 
-bool api_decodeOneFrameToShm(FFIO* ffio, int shmOffset){
-  int ret = decodeOneFrameToShm(ffio, shmOffset);
-  return ret == 0 ? true : false;
+FFIOFrame* api_decodeOneFrameToShm(FFIO* ffio, int shmOffset){
+  return decodeOneFrameToShm(ffio, shmOffset);
 }
 
 int api_encodeOneFrame(FFIO* ffio, PyObject *PyRGBImage, const char* seiMsg){
