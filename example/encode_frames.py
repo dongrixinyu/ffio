@@ -43,6 +43,8 @@ def main():
     while idx < 100:
       time_before = time.time()
       if frame := decoder.decode_one_frame():
+        if frame.sei_msg:
+          print(f"sei: {frame.sei_msg.decode()}")
         frame = _draw(frame.as_numpy(), idx)
         if encoder.encode_one_frame(frame, "ffio sei msg.".encode()):
           dt          = time.time() - time_before
@@ -52,6 +54,9 @@ def main():
           fps         = 1000 / avg
           print(f"{idx}: dt:{dt * 1000:.2f}ms, avg:{avg:.2f}ms, {fps:.2f}fps, "
                 f"total: {time_total:.2f}s, shape:{frame.shape}")
+      else:
+        print(f"decode error: {frame.err}.")
+        break
 
     # Attention !!
     # Force quitting this script will result in a memory leak.

@@ -185,3 +185,29 @@ bool extend_sei_to_av_packet(bool useAnnexB, AVPacket* pkt,const uint8_t* uuid, 
 
   return true;
 }
+bool get_sei_from_av_frame(AVFrame* avFrame, unsigned char* dst, const char* filter){
+  /*
+   * Description:
+   *   Set sei message from avFrame to (unsigned char*)dst.
+   *   This function will only fill one SEI side date to dst.
+   *   If a video frame has multiple side data,
+   *   a filter can be provided, which will fill the first SEI side date
+   *   that contains the filter string to the dst buffer.
+   */
+  AVFrameSideData* side_data;
+  for(int i=0; i < avFrame->nb_side_data; ++i){
+    side_data = avFrame->side_data[i];
+
+    if(side_data->type == AV_FRAME_DATA_SEI_UNREGISTERED){
+      // side_data->data+16: ignore 16 bytes of uuid.
+      strncpy((char*)dst, (const char*)side_data->data+16,
+              MAX_SEI_LENGTH-1 < side_data->size-16 ? MAX_SEI_LENGTH-1 :  side_data->size-16);
+      if(filter == NULL
+          || strstr((const char*)dst, filter) != NULL){
+        return true;
+      }
+    }
+
+  }
+  return false;
+}

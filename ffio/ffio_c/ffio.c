@@ -226,6 +226,9 @@ static void ffio_reset(FFIO* ffio){
   ffio->codecParams     = NULL;
   ffio->time_start_at   = -1;
 
+  ffio->sei_buf[MAX_SEI_LENGTH-1] = '\0';
+  ffio->frame = (FFIOFrame){0,0,0,0, NULL, NULL};
+
   LOG_INFO_T("[FFIO_STATE_INIT] set ffio contents to NULL.");
 }
 
@@ -653,6 +656,9 @@ ENDPOINT_RESEND_PACKET:
         if( (ffio->frameSeq)%LOG_PRINT_FRAME_GAP == 0){
           LOG_INFO_T("[D] decoded %d frames.", ffio->frameSeq);
         }
+        ffio->frame.sei_msg =
+            get_sei_from_av_frame(ffio->avFrame, ffio->sei_buf, NULL) ?
+            (char*)ffio->sei_buf : NULL;
         ffio->frameSeq += 1;
         return FFIO_ERROR_SUCCESS;
       } else if (recv_ret == AVERROR_EOF){
