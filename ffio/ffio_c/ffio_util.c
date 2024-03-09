@@ -148,7 +148,7 @@ bool extend_sei_to_av_packet(bool useAnnexB, AVPacket* pkt,const uint8_t* uuid, 
   uint32_t sei_size_without_header          = 2 + sei_payload_size + sei_payload_size_size;
   uint32_t sei_tail_size                    = sei_size_without_header%2 == 0 ? 2 : 1 ;
       sei_size_without_header              += sei_tail_size;
-  uint32_t sei_size_without_header_reversed = htonl(sei_size_without_header);
+  uint32_t sei_size_without_header_reversed = __builtin_bswap32(sei_size_without_header);
   uint32_t sei_total_size                   = 4 + sei_size_without_header;
 
   if (sei_total_size > MAX_SEI_LENGTH ){
