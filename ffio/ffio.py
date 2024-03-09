@@ -80,15 +80,17 @@ class FFIO(object):
   def frame_seq_c(self):
     return self._c_ffio_ptr.contents.frame_seq
 
-  def decode_one_frame(self) -> CFFIOFrame:
-    ret : POINTER(CFFIOFrame) = c_lib.api_decodeOneFrame(self._c_ffio_ptr)
+  def decode_one_frame(self, sei_filter: Optional[str] = None) -> CFFIOFrame:
+    sei_filter_bytes = sei_filter.encode() if sei_filter is not None else None
+    ret : POINTER(CFFIOFrame) = c_lib.api_decodeOneFrame(self._c_ffio_ptr, sei_filter_bytes)
     if ret.contents:
       self.frame_seq_py += 1
     return ret.contents
 
-  def decode_one_frame_to_shm(self, offset=0) -> CFFIOFrame:
+  def decode_one_frame_to_shm(self, offset: int = 0, sei_filter: Optional[str] = None) -> CFFIOFrame:
     # decode one frame from target video, and write raw rgb bytes of that frame to shm.
-    ret: POINTER(CFFIOFrame) = c_lib.api_decodeOneFrameToShm(self._c_ffio_ptr, offset)
+    sei_filter_bytes = sei_filter.encode() if sei_filter is not None else None
+    ret: POINTER(CFFIOFrame) = c_lib.api_decodeOneFrameToShm(self._c_ffio_ptr, offset, sei_filter_bytes)
     if ret.contents:
       self.frame_seq_py += 1
     return ret.contents

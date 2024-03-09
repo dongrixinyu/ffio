@@ -30,12 +30,12 @@ void api_deleteFFIO(FFIO* ffio){
   free( ffio );
 }
 
-FFIOFrame* api_decodeOneFrame(FFIO* ffio){
-  return decodeOneFrame(ffio);
+FFIOFrame* api_decodeOneFrame(FFIO* ffio, const char* sei_filter){
+  return decodeOneFrame(ffio, sei_filter);
 }
 
-FFIOFrame* api_decodeOneFrameToShm(FFIO* ffio, int shmOffset){
-  return decodeOneFrameToShm(ffio, shmOffset);
+FFIOFrame* api_decodeOneFrameToShm(FFIO* ffio, int shmOffset, const char* sei_filter){
+  return decodeOneFrameToShm(ffio, shmOffset, sei_filter);
 }
 
 int api_encodeOneFrame(FFIO* ffio, PyObject *PyRGBImage, const char* seiMsg){

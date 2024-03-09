@@ -69,7 +69,7 @@ int main(int argc, char *argv[]){
   FFIOFrame* frame;
   int ret;
   for(int i=0; i<200; ++i){
-    frame = decodeOneFrame(i_ffio);
+    frame = decodeOneFrame(i_ffio,NULL);
     LOG_INFO("[%d] decodeOneFrame returned %d.", i_ffio->frameSeq, ret);
     if( frame->err==0 && i<10){ saveRGB2File(i_ffio); }
     if( frame->err==0 && o_url!=NULL){

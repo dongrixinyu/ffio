@@ -900,18 +900,18 @@ FFIO* finalizeFFIO(FFIO* ffio){
  **   (raw data)       [encoding]    (encoded data)
  *
  */
-FFIOFrame* decodeOneFrame(FFIO* ffio){
+FFIOFrame* decodeOneFrame(FFIO* ffio, const char* sei_filter){
   FFIOFrame* frame = decodeOneFrameToAVFrame(ffio);
   if(frame->type == FFIO_FRAME_TYPE_RGB){
     memcpy(ffio->rawFrame, ffio->rgbFrame->data[0], ffio->imageByteSize);
     ffio->frame.data    = ffio->rawFrame;
     ffio->frame.sei_msg =
-        get_sei_from_av_frame(ffio->avFrame, ffio->sei_buf, NULL) ?
+        get_sei_from_av_frame(ffio->avFrame, ffio->sei_buf, sei_filter) ?
         (char*)ffio->sei_buf : NULL;
   }
   return frame;
 }
-FFIOFrame* decodeOneFrameToShm(FFIO* ffio, int shmOffset){
+FFIOFrame* decodeOneFrameToShm(FFIO* ffio, int shmOffset, const char* sei_filter){
   if(!ffio->shmEnabled){
     ffio->frame.type = FFIO_FRAME_TYPE_ERROR;
     ffio->frame.err  = FFIO_ERROR_SHM_FAILURE;
@@ -924,7 +924,7 @@ FFIOFrame* decodeOneFrameToShm(FFIO* ffio, int shmOffset){
     memcpy(ffio->rawFrameShm + shmOffset, ffio->rgbFrame->data[0], ffio->imageByteSize);
     ffio->frame.data    = ffio->rawFrameShm + shmOffset;
     ffio->frame.sei_msg =
-        get_sei_from_av_frame(ffio->avFrame, ffio->sei_buf, NULL) ?
+        get_sei_from_av_frame(ffio->avFrame, ffio->sei_buf, sei_filter) ?
         (char*)ffio->sei_buf : NULL;
   }
 

@@ -140,8 +140,8 @@ FFIO* finalizeFFIO(FFIO* ffio);
  * 1 means failed, 0 means success.
  * the result is stored at ffio->rawFrame or rawFrameShm.
  */
-FFIOFrame* decodeOneFrame(FFIO* ffio);
-FFIOFrame* decodeOneFrameToShm(FFIO* ffio, int shmOffset);
+FFIOFrame* decodeOneFrame(FFIO* ffio, const char* sei_filter);
+FFIOFrame* decodeOneFrameToShm(FFIO* ffio, int shmOffset, const char* sei_filter);
 
 int encodeOneFrame(FFIO* ffio, unsigned char *RGBImage, const char* seiMsg);
 bool encodeOneFrameFromShm(FFIO* ffio, int shmOffset, const char* seiMsg);

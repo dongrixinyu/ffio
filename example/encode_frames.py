@@ -42,7 +42,7 @@ def main():
     idx        = 0
     while idx < 100:
       time_before = time.time()
-      if frame := decoder.decode_one_frame():
+      if frame := decoder.decode_one_frame("ffio"):
         if frame.sei_msg:
           print(f"sei: {frame.sei_msg.decode()}")
         frame = _draw(frame.as_numpy(), idx)
