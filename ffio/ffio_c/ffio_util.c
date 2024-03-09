@@ -162,7 +162,9 @@ bool extend_sei_to_av_packet(bool useAnnexB, AVPacket* pkt,const uint8_t* uuid, 
     LOG_WARNING("[sei] failed to grow av packet.");
     return false;
   }
-  uint8_t* p_sei = pkt->data + origin_pkt_size;
+  // todo: maybe there are some ways to avoid moving for improving performance.
+  memmove(pkt->data + sei_total_size, pkt->data, origin_pkt_size);
+  uint8_t* p_sei = pkt->data;
 
   // set sei header.
   if(useAnnexB){
