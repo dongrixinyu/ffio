@@ -95,10 +95,12 @@ class FFIO(object):
       self.frame_seq_py += 1
     return ret.contents
 
-  def encode_one_frame(self, rgb_image, sei_msg: Union[bytes, np.ndarray] = None) -> bool:
+  def encode_one_frame(self, rgb_image: Union[bytes, np.ndarray],
+                       sei_msg: Optional[str] = None) -> bool:
+    sei_msg_bytes = sei_msg.encode() if sei_msg is not None else None
     rgb_image_type = type(rgb_image)
     if rgb_image_type is bytes:
-      ret = c_lib.api_encodeOneFrame(self._c_ffio_ptr, rgb_image, sei_msg)
+      ret = c_lib.api_encodeOneFrame(self._c_ffio_ptr, rgb_image, sei_msg_bytes)
       if ret == 0:
         self.frame_seq_py += 1
         return True
@@ -112,9 +114,10 @@ class FFIO(object):
 
     return False
 
-  def encode_one_frame_from_shm(self, offset: int = 0, sei_msg: Optional[bytes] = None) -> bool:
+  def encode_one_frame_from_shm(self, offset: int = 0, sei_msg: Optional[str] = None) -> bool:
     # encode one rgb data frame from shm, and write it to target video.
-    ret = c_lib.api_encodeOneFrameFromShm(self._c_ffio_ptr, offset, sei_msg)
+    sei_msg_bytes = sei_msg.encode() if sei_msg is not None else None
+    ret = c_lib.api_encodeOneFrameFromShm(self._c_ffio_ptr, offset, sei_msg_bytes)
     if ret:
       self.frame_seq_py += 1
     return ret

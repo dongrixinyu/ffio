@@ -42,11 +42,11 @@ def main():
     idx        = 0
     while idx < 100:
       time_before = time.time()
-      if frame := decoder.decode_one_frame("ffio"):
+      if frame := decoder.decode_one_frame(sei_filter="ffio"):
         if frame.sei_msg:
           print(f"sei: {frame.sei_msg.decode()}")
         frame = _draw(frame.as_numpy(), idx)
-        if encoder.encode_one_frame(frame, "ffio sei msg.".encode()):
+        if encoder.encode_one_frame(frame, sei_msg="ffio sei msg."):
           dt          = time.time() - time_before
           time_total += dt
           idx        += 1
