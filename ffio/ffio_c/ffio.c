@@ -684,7 +684,7 @@ ENDPOINT_DECODE_EOF:
     LOG_INFO_T("[D] reached the end of this stream.");
     ffio->ffioState  = FFIO_STATE_END;
     ffio->frame.type = FFIO_FRAME_TYPE_EOF;
-    ffio->frame.err  = FFIO_ERROR_STREAM_ENDING;
+    ffio->frame.err  = FFIO_ERROR_STREAM_EOF;
     ffio->frame.data = NULL; ffio->frame.sei_msg = NULL;
     return &(ffio->frame);
   }else{
@@ -787,7 +787,7 @@ static FFIOError encodeOneFrameFromRGBFrame(FFIO* ffio, unsigned char* rgbBytes,
 ENDPOINT_ENCODE_EOF:
     LOG_INFO("[E] reached the end of this stream.");
     ffio->ffioState = FFIO_STATE_END;
-    return FFIO_ERROR_STREAM_ENDING;
+    return FFIO_ERROR_STREAM_EOF;
   }else{
     LOG_ERROR("[E] error while send frame to codec: %d - %s.", send_ret, av_err2str(send_ret));
     return FFIO_ERROR_SEND_TO_CODEC;
