@@ -87,7 +87,7 @@ void av_log_ffio_callback(void *avClass, int level, const char *fmt, va_list vl)
     printf("%s", bPrint.str);
 
     av_bprint_finalize(&bPrint, NULL);
-};
+}
 
 static void log_packet(const AVFormatContext *fmt_ctx, const AVPacket *pkt, const char *tag)
 {
@@ -135,4 +135,86 @@ enum AVPixelFormat find_avcodec_1st_hw_pix_fmt(AVCodec *codec){
       return codec->pix_fmts[i];
     }
   }
+}
+
+bool extend_sei_to_av_packet(bool useAnnexB, AVPacket* pkt,const uint8_t* uuid, const char* message){
+  /**
+   * Description:
+   *   Extend sei NALU byte stream to an existing AVPacket.
+   */
+  uint32_t sei_message_size                 = strlen(message) + 1;
+  uint32_t sei_payload_size                 = sei_message_size + 16;   // 16 bytes for uuid.
+  // sei_payload_size_size: the bytes to store the size of sei payload.
+  uint32_t sei_payload_size_size            = sei_payload_size / 0xFF + (sei_payload_size % 0xFF == 0 ? 0 : 1);
+  // first 2 bytes of sei NALU: "0x06 0x05".
+  //   0x06 indicates that is a sei NALU.
+  //   0x05 indicates the type of sei is: user_data_unregistered.
+  uint32_t sei_size_without_header          = 2 + sei_payload_size + sei_payload_size_size;
+  uint32_t sei_tail_size                    = sei_size_without_header%2 == 0 ? 2 : 1 ;
+      sei_size_without_header              += sei_tail_size;
+  uint32_t sei_size_without_header_reversed = __builtin_bswap32(sei_size_without_header);
+  uint32_t sei_total_size                   = 4 + sei_size_without_header;
+
+  if (sei_total_size > MAX_SEI_LENGTH ){
+    LOG_WARNING("[sei] skip to insert sei with large size: %d", sei_total_size);
+    return false;
+  }
+
+  int origin_pkt_size = pkt->size;
+  int ret = av_grow_packet(pkt, (int)sei_total_size);
+  if(ret < 0){
+    LOG_WARNING("[sei] failed to grow av packet.");
+    return false;
+  }
+  // Todo: maybe there are some ways to avoid moving origin video data for improving performance.
+  memmove(pkt->data + sei_total_size, pkt->data, origin_pkt_size);
+  uint8_t* p_sei = pkt->data;
+
+  // set sei header.
+  if(useAnnexB){
+    memcpy(p_sei, (unsigned char[]){0x00, 0x00, 0x00, 0x01, 0x06, 0x05}, 6);
+  }else{
+    memcpy(p_sei, &sei_size_without_header_reversed, sizeof(sei_size_without_header_reversed));
+    p_sei[4]=0x06; p_sei[5]=0x05;
+  }
+
+  // set sei contents size.
+  for(int i=1; i<sei_payload_size_size; ++i){ p_sei[5+i] = 0xFF; }
+  p_sei[5+sei_payload_size_size] = sei_payload_size % 0xFF;
+
+  // set uuid and message to sei.
+  memcpy(p_sei+5+sei_payload_size_size+1, uuid, 16);
+  memcpy(p_sei+5+sei_payload_size_size+1+16, message, sei_message_size);
+
+  // set the tail of sei.
+  if(sei_tail_size==2){ p_sei[sei_total_size-2]=0x00; }
+  p_sei[sei_total_size-1]=0x80;
+
+  return true;
+}
+bool get_sei_from_av_frame(AVFrame* avFrame, unsigned char* dst, const char* filter){
+  /*
+   * Description:
+   *   Set sei message from avFrame to (unsigned char*)dst.
+   *   This function will only fill one SEI side date to dst.
+   *   If a video frame has multiple side data,
+   *   a filter can be provided, which will fill the first SEI side date
+   *   that contains the filter string to the dst buffer.
+   */
+  AVFrameSideData* side_data;
+  for(int i=0; i < avFrame->nb_side_data; ++i){
+    side_data = avFrame->side_data[i];
+
+    if(side_data->type == AV_FRAME_DATA_SEI_UNREGISTERED){
+      // side_data->data+16: ignore 16 bytes of uuid.
+      strncpy((char*)dst, (const char*)side_data->data+16,
+              MAX_SEI_LENGTH-1 < side_data->size-16 ? MAX_SEI_LENGTH-1 :  side_data->size-16);
+      if(filter == NULL
+          || strstr((const char*)dst, filter) != NULL){
+        return true;
+      }
+    }
+
+  }
+  return false;
 }

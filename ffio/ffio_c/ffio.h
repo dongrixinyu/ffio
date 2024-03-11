@@ -30,38 +30,56 @@ typedef enum FFIOError {
   FFIO_ERROR_RECV_FROM_CODEC,
   FFIO_ERROR_SEND_TO_CODEC,
   FFIO_ERROR_READ_OR_WRITE_TARGET,
-  FFIO_ERROR_STREAM_ENDING,
+  FFIO_ERROR_STREAM_EOF,
   FFIO_ERROR_AVFRAME_ALLOCATION,
   FFIO_ERROR_AVFORMAT_FAILURE,
   FFIO_ERROR_AVCODEC_FAILURE,
   FFIO_ERROR_SHM_FAILURE,
   FFIO_ERROR_SWS_FAILURE,
   FFIO_ERROR_HARDWARE_ACCELERATION,
-  FFIO_ERROR_WRONG_CODEC_PARAMS
+  FFIO_ERROR_WRONG_CODEC_PARAMS,
+  FFIO_ERROR_SUCCESS = 0
 } FFIOError;
 
 typedef enum FFIOPTSTrick {
-  FFIO_PTS_TRICK_EVEN = 0,
-  FFIO_PTS_TRICK_RELATIVE,
-  FFIO_PTS_TRICK_DIRECT,
-  FFIO_PTS_TRICK_INCREASE
+  FFIO_PTS_TRICK_EVEN = 0,                   // For     live-streaming scenarios.
+  FFIO_PTS_TRICK_INCREASE,                   // For non-live-streaming scenarios.
+  FFIO_PTS_TRICK_RELATIVE,                   // If you are calling encodeOneFrame() at a stable rate.
+  FFIO_PTS_TRICK_DIRECT                      // Manually set `ffio->pts_anchor` every time before encodeOneFrame().
 } FFIOPTSTrick;
 
 typedef struct CodecParams {
-  int  width;
-  int  height;
-  int  bitrate;
-  int  fps;
-  int  gop;
-  int  b_frames;
-  int  pts_trick;
-  char profile[24];
-  char preset[24];
-  char tune[24];
-  char pix_fmt[24];
-  char format[24];
-  char codec[24];
+  int      width;
+  int      height;
+  int      bitrate;
+  int      fps;
+  int      gop;
+  int      b_frames;
+  int      pts_trick;                        // see: enum FFIOPTSTrick & FFIO.get_current_pts()
+  char     profile [24];
+  char     preset  [24];
+  char     tune    [24];
+  char     pix_fmt [24];
+  char     format  [24];
+  char     codec   [24];
+  uint8_t  sei_uuid[16];
+  bool     use_h264_AnnexB_sei;              // whether to use AnnexB as h.264 NALU format when creating sei frame.
 } CodecParams;
+
+typedef enum FFIOFrameType {
+  FFIO_FRAME_TYPE_ERROR = -1,
+  FFIO_FRAME_TYPE_RGB,
+  FFIO_FRAME_TYPE_EOF
+} FFIOFrameType;
+
+typedef struct FFIOFrame {
+  FFIOFrameType   type;
+  FFIOError       err;
+  int             width;
+  int             height;
+  char           *sei_msg;
+  unsigned char  *data;
+} FFIOFrame;
 
 typedef struct FFIO FFIO;
 struct FFIO{
@@ -94,6 +112,8 @@ struct FFIO{
 
   unsigned char       *rawFrame;
   unsigned char       *rawFrameShm;
+  unsigned char        sei_buf[MAX_SEI_LENGTH];
+  FFIOFrame            frame;
 
   AVBufferRef         *hwContext;
   enum AVPixelFormat   hw_pix_fmt;
@@ -120,10 +140,10 @@ FFIO* finalizeFFIO(FFIO* ffio);
  * 1 means failed, 0 means success.
  * the result is stored at ffio->rawFrame or rawFrameShm.
  */
-int decodeOneFrame(FFIO* ffio);
-int decodeOneFrameToShm(FFIO* ffio, int shmOffset);
+FFIOFrame* decodeOneFrame(FFIO* ffio, const char* sei_filter);
+FFIOFrame* decodeOneFrameToShm(FFIO* ffio, int shmOffset, const char* sei_filter);
 
-int encodeOneFrame(FFIO* ffio, unsigned char *RGBImage);
-bool encodeOneFrameFromShm(FFIO* ffio, int shmOffset);
+int encodeOneFrame(FFIO* ffio, unsigned char *RGBImage, const char* seiMsg);
+bool encodeOneFrameFromShm(FFIO* ffio, int shmOffset, const char* seiMsg);
 
 #endif //FFIO_C_FFIO_H

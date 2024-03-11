@@ -30,33 +30,21 @@ void api_deleteFFIO(FFIO* ffio){
   free( ffio );
 }
 
-PyObject* api_decodeOneFrame(FFIO* ffio){
-  int ret;
-
-  ret = decodeOneFrame(ffio);
-  if (ret == 0) {
-    PyObject *outputImageBuffer = PyBytes_FromStringAndSize(
-        (char *)ffio->rawFrame, ffio->imageByteSize
-    );
-    return outputImageBuffer;
-  } else {
-    PyObject *outputNum = PyLong_FromSsize_t((Py_ssize_t)ret);
-    return outputNum;
-  }
+FFIOFrame* api_decodeOneFrame(FFIO* ffio, const char* sei_filter){
+  return decodeOneFrame(ffio, sei_filter);
 }
 
-bool api_decodeOneFrameToShm(FFIO* ffio, int shmOffset){
-  int ret = decodeOneFrameToShm(ffio, shmOffset);
-  return ret == 0 ? true : false;
+FFIOFrame* api_decodeOneFrameToShm(FFIO* ffio, int shmOffset, const char* sei_filter){
+  return decodeOneFrameToShm(ffio, shmOffset, sei_filter);
 }
 
-int api_encodeOneFrame(FFIO* ffio, PyObject *PyRGBImage){
+int api_encodeOneFrame(FFIO* ffio, PyObject *PyRGBImage, const char* seiMsg){
   char *RGBImage = PyBytes_AsString(PyRGBImage);
   Py_ssize_t RGBImageSize = PyBytes_GET_SIZE(PyRGBImage);
 
-  int ret = encodeOneFrame(ffio, (unsigned char *)RGBImage);
+  int ret = encodeOneFrame(ffio, (unsigned char *)RGBImage, seiMsg);
   return ret;
 }
-bool api_encodeOneFrameFromShm(FFIO* ffio, int shmOffset){
-  return encodeOneFrameFromShm(ffio, shmOffset);
+bool api_encodeOneFrameFromShm(FFIO* ffio, int shmOffset, const char* seiMsg){
+  return encodeOneFrameFromShm(ffio, shmOffset, seiMsg);
 }

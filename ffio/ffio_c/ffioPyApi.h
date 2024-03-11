@@ -19,10 +19,10 @@ void api_initFFIO(
 void api_finalizeFFIO(FFIO* ffio);
 void api_deleteFFIO(FFIO* ffio);
 
-PyObject* api_decodeOneFrame(FFIO* ffio);
-bool      api_decodeOneFrameToShm(FFIO* ffio, int shmOffset);
+FFIOFrame* api_decodeOneFrame(FFIO* ffio, const char* sei_filter);
+FFIOFrame* api_decodeOneFrameToShm(FFIO* ffio, int shmOffset, const char* sei_filter);
 
-int  api_encodeOneFrame(FFIO* ffio, PyObject *PyRGBImage);
-bool api_encodeOneFrameFromShm(FFIO* ffio, int shmOffset);
+int  api_encodeOneFrame(FFIO* ffio, PyObject *PyRGBImage, const char* seiMsg);
+bool api_encodeOneFrameFromShm(FFIO* ffio, int shmOffset, const char* seiMsg);
 
 #endif // FFIO_PYAPI_H

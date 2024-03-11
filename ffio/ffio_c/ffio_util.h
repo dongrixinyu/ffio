@@ -4,7 +4,7 @@
 #define WAIT_FOR_STREAM_TIMEOUT 5
 
 // write log to file in every PRINT_FRAME_GAP frames to make sure correctness.
-#define PRINT_FRAME_GAP 200
+#define LOG_PRINT_FRAME_GAP 500
 
 #include <stdio.h>
 #include <unistd.h>
@@ -31,6 +31,8 @@
 #include "libswscale/swscale.h"
 #include <libavutil/pixdesc.h>
 
+#define MAX_SEI_LENGTH           4096
+
 #define LOG_DEBUG(fmt, ...)      av_log(NULL, AV_LOG_DEBUG,   "[ffio_c][debug]"     fmt "\n",                 ##__VA_ARGS__)
 #define LOG_DEBUG_T(fmt, ...)    av_log(NULL, AV_LOG_DEBUG,   "[ffio_c][debug][%s]" fmt "\n", get_str_time(), ##__VA_ARGS__)
 #define LOG_INFO(fmt, ...)       av_log(NULL, AV_LOG_INFO,    "[ffio_c][info ]"     fmt "\n",                 ##__VA_ARGS__)
@@ -52,3 +54,5 @@ void av_log_ffio_callback(void *avClass, int level, const char *fmt, va_list vl)
 void print_avcodec_supported_pix_fmt(AVCodec *codec);
 enum AVPixelFormat find_avcodec_1st_sw_pix_fmt(AVCodec *codec);
 enum AVPixelFormat find_avcodec_1st_hw_pix_fmt(AVCodec *codec);
+bool extend_sei_to_av_packet(bool useAnnexB, AVPacket* pkt,const uint8_t* uuid, const char* message);
+bool get_sei_from_av_frame(AVFrame* avFrame, unsigned char* dst, const char* filter);
