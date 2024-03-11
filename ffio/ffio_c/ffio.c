@@ -701,8 +701,14 @@ static FFIOError encodeOneFrameFromRGBFrame(FFIO* ffio, unsigned char* rgbBytes,
   /*
    * Refers to the official FFmpeg examples: transcoding.c and vaapi_transcode.c
    *
+   * Description:
+   *   Only ensures that one frame is successfully sent to the codec, then attempt to fetch
+   * the encoded avPacket. Returns true even if the attempt fails.
+   *   This means the avPacket might actually be written to the target file on next or later
+   * call to `encodeOneFrameFromRGBFrame()`.
+   *
    * Returns:
-   *   success - 0
+   *   success - FFIO_ERROR_SUCCESS - 0
    *
    * Process:
    **              send            recv             write
