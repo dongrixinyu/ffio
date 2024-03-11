@@ -144,7 +144,11 @@ bool extend_sei_to_av_packet(bool useAnnexB, AVPacket* pkt,const uint8_t* uuid, 
    */
   uint32_t sei_message_size                 = strlen(message) + 1;
   uint32_t sei_payload_size                 = sei_message_size + 16;   // 16 bytes for uuid.
+  // sei_payload_size_size: the bytes to store the size of sei payload.
   uint32_t sei_payload_size_size            = sei_payload_size / 0xFF + (sei_payload_size % 0xFF == 0 ? 0 : 1);
+  // first 2 bytes of sei NALU: "0x06 0x05".
+  //   0x06 indicates that is a sei NALU.
+  //   0x05 indicates the type of sei is: user_data_unregistered.
   uint32_t sei_size_without_header          = 2 + sei_payload_size + sei_payload_size_size;
   uint32_t sei_tail_size                    = sei_size_without_header%2 == 0 ? 2 : 1 ;
       sei_size_without_header              += sei_tail_size;
@@ -162,7 +166,7 @@ bool extend_sei_to_av_packet(bool useAnnexB, AVPacket* pkt,const uint8_t* uuid, 
     LOG_WARNING("[sei] failed to grow av packet.");
     return false;
   }
-  // todo: maybe there are some ways to avoid moving for improving performance.
+  // Todo: maybe there are some ways to avoid moving origin video data for improving performance.
   memmove(pkt->data + sei_total_size, pkt->data, origin_pkt_size);
   uint8_t* p_sei = pkt->data;
 
@@ -182,8 +186,9 @@ bool extend_sei_to_av_packet(bool useAnnexB, AVPacket* pkt,const uint8_t* uuid, 
   memcpy(p_sei+5+sei_payload_size_size+1, uuid, 16);
   memcpy(p_sei+5+sei_payload_size_size+1+16, message, sei_message_size);
 
-  p_sei[sei_total_size-1]=0x80;
+  // set the tail of sei.
   if(sei_tail_size==2){ p_sei[sei_total_size-2]=0x00; }
+  p_sei[sei_total_size-1]=0x80;
 
   return true;
 }
