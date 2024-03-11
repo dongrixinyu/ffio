@@ -145,7 +145,7 @@ bool extend_sei_to_av_packet(bool useAnnexB, AVPacket* pkt,const uint8_t* uuid, 
   uint32_t sei_message_size                 = strlen(message) + 1;
   uint32_t sei_payload_size                 = sei_message_size + 16;   // 16 bytes for uuid.
   // sei_payload_size_size: the bytes to store the size of sei payload.
-  uint32_t sei_payload_size_size            = sei_payload_size / 0xFF + (sei_payload_size % 0xFF == 0 ? 0 : 1);
+  uint32_t sei_payload_size_size            = sei_payload_size / 0xFF + 1;
   // first 2 bytes of sei NALU: "0x06 0x05".
   //   0x06 indicates that is a sei NALU.
   //   0x05 indicates the type of sei is: user_data_unregistered.
