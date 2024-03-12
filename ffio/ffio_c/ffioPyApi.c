@@ -38,13 +38,13 @@ FFIOFrame* api_decodeOneFrameToShm(FFIO* ffio, int shmOffset, const char* sei_fi
   return decodeOneFrameToShm(ffio, shmOffset, sei_filter);
 }
 
-int api_encodeOneFrame(FFIO* ffio, PyObject *PyRGBImage, const char* seiMsg){
+int api_encodeOneFrame(FFIO* ffio, PyObject *PyRGBImage, const char* seiMsg, int seiMsgSize){
   char *RGBImage = PyBytes_AsString(PyRGBImage);
   Py_ssize_t RGBImageSize = PyBytes_GET_SIZE(PyRGBImage);
 
-  int ret = encodeOneFrame(ffio, (unsigned char *)RGBImage, seiMsg);
+  int ret = encodeOneFrame(ffio, (unsigned char *)RGBImage, seiMsg, (uint32_t)seiMsgSize);
   return ret;
 }
-bool api_encodeOneFrameFromShm(FFIO* ffio, int shmOffset, const char* seiMsg){
-  return encodeOneFrameFromShm(ffio, shmOffset, seiMsg);
+bool api_encodeOneFrameFromShm(FFIO* ffio, int shmOffset, const char* seiMsg, int seiMsgSize){
+  return encodeOneFrameFromShm(ffio, shmOffset, seiMsg, (uint32_t)seiMsgSize);
 }

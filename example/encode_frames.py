@@ -46,7 +46,7 @@ def main():
         if frame.sei_msg:
           print(f"sei: {frame.sei_msg.decode()}")
         frame = _draw(frame.as_numpy(), idx)
-        if encoder.encode_one_frame(frame, sei_msg="ffio sei msg."):
+        if encoder.encode_one_frame(frame, sei_msg=f"[{idx}] ffio sei msg."):
           dt          = time.time() - time_before
           time_total += dt
           idx        += 1
