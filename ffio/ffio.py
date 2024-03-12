@@ -6,7 +6,7 @@ from typing  import Optional, Union
 from PIL     import Image
 from ctypes  import POINTER, byref
 
-from ffio.ffio_c import c_lib, CFFIO, CCodecParams, CFFIOFrame, FFIOMode
+from ffio.ffio_c import c_lib, CFFIO, CCodecParams, CFFIOFrame, FFIOMode, FFIOPTSTrick
 
 
 class FFIO(object):
@@ -35,6 +35,7 @@ class FFIO(object):
     self.mode         = mode
     self.frame_seq_py = 0
     self.codec_params = codec_params if codec_params is not None else CCodecParams()
+    self._auto_set_pts_trick()
     self._c_ffio_ptr  = c_lib.api_newFFIO()
 
     int_mode = 0 if mode == FFIOMode.DECODE else 1
@@ -180,3 +181,12 @@ class FFIO(object):
     self.width        = 0
     self.height       = 0
     self.frame_seq_py = 0
+
+  def _auto_set_pts_trick(self):
+    # If pts_trick is -1, auto set the pts trick based on whether the target is a live stream or a local file.
+    if self.codec_params.pts_trick == -1:
+      if ( self.target_url.startswith("rtmp://") or self.target_url.startswith("rtsp://")
+           or self.target_url.startswith("srt://") ):
+        self.codec_params.pts_trick = FFIOPTSTrick.FFIO_PTS_TRICK_EVEN.value
+      else:
+        self.codec_params.pts_trick = FFIOPTSTrick.FFIO_PTS_TRICK_INCREASE.value
