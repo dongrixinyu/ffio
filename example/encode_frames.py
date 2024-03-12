@@ -37,7 +37,7 @@ def main():
   encoder = ffio.FFIO( o_path, mode=ffio.FFIOMode.ENCODE, hw_enabled=True, codec_params=params)
   decoder = ffio.FFIO( i_path, mode=ffio.FFIOMode.DECODE, hw_enabled=True)
 
-  if decoder.ffio_state and encoder.ffio_state:
+  if decoder and encoder:
     time_total = 0
     idx        = 0
     while idx < 100:

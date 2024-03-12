@@ -16,7 +16,7 @@ ffio       = ffio.FFIO(
   target_url, ffio.FFIOMode.DECODE, False,
   your_shm.name, shm_size, shm_offset=some_data_bytes
 )
-if ffio.ffio_state:
+if ffio:
   time_last  = time.time()
   time_begin = time_last
   time_total = 0

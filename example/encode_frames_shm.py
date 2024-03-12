@@ -30,7 +30,7 @@ def test():
   o_pipe = ffio.FFIO( o_url, ffio.FFIOMode.ENCODE, True,
                       your_shm.name, shm_size, shm_offset=some_data_bytes, codec_params=params)
 
-  if i_pipe.ffio_state and o_pipe.ffio_state:
+  if i_pipe and o_pipe:
     time_total = 0
     idx        = 10
     in_index   = idx % 30

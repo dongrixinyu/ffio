@@ -70,11 +70,14 @@ class FFIO(object):
       print(f"[ffio_py][{self.mode.name}] failed to initialize ffio after: {(end_time-start_time):.4f} seconds.")
       c_lib.api_deleteFFIO(self._c_ffio_ptr)
 
-  @property
-  def ffio_state(self) -> bool:
+  def __bool__(self):
     # see FFIOState defined in ffio.h
     state = self._c_ffio_ptr.contents.ffio_state
     return True if state == 1 or state == 2 else False
+
+  @property
+  def ffio_state(self) -> bool:
+    return self.__bool__()
 
   @property
   def frame_seq_c(self):
