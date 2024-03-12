@@ -697,7 +697,8 @@ ENDPOINT_DECODE_ERROR:
   }
 
 }
-static FFIOError encodeOneFrameFromRGBFrame(FFIO* ffio, unsigned char* rgbBytes, const char* seiMsg){
+static FFIOError encodeOneFrameFromRGBFrame(FFIO* ffio, unsigned char* rgbBytes,
+                                            const char* seiMsg, uint32_t seiMsgSize){
   /*
    * Refers to the official FFmpeg examples: transcoding.c and vaapi_transcode.c
    *
@@ -765,7 +766,7 @@ static FFIOError encodeOneFrameFromRGBFrame(FFIO* ffio, unsigned char* rgbBytes,
     if(seiMsg!=NULL){
       extend_sei_to_av_packet(ffio->codecParams->use_h264_AnnexB_sei,
                               ffio->avPacket,
-                              ffio->codecParams->sei_uuid, seiMsg);
+                              ffio->codecParams->sei_uuid, seiMsg, seiMsgSize);
     }
 
     // Our program runs synchronously,
@@ -936,10 +937,12 @@ FFIOFrame* decodeOneFrameToShm(FFIO* ffio, int shmOffset, const char* sei_filter
 
   return frame;
 }
-int encodeOneFrame(FFIO* ffio, unsigned char* rgbBytes, const char* seiMsg){
-  return encodeOneFrameFromRGBFrame(ffio, rgbBytes, seiMsg);
+int encodeOneFrame(FFIO* ffio, unsigned char* rgbBytes,
+                   const char* seiMsg, uint32_t seiMsgSize){
+  return encodeOneFrameFromRGBFrame(ffio, rgbBytes, seiMsg, seiMsgSize);
 }
-bool encodeOneFrameFromShm(FFIO* ffio, int shmOffset, const char* seiMsg){
-  int ret = encodeOneFrameFromRGBFrame(ffio, ffio->rawFrameShm + shmOffset, seiMsg);
+bool encodeOneFrameFromShm(FFIO* ffio, int shmOffset,
+                           const char* seiMsg, uint32_t seiMsgSize){
+  int ret = encodeOneFrameFromRGBFrame(ffio, ffio->rawFrameShm + shmOffset, seiMsg, seiMsgSize);
   return ret == 0 ? true : false;
 }

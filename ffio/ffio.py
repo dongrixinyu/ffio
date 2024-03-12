@@ -138,7 +138,9 @@ class FFIO(object):
     sei_msg_bytes = sei_msg.encode() if sei_msg is not None else None
     rgb_image_type = type(rgb_image)
     if rgb_image_type is bytes:
-      ret = c_lib.api_encodeOneFrame(self._c_ffio_ptr, rgb_image, sei_msg_bytes)
+      # len(sei_msg_bytes)+1: when calling c_lib, ctypes will add '\0' to the end of the bytes automatically.
+      ret = c_lib.api_encodeOneFrame(self._c_ffio_ptr, rgb_image,
+                                     sei_msg_bytes, len(sei_msg_bytes)+1)
       if ret == 0:
         self.frame_seq_py += 1
         return True
@@ -159,7 +161,8 @@ class FFIO(object):
   """
   def encode_one_frame_from_shm(self, offset: int = 0, sei_msg: Optional[str] = None) -> bool:
     sei_msg_bytes = sei_msg.encode() if sei_msg is not None else None
-    ret = c_lib.api_encodeOneFrameFromShm(self._c_ffio_ptr, offset, sei_msg_bytes)
+    ret = c_lib.api_encodeOneFrameFromShm(self._c_ffio_ptr, offset,
+                                          sei_msg_bytes, len(sei_msg_bytes)+1)
     if ret:
       self.frame_seq_py += 1
     return ret

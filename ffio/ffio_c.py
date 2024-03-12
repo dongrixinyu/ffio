@@ -143,7 +143,7 @@ c_lib.api_decodeOneFrame.restype         = POINTER(CFFIOFrame)
 c_lib.api_decodeOneFrameToShm.argtypes   = [POINTER(CFFIO), c_int, c_char_p]
 c_lib.api_decodeOneFrameToShm.restype    = POINTER(CFFIOFrame)
 
-c_lib.api_encodeOneFrame.argtypes        = [POINTER(CFFIO), py_object, c_char_p]
+c_lib.api_encodeOneFrame.argtypes        = [POINTER(CFFIO), py_object, c_char_p, c_int]
 c_lib.api_encodeOneFrame.restype         = c_int
-c_lib.api_encodeOneFrameFromShm.argtypes = [POINTER(CFFIO), c_int, c_char_p]
+c_lib.api_encodeOneFrameFromShm.argtypes = [POINTER(CFFIO), c_int, c_char_p, c_int]
 c_lib.api_encodeOneFrameFromShm.restype  = c_bool

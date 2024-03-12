@@ -73,7 +73,8 @@ int main(int argc, char *argv[]){
     LOG_INFO("[%d] decodeOneFrame returned %d.", i_ffio->frameSeq, ret);
     if( frame->err==0 && i<10){ saveRGB2File(i_ffio); }
     if( frame->err==0 && o_url!=NULL){
-      ret = encodeOneFrame(o_ffio, i_ffio->rawFrame, "\"hello.\"");
+      ret = encodeOneFrame(o_ffio, i_ffio->rawFrame,
+                           "\"hello.\"", sizeof("\"hello.\""));
       LOG_INFO("[%d] encodeOneFrame returned %d.", o_ffio->frameSeq, ret);
     }
   }

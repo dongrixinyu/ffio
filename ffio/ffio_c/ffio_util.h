@@ -54,5 +54,6 @@ void av_log_ffio_callback(void *avClass, int level, const char *fmt, va_list vl)
 void print_avcodec_supported_pix_fmt(AVCodec *codec);
 enum AVPixelFormat find_avcodec_1st_sw_pix_fmt(AVCodec *codec);
 enum AVPixelFormat find_avcodec_1st_hw_pix_fmt(AVCodec *codec);
-bool extend_sei_to_av_packet(bool useAnnexB, AVPacket* pkt,const uint8_t* uuid, const char* message);
+bool extend_sei_to_av_packet(bool useAnnexB, AVPacket* pkt,const uint8_t* uuid,
+                             const char* message, uint32_t sei_message_size);
 bool get_sei_from_av_frame(AVFrame* avFrame, unsigned char* dst, const char* filter);

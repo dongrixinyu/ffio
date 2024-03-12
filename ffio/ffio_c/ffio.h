@@ -143,7 +143,7 @@ FFIO* finalizeFFIO(FFIO* ffio);
 FFIOFrame* decodeOneFrame(FFIO* ffio, const char* sei_filter);
 FFIOFrame* decodeOneFrameToShm(FFIO* ffio, int shmOffset, const char* sei_filter);
 
-int encodeOneFrame(FFIO* ffio, unsigned char *RGBImage, const char* seiMsg);
-bool encodeOneFrameFromShm(FFIO* ffio, int shmOffset, const char* seiMsg);
+int encodeOneFrame(FFIO* ffio, unsigned char *RGBImage, const char* seiMsg, uint32_t seiMsgSize);
+bool encodeOneFrameFromShm(FFIO* ffio, int shmOffset,   const char* seiMsg, uint32_t seiMsgSize);
 
 #endif //FFIO_C_FFIO_H
