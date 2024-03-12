@@ -6,7 +6,7 @@ from typing  import Optional, Union
 from PIL     import Image
 from ctypes  import POINTER, byref
 
-from ffio.ffio_c import c_lib, CFFIO, CCodecParams, CFFIOFrame, FFIOMode
+from ffio.ffio_c import c_lib, CFFIO, CCodecParams, CFFIOFrame, FFIOMode, FFIOPTSTrick
 
 
 class FFIO(object):
@@ -35,6 +35,7 @@ class FFIO(object):
     self.mode         = mode
     self.frame_seq_py = 0
     self.codec_params = codec_params if codec_params is not None else CCodecParams()
+    self._auto_set_pts_trick()
     self._c_ffio_ptr  = c_lib.api_newFFIO()
 
     int_mode = 0 if mode == FFIOMode.DECODE else 1
@@ -70,11 +71,14 @@ class FFIO(object):
       print(f"[ffio_py][{self.mode.name}] failed to initialize ffio after: {(end_time-start_time):.4f} seconds.")
       c_lib.api_deleteFFIO(self._c_ffio_ptr)
 
-  @property
-  def ffio_state(self) -> bool:
+  def __bool__(self):
     # see FFIOState defined in ffio.h
     state = self._c_ffio_ptr.contents.ffio_state
     return True if state == 1 or state == 2 else False
+
+  @property
+  def ffio_state(self) -> bool:
+    return self.__bool__()
 
   @property
   def frame_seq_c(self):
@@ -135,12 +139,13 @@ class FFIO(object):
   """
   def encode_one_frame(self, rgb_image: Union[bytes, np.ndarray],
                        sei_msg: Optional[str] = None) -> bool:
-    sei_msg_bytes = sei_msg.encode() if sei_msg is not None else None
+    # len(sei_msg_bytes)+1: when calling c_lib, ctypes will add '\0' to the end of the bytes automatically.
+    sei_msg_bytes  = sei_msg.encode()     if sei_msg is not None else None
+    sei_msg_size   = len(sei_msg_bytes)+1 if sei_msg is not None else 0
     rgb_image_type = type(rgb_image)
     if rgb_image_type is bytes:
-      # len(sei_msg_bytes)+1: when calling c_lib, ctypes will add '\0' to the end of the bytes automatically.
       ret = c_lib.api_encodeOneFrame(self._c_ffio_ptr, rgb_image,
-                                     sei_msg_bytes, len(sei_msg_bytes)+1)
+                                     sei_msg_bytes, sei_msg_size)
       if ret == 0:
         self.frame_seq_py += 1
         return True
@@ -160,9 +165,10 @@ class FFIO(object):
       from provided shm location.
   """
   def encode_one_frame_from_shm(self, offset: int = 0, sei_msg: Optional[str] = None) -> bool:
-    sei_msg_bytes = sei_msg.encode() if sei_msg is not None else None
+    sei_msg_bytes = sei_msg.encode()     if sei_msg is not None else None
+    sei_msg_size  = len(sei_msg_bytes)+1 if sei_msg is not None else 0
     ret = c_lib.api_encodeOneFrameFromShm(self._c_ffio_ptr, offset,
-                                          sei_msg_bytes, len(sei_msg_bytes)+1)
+                                          sei_msg_bytes, sei_msg_size)
     if ret:
       self.frame_seq_py += 1
     return ret
@@ -177,3 +183,12 @@ class FFIO(object):
     self.width        = 0
     self.height       = 0
     self.frame_seq_py = 0
+
+  def _auto_set_pts_trick(self):
+    # If pts_trick is -1, auto set the pts trick based on whether the target is a live stream or a local file.
+    if self.codec_params.pts_trick == -1:
+      if ( self.target_url.startswith("rtmp://") or self.target_url.startswith("rtsp://")
+           or self.target_url.startswith("srt://") ):
+        self.codec_params.pts_trick = FFIOPTSTrick.FFIO_PTS_TRICK_EVEN.value
+      else:
+        self.codec_params.pts_trick = FFIOPTSTrick.FFIO_PTS_TRICK_INCREASE.value

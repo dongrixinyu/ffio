@@ -31,7 +31,7 @@ while read_idx < read_num:
   """
   while True:
     decoder = ffio.FFIO( video_path, mode=ffio.FFIOMode.DECODE, hw_enabled=False)
-    if decoder.ffio_state is True:
+    if decoder is True:
       break
 
   """

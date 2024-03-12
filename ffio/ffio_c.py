@@ -20,6 +20,13 @@ class FFIOFrameType(IntEnum):
   FFIO_FRAME_TYPE_EOF   = 1
 
 
+class FFIOPTSTrick(IntEnum):
+  FFIO_PTS_TRICK_EVEN     = 0    # For     live-streaming scenarios.
+  FFIO_PTS_TRICK_INCREASE = 1    # For non-live-streaming scenarios.
+  FFIO_PTS_TRICK_RELATIVE = 2    # If you are calling encodeOneFrame() at a stable rate.
+  FFIO_PTS_TRICK_DIRECT   = 3    # Manually set `ffio->pts_anchor` every time before encodeOneFrame().
+
+
 class CFFIOFrame(Structure):
   type    : int    # see  c: enum FFIOFrameType
   err     : int    # see  c: enum FFIOError
@@ -107,6 +114,7 @@ class CCodecParams(Structure):
 
   def __init__(self):
     super(CCodecParams, self).__init__()
+    self.pts_trick           = -1
     self.use_h264_AnnexB_sei = True
     # You can modify this uuid what else you want.
     self.sei_uuid = (c_ubyte * 16).from_buffer_copy(b'\x0f\xf1\x0f\xf1'
