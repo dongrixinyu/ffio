@@ -1,3 +1,12 @@
+# -*- coding=utf-8 -*-
+# Library: ffio
+# Author: dongrixinyu, koisi
+# License: MIT
+# Email: dongrixinyu.66@gmail.com
+# Github: https://github.com/dongrixinyu/ffio
+# Description: An easy-to-use Python wrapper for FFmpeg-C-API.
+# Website: http://www.jionlp.com
+
 import platform
 import time
 import numpy as np
@@ -74,6 +83,7 @@ class FFIO(object):
   def __bool__(self):
     # see FFIOState defined in ffio.h
     state = self._c_ffio_ptr.contents.ffio_state
+
     return True if state == 1 or state == 2 else False
 
   @property
@@ -84,14 +94,15 @@ class FFIO(object):
   def frame_seq_c(self):
     return self._c_ffio_ptr.contents.frame_seq
 
-  """
+  def decode_one_frame(self, sei_filter: Optional[str] = None) -> CFFIOFrame:
+    """
     Description:
       Get one decoded from target video.
-      
+
     Params:
       sei_filter: If provided, return the first sei attached which contains str of `sei_filter`.
                   If None, simply return the first sei attached to the frame if exists.
-    
+
     Return:
       CFFIOFrame:
         contains the decoded image bytes and sei data attached.
@@ -99,46 +110,47 @@ class FFIO(object):
         `CFFIOFrame.as_image()` to get decoded image in PIL.Image format.
         `CFFIOFrame.sei_msg` to get sei data bytes.
         CFFIOFrame had overridden the `__bool__()`, so you can conveniently use it as a condition.
-    
+
     When failure:
       Please manually to call `release_memory()` to release the resources.
-  """
-  def decode_one_frame(self, sei_filter: Optional[str] = None) -> CFFIOFrame:
+    """
     sei_filter_bytes = sei_filter.encode() if sei_filter is not None else None
     ret : POINTER(CFFIOFrame) = c_lib.api_decodeOneFrame(self._c_ffio_ptr, sei_filter_bytes)
     if ret.contents:
       self.frame_seq_py += 1
+
     return ret.contents
 
-  """
+  def decode_one_frame_to_shm(self, offset: int = 0, sei_filter: Optional[str] = None) -> CFFIOFrame:
+    """
     Description:
       In common with `decode_one_frame()`, but additionally will fill decoded image bytes to shm.
-  """
-  def decode_one_frame_to_shm(self, offset: int = 0, sei_filter: Optional[str] = None) -> CFFIOFrame:
+    """
     sei_filter_bytes = sei_filter.encode() if sei_filter is not None else None
     ret: POINTER(CFFIOFrame) = c_lib.api_decodeOneFrameToShm(self._c_ffio_ptr, offset, sei_filter_bytes)
+
     if ret.contents:
       self.frame_seq_py += 1
     return ret.contents
 
-  """
+  def encode_one_frame(self, rgb_image: Union[bytes, np.ndarray],
+                       sei_msg: Optional[str] = None) -> bool:
+    """
     Description:
       Only ensures that one frame is successfully sent to the encoder, then attempt to fetch
       the encoded packet. Returns true even if the attempt fails.
       This means the encoded packet might actually be written to the target file on next or later
       call to `encode_one_frame()`.
-    
+
     Params:
       sei_msg: if provided, encode this message as an attached sei data to that frame.
-      
+
     Return:
       True or False
-      
+
     When failure:
       Please manually to call release_memory() to release the resources.
-  """
-  def encode_one_frame(self, rgb_image: Union[bytes, np.ndarray],
-                       sei_msg: Optional[str] = None) -> bool:
+    """
     # len(sei_msg_bytes)+1: when calling c_lib, ctypes will add '\0' to the end of the bytes automatically.
     sei_msg_bytes  = sei_msg.encode()     if sei_msg is not None else None
     sei_msg_size   = len(sei_msg_bytes)+1 if sei_msg is not None else 0
@@ -154,23 +166,25 @@ class FFIO(object):
     elif rgb_image_type == np.ndarray:
       rgb_image_bytes = rgb_image.tobytes()
       return self.encode_one_frame(rgb_image_bytes, sei_msg)
+
     elif rgb_image_type == Image:
       return False  # not implemented yet.
 
     return False
 
-  """
-    Description:
-      In common with encode_one_frame(), but get the raw image data to be encoded 
-      from provided shm location.
-  """
   def encode_one_frame_from_shm(self, offset: int = 0, sei_msg: Optional[str] = None) -> bool:
+    """
+    Description:
+      In common with encode_one_frame(), but get the raw image data to be encoded
+      from provided shm location.
+    """
     sei_msg_bytes = sei_msg.encode()     if sei_msg is not None else None
     sei_msg_size  = len(sei_msg_bytes)+1 if sei_msg is not None else 0
     ret = c_lib.api_encodeOneFrameFromShm(self._c_ffio_ptr, offset,
                                           sei_msg_bytes, sei_msg_size)
     if ret:
       self.frame_seq_py += 1
+
     return ret
 
   def release_memory(self):
@@ -187,8 +201,8 @@ class FFIO(object):
   def _auto_set_pts_trick(self):
     # If pts_trick is -1, auto set the pts trick based on whether the target is a live stream or a local file.
     if self.codec_params.pts_trick == -1:
-      if ( self.target_url.startswith("rtmp://") or self.target_url.startswith("rtsp://")
-           or self.target_url.startswith("srt://") ):
+      if (self.target_url.startswith("rtmp://") or self.target_url.startswith("rtsp://")
+          or self.target_url.startswith("srt://") ):
         self.codec_params.pts_trick = FFIOPTSTrick.FFIO_PTS_TRICK_EVEN.value
       else:
         self.codec_params.pts_trick = FFIOPTSTrick.FFIO_PTS_TRICK_INCREASE.value

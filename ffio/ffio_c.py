@@ -1,3 +1,12 @@
+# -*- coding=utf-8 -*-
+# Library: ffio
+# Author: dongrixinyu, koisi
+# License: MIT
+# Email: dongrixinyu.66@gmail.com
+# Github: https://github.com/dongrixinyu/ffio
+# Description: An easy-to-use Python wrapper for FFmpeg-C-API.
+# Website: http://www.jionlp.com
+
 import os
 import base64
 import numpy as np
@@ -57,6 +66,7 @@ class CFFIOFrame(Structure):
     buffer = BytesIO()
     image.save(buffer, format="JPEG")
     base64_str = base64.b64encode(buffer.getvalue()).decode()
+
     return base64_str
 
 
@@ -125,9 +135,9 @@ class CCodecParams(Structure):
 
 DIR_PATH = os.path.dirname(os.path.abspath(__file__))
 
-c_lib_path = ( os.path.join(DIR_PATH, 'build', 'libinterfaceAPI.dylib')
-               if Path(os.path.join(DIR_PATH, 'build', 'libinterfaceAPI.dylib')).is_file()
-               else os.path.join(DIR_PATH, 'build', 'libinterfaceAPI.so'))
+c_lib_path = (os.path.join(DIR_PATH, 'build', 'libinterfaceAPI.dylib')
+              if Path(os.path.join(DIR_PATH, 'build', 'libinterfaceAPI.dylib')).is_file()
+              else os.path.join(DIR_PATH, 'build', 'libinterfaceAPI.so'))
 c_lib = PyDLL(c_lib_path)
 
 c_lib.api_newFFIO.argtypes = []
@@ -139,7 +149,7 @@ c_lib.api_initFFIO.argtypes = [
   c_bool, c_char_p, c_int, c_int,
   POINTER(CCodecParams)
 ]
-c_lib.api_initFFIO.restype  = None
+c_lib.api_initFFIO.restype = None
 
 c_lib.api_finalizeFFIO.argtypes = [POINTER(CFFIO)]
 c_lib.api_finalizeFFIO.restype  = None

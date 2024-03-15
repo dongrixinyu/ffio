@@ -1,11 +1,19 @@
-//
-// Created by koisi on 2024/2/22.
-//
+/**
+ * Library : ffio
+ * Author : koisi, dongrixinyu
+ * License : MIT
+ * Email : dongrixinyu .66 @gmail.com
+ * Github : https://github.com/dongrixinyu/ffio
+ * Description : An easy-to-use Python wrapper for FFmpeg-C-API.
+ * Website : http://www.jionlp.com
+ */
+
 #include <stdlib.h>
 
 #include "ffio.h"
 
 static char str_buffer[128];
+
 static char* get_str_time(){
   time_t raw_time;
   struct tm *time_info;
@@ -14,9 +22,11 @@ static char* get_str_time(){
   strftime(str_buffer, sizeof(str_buffer), "%Y-%m-%d %H:%M:%S", time_info);
   return str_buffer;
 }
+
 static char* get_ffioMode(FFIO* ffio){
   return ffio->ffioMode == FFIO_MODE_DECODE ? "D" : "E";
 }
+
 static bool is_empty_string(const char *str) {
   return str == NULL || *str == '\0';
 }
@@ -65,8 +75,10 @@ static int64_t pts_get_current_even(FFIO* ffio){
     ffio->pts_anchor += pts_diff - FFIO_PTS_GAP_TOLERANCE_EVEN;
     LOG_WARNING_T("[%s] get pts with large gap: %d ms.", get_ffioMode(ffio), (int)(dt_last/1000));
   }
+
   return ffio->pts_anchor;
 }
+
 static int64_t pts_get_current_relative(FFIO* ffio){
   /*
    * You can use this function,
@@ -78,6 +90,7 @@ static int64_t pts_get_current_relative(FFIO* ffio){
   ffio->pts_anchor = av_rescale_q(dt, (AVRational){1, AV_TIME_BASE}, ffio->avCodecContext->time_base);
   return ffio->pts_anchor;
 }
+
 static int64_t pts_get_current_increase(FFIO* ffio){
   /*
    * Simply increase pts every time you call encodeOneFrame().
@@ -86,6 +99,7 @@ static int64_t pts_get_current_increase(FFIO* ffio){
   ffio->pts_anchor = ffio->pts_anchor == -1 ? 0 : ++(ffio->pts_anchor);
   return ffio->pts_anchor;
 }
+
 static int64_t pts_get_current_direct(FFIO* ffio){
   /*
    * Use this function, you should take responsibility to
@@ -108,6 +122,7 @@ static void hw_set_pix_fmt_according_avcodec(FFIO* ffio, const char* hw_device){
     }
   }
 }
+
 static enum AVPixelFormat hw_callback_for_get_pix_fmts(
     AVCodecContext *ctx, const enum AVPixelFormat *pix_fmts){
   /*
@@ -183,6 +198,7 @@ static int hw_init_decoder(FFIO* ffio, const char* hw_device){
     LOG_ERROR("[D][init][hw] failed to create hw_ctx, ret: %d - %s.", ret, av_err2str(ret));
     return FFIO_ERROR_HARDWARE_ACCELERATION;
   }
+
   ffio->avCodecContext->hw_device_ctx = av_buffer_ref(ffio->hwContext);
   LOG_INFO("[D][init][hw] successfully initialize hw ctx.");
   return 0;
@@ -305,6 +321,7 @@ static int ffio_init_decode_avcodec(FFIO* ffio, const char *hw_device) {
     return 0;
   }
 }
+
 static int ffio_init_encode_avcodec(FFIO* ffio, const char* hw_device) {
   /*
    * Refers to the official FFmpeg examples: encoder_video.c and transcoding.c
@@ -364,9 +381,11 @@ static int ffio_init_encode_avcodec(FFIO* ffio, const char* hw_device) {
     LOG_ERROR("[E][init] can not open codec.");
     return FFIO_ERROR_AVCODEC_FAILURE;
   }
+
   LOG_INFO("[E][init] succeeded to init codec ctx.");
   return 0;
 }
+
 static int ffio_init_encode_create_stream(FFIO* ffio){
   int ret;
   ffio->videoStreamIndex = 0;   // Only create one stream to output format.
@@ -375,6 +394,7 @@ static int ffio_init_encode_create_stream(FFIO* ffio){
     LOG_ERROR("[E][init] failed to create new AVStream.");
     return FFIO_ERROR_AVFORMAT_FAILURE;
   }
+
   ret = avcodec_parameters_from_context(stream->codecpar, ffio->avCodecContext);
   if (ret < 0) {
     LOG_ERROR("[E][init] failed to copy encoder parameters to AVStream.");
@@ -491,8 +511,7 @@ static int ffio_init_sws_context(FFIO* ffio){
 
 static int ffio_init_memory_for_rgb_bytes(
     FFIO* ffio, FFIOMode mode,
-    bool enableShm, const char* shmName, int shmSize, int shmOffset
-){
+    bool enableShm, const char* shmName, int shmSize, int shmOffset) {
   ffio->imageByteSize = ffio->imageHeight * ffio->imageWidth * FFIO_COLOR_DEPTH;
   ffio->rawFrame = (unsigned char *)malloc(ffio->imageByteSize);
   LOG_INFO("[%s][init] stream image size: %dx%dx%d = %d.",
@@ -523,7 +542,8 @@ static int ffio_init_memory_for_rgb_bytes(
   return 0;
 }
 
-static int ffio_init_check_and_set_codec_params(FFIO* ffio, CodecParams* params, const char* hw_device){
+static int ffio_init_check_and_set_codec_params(
+  FFIO* ffio, CodecParams* params, const char* hw_device){
   if(params==NULL){
     LOG_ERROR("[%s] Please provide a non-NULL codec params.", get_ffioMode(ffio));
     return FFIO_ERROR_WRONG_CODEC_PARAMS;
@@ -555,7 +575,7 @@ static int ffio_init_check_and_set_codec_params(FFIO* ffio, CodecParams* params,
     }
 
   }
-  
+
   switch(params->pts_trick){
     case FFIO_PTS_TRICK_DIRECT:
       LOG_INFO("[%s] using FFIO_PTS_TRICK_DIRECT.",   get_ffioMode(ffio));
@@ -643,6 +663,7 @@ ENDPOINT_RESEND_PACKET:
       send_ret = avcodec_send_packet(ffio->avCodecContext, ffio->avPacket);
       if(send_ret == AVERROR_EOF){
         goto ENDPOINT_DECODE_EOF;
+
       } else if (send_ret < 0 && send_ret != AVERROR(EAGAIN)){
         LOG_ERROR("[D] error occurred while send packet to codec: %d - %s.",
                   send_ret, av_err2str(send_ret));
@@ -660,14 +681,17 @@ ENDPOINT_RESEND_PACKET:
         ffio->frame.type = FFIO_FRAME_TYPE_RGB;
         ffio->frame.err  = FFIO_ERROR_SUCCESS;
         return &(ffio->frame);
+
       } else if (recv_ret == AVERROR_EOF){
         goto ENDPOINT_DECODE_EOF;
+
       } else if (recv_ret == AVERROR(EAGAIN)){
         if(send_ret == AVERROR(EAGAIN)){
           LOG_WARNING_T("[D] both send_packet and recv_frame get AVERROR(EAGAIN).");
           usleep(10000);
           goto ENDPOINT_RESEND_PACKET;
         } else { continue; }
+
       } else {
         LOG_ERROR("[D] error occurred while avcodec_receive_frame: %d - %s.",
                   recv_ret, av_err2str(recv_ret));
@@ -687,16 +711,18 @@ ENDPOINT_DECODE_EOF:
     ffio->frame.err  = FFIO_ERROR_STREAM_EOF;
     ffio->frame.data = NULL; ffio->frame.sei_msg = NULL;
     return &(ffio->frame);
+
   }else{
     LOG_ERROR("[D] error occurred while av_read_frame: %d - %s.", read_ret, av_err2str(read_ret));
     ffio->frame.err  = FFIO_ERROR_READ_OR_WRITE_TARGET;
 ENDPOINT_DECODE_ERROR:
     ffio->frame.type = FFIO_FRAME_TYPE_ERROR;
     ffio->frame.data = NULL; ffio->frame.sei_msg = NULL;
+
     return &(ffio->frame);
   }
-
 }
+
 static FFIOError encodeOneFrameFromRGBFrame(FFIO* ffio, unsigned char* rgbBytes,
                                             const char* seiMsg, uint32_t seiMsgSize){
   /*
@@ -739,6 +765,7 @@ static FFIOError encodeOneFrameFromRGBFrame(FFIO* ffio, unsigned char* rgbBytes,
     recv_ret = avcodec_receive_packet(ffio->avCodecContext, ffio->avPacket);
     if(recv_ret == AVERROR_EOF){
       goto ENDPOINT_ENCODE_EOF;
+
     } else if (recv_ret==AVERROR(EAGAIN)){
       if(send_ret==AVERROR(EAGAIN)){
         LOG_WARNING("both receive_packet and send_frame get AVERROR(EAGAIN), so resend frame to codec.");
@@ -784,6 +811,7 @@ static FFIOError encodeOneFrameFromRGBFrame(FFIO* ffio, unsigned char* rgbBytes,
                 (int)ffio->avPacket->pts, (int)ffio->avPacket->dts);
 #endif
       return FFIO_ERROR_SUCCESS;
+
     } else {
       LOG_ERROR("[E] error occurred while av_interleaved_write_frame: %d - %s.", write_ret, av_err2str(write_ret));
       return FFIO_ERROR_READ_OR_WRITE_TARGET;
@@ -795,6 +823,7 @@ ENDPOINT_ENCODE_EOF:
     LOG_INFO("[E] reached the end of this stream.");
     ffio->ffioState = FFIO_STATE_END;
     return FFIO_ERROR_STREAM_EOF;
+
   }else{
     LOG_ERROR("[E] error while send frame to codec: %d - %s.", send_ret, av_err2str(send_ret));
     return FFIO_ERROR_SEND_TO_CODEC;
@@ -871,6 +900,7 @@ FFIO* finalizeFFIO(FFIO* ffio){
     }else{
       LOG_INFO("[E] write trailer to target: %s.", ffio->targetUrl);
       av_write_trailer(ffio->avFormatContext);
+
       if( !(ffio->avFormatContext->oformat->flags & AVFMT_NOFILE) ){
         avio_closep(&(ffio->avFormatContext->pb) );
       }
@@ -916,13 +946,16 @@ FFIOFrame* decodeOneFrame(FFIO* ffio, const char* sei_filter){
         get_sei_from_av_frame(ffio->avFrame, ffio->sei_buf, sei_filter) ?
         (char*)ffio->sei_buf : NULL;
   }
+
   return frame;
 }
+
 FFIOFrame* decodeOneFrameToShm(FFIO* ffio, int shmOffset, const char* sei_filter){
   if(!ffio->shmEnabled){
     ffio->frame.type = FFIO_FRAME_TYPE_ERROR;
     ffio->frame.err  = FFIO_ERROR_SHM_FAILURE;
     ffio->frame.data = NULL; ffio->frame.sei_msg = NULL;
+
     return &(ffio->frame);
   }
 
@@ -937,10 +970,12 @@ FFIOFrame* decodeOneFrameToShm(FFIO* ffio, int shmOffset, const char* sei_filter
 
   return frame;
 }
+
 int encodeOneFrame(FFIO* ffio, unsigned char* rgbBytes,
                    const char* seiMsg, uint32_t seiMsgSize){
   return encodeOneFrameFromRGBFrame(ffio, rgbBytes, seiMsg, seiMsgSize);
 }
+
 bool encodeOneFrameFromShm(FFIO* ffio, int shmOffset,
                            const char* seiMsg, uint32_t seiMsgSize){
   int ret = encodeOneFrameFromRGBFrame(ffio, ffio->rawFrameShm + shmOffset, seiMsg, seiMsgSize);

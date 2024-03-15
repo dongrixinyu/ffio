@@ -1,6 +1,6 @@
 # -*- coding=utf-8 -*-
 # Library: ffio
-# Author: dongrixinyu
+# Author: dongrixinyu, koisi
 # License: MIT
 # Email: dongrixinyu.66@gmail.com
 # Github: https://github.com/dongrixinyu/ffio
@@ -35,12 +35,12 @@ class TimeIt(object):
         self.name = name if name is not None else 'None'
         self.unit = unit
         assert self.unit in ['s', 'ms'], 'the unit of time is either `s` or `ms`'
-        
+
     def __enter__(self):
         self.start_time = time.time()
         self.restart_time = time.time()
         return self
-        
+
     def __exit__(self, *args, **kwargs):
         self.cost_time = time.time() - self.start_time
         if self.verbose:
@@ -70,7 +70,7 @@ class TimeIt(object):
             cost_time = time.time() - self.start_time
         else:
             cost_time = time.time() - self.restart_time
-            
+
         if self.verbose:
             if self.unit == 's':
                 print('{0:s} break point costs {1:.3f} s.'.format(
@@ -78,8 +78,7 @@ class TimeIt(object):
             elif self.unit == 'ms':
                 print('{0:s} break point costs {1:.1f} ms.'.format(
                     self.name, cost_time * 1000))
-        
-        self.restart_time = time.time()
-        
-        return cost_time
 
+        self.restart_time = time.time()
+
+        return cost_time

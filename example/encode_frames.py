@@ -1,6 +1,6 @@
 # -*- coding=utf-8 -*-
 # Library: ffio
-# Author: dongrixinyu
+# Author: dongrixinyu, koisi
 # License: MIT
 # Email: dongrixinyu.66@gmail.com
 # Github: https://github.com/dongrixinyu/ffio
@@ -9,6 +9,9 @@
 
 # Strongly recommend to use this piece of code in a sub-process.
 # Cause decoding an online video stream consumes about 100M memory and 40% CPU.
+
+# Note:
+#   - C log file is written in ~/.cache/ffio/clog-%d.txt.%s
 
 import sys
 import time

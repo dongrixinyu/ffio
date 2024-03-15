@@ -4,6 +4,7 @@ global_ffmpeg_include_path=""
 global_ffmpeg_lib_path=""
 global_python_include_path=""
 global_python_lib_path=""
+
 check_and_set_ffmpeg_path() {
   if command -v pkg-config &> /dev/null            \
     && pkg-config --cflags libavcodec &> /dev/null \
@@ -21,9 +22,11 @@ check_and_set_ffmpeg_path() {
     local avutil_lib_file_path=`find /usr -name libavutil.so`
     global_ffmpeg_lib_path=`dirname ${avutil_lib_file_path}`
   fi
+
   echo "find ffmpeg includes path: ${global_ffmpeg_include_path}"
   echo "find ffmpeg libs     path: ${global_ffmpeg_lib_path}"
 }
+
 check_and_set_python_path(){
   if command -v python3-config &> /dev/null   \
     && python3-config --includes &> /dev/null \

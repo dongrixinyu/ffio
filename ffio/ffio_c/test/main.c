@@ -1,6 +1,13 @@
-//
-// Created by koisi on 2024/2/22.
-//
+/**
+ * Library : ffio
+ * Author : koisi, dongrixinyu
+ * License : MIT
+ * Email : dongrixinyu .66 @gmail.com
+ * Github : https://github.com/dongrixinyu/ffio
+ * Description : An easy-to-use Python wrapper for FFmpeg-C-API.
+ * Website : http://www.jionlp.com
+ */
+
 #include <stdlib.h>
 #include <string.h>
 

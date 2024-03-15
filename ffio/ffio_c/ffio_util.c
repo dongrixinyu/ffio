@@ -1,3 +1,13 @@
+/**
+ * Library : ffio
+ * Author : dongrixinyu, koisi
+ * License : MIT
+ * Email : dongrixinyu .66 @gmail.com
+ * Github : https://github.com/dongrixinyu/ffio
+ * Description : An easy-to-use Python wrapper for FFmpeg-C-API.
+ * Website : http://www.jionlp.com
+ */
+
 #include "ffio_util.h"
 
 int interrupt_callback(void *p)
@@ -110,12 +120,14 @@ void print_avcodec_supported_pix_fmt(AVCodec *codec){
     LOG_INFO("[pix_fmt]    %-4d  %-20s  %s.", i, av_get_pix_fmt_name(codec->pix_fmts[i]), hw_support);
   }
 }
+
 enum AVPixelFormat find_avcodec_1st_sw_pix_fmt(AVCodec *codec){
-  for(int i=0;;++i){
+  for(int i=0; ; ++i){
     if( codec->pix_fmts==NULL || codec->pix_fmts[i]==AV_PIX_FMT_NONE ) {
       LOG_WARNING("[pix_fmt] auto find sw_pix_fmt for codec: %s", av_get_pix_fmt_name(AV_PIX_FMT_NONE));
       return AV_PIX_FMT_NONE;
     }
+
     const AVPixFmtDescriptor *desc = av_pix_fmt_desc_get(codec->pix_fmts[i]);
     if( !(desc->flags & AV_PIX_FMT_FLAG_HWACCEL) ){
       LOG_WARNING("[pix_fmt] auto find sw_pix_fmt for codec: %s.", av_get_pix_fmt_name(codec->pix_fmts[i]));
@@ -123,6 +135,7 @@ enum AVPixelFormat find_avcodec_1st_sw_pix_fmt(AVCodec *codec){
     }
   }
 }
+
 enum AVPixelFormat find_avcodec_1st_hw_pix_fmt(AVCodec *codec){
   for(int i=0;;++i){
     if( codec->pix_fmts==NULL || codec->pix_fmts[i]==AV_PIX_FMT_NONE ) {
@@ -192,6 +205,7 @@ bool extend_sei_to_av_packet(bool useAnnexB, AVPacket* pkt,const uint8_t* uuid,
 
   return true;
 }
+
 bool get_sei_from_av_frame(AVFrame* avFrame, unsigned char* dst, const char* filter){
   /*
    * Description:

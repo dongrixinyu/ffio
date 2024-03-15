@@ -96,11 +96,11 @@ def setup_package():
     # this line could be dismissed
     # extensions = None
     setuptools.setup(
-        name='pyffmpeg',
+        name='ffio',
         version=__version__,
         author='dongrixinyu',
-        author_email='dongrixinyu.89@163.com',
-        description='py-ffmpeg: a simple Python wrapper for FFmpeg',
+        author_email='dongrixinyu.66@gmail.com',
+        description='ffio: a simple Python wrapper for FFmpeg',
         long_description_content_type='text/markdown',
         url='https://github.com/dongrixinyu/py-ffmpeg',
         packages=setuptools.find_packages(),

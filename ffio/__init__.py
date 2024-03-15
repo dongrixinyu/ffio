@@ -1,6 +1,6 @@
 # -*- coding=utf-8 -*-
 # Library: ffio
-# Author: dongrixinyu
+# Author: dongrixinyu, koisi
 # License: MIT
 # Email: dongrixinyu.66@gmail.com
 # Github: https://github.com/dongrixinyu/ffio
@@ -8,8 +8,6 @@
 # Website: http://www.jionlp.com
 
 
+__version__ = '2.0.1'
+
 from ffio.ffio import FFIO, CCodecParams, FFIOMode
-
-
-__version__ = '2.0.0'
-

@@ -1,6 +1,6 @@
 # -*- coding=utf-8 -*-
 # Library: ffio
-# Author: dongrixinyu
+# Author: dongrixinyu, koisi
 # License: MIT
 # Email: dongrixinyu.66@gmail.com
 # Github: https://github.com/dongrixinyu/ffio
@@ -16,7 +16,7 @@ import setuptools
 
 # get version tag
 DIR_PATH = os.path.dirname(os.path.abspath(__file__))
-__version__ = '2.0.0'
+__version__ = '2.0.1'
 
 with open(os.path.join(DIR_PATH, 'requirements.txt'),
           'r', encoding='utf-8') as f:
@@ -30,8 +30,8 @@ def setup_package():
     setuptools.setup(
         name='ffio',
         version=__version__,
-        author='dongrixinyu',
-        author_email='dongrixinyu.89@163.com',
+        author='dongrixinyu, koisi',
+        author_email='dongrixinyu.66@gmail.com',
         description='ffio: An easy-to-use Python wrapper for FFmpeg-C-API.',
         # long_description_content_type='text/markdown',
         url='https://github.com/dongrixinyu/ffio',
@@ -42,8 +42,8 @@ def setup_package():
         },
         include_package_data=True,
         classifiers=[
-            'Programming Language :: Python :: 3',
-            'License :: OSI Approved :: GNU General Public License v3 (GPLv3)',
+            'Programming Language :: Python :: 3.8',
+            'License :: OSI Approved :: MIT',
             'Operating System :: Ubuntu',
             'Topic :: Audio & Video Stream Processing',
             'Topic :: FFmpeg',

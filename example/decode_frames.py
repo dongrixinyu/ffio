@@ -1,6 +1,6 @@
 # -*- coding=utf-8 -*-
 # Library: ffio
-# Author: dongrixinyu
+# Author: dongrixinyu, koisi
 # License: MIT
 # Email: dongrixinyu.66@gmail.com
 # Github: https://github.com/dongrixinyu/ffio
@@ -12,6 +12,10 @@
 
 # Strongly recommend to use this piece of code in a sub-process.
 # Cause decoding an online video stream consumes about 100M memory and 40% CPU.
+
+
+# Note:
+#   - C log file is written in ~/.cache/ffio/clog-%d.txt.%s
 
 import sys
 import ffio
@@ -41,7 +45,7 @@ while read_idx < read_num:
     frame = decoder.decode_one_frame()
     if not frame:
       """
-        When `decode_one_frame()` failed to get frame, 
+        When `decode_one_frame()` failed to get frame,
         you should release current FFIO instance by calling `release_memory()`.
         Than retry to create new instance as you need.
       """

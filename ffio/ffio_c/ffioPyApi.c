@@ -1,6 +1,13 @@
-//
-// Created by koisi on 2024/2/22.
-//
+/**
+ * Library : ffio
+ * Author : koisi, dongrixinyu
+ * License : MIT
+ * Email : dongrixinyu .66 @gmail.com
+ * Github : https://github.com/dongrixinyu/ffio
+ * Description : An easy-to-use Python wrapper for FFmpeg-C-API.
+ * Website : http://www.jionlp.com
+ */
+
 #include "ffioPyApi.h"
 
 FFIO* api_newFFIO(){
@@ -45,6 +52,7 @@ int api_encodeOneFrame(FFIO* ffio, PyObject *PyRGBImage, const char* seiMsg, int
   int ret = encodeOneFrame(ffio, (unsigned char *)RGBImage, seiMsg, (uint32_t)seiMsgSize);
   return ret;
 }
+
 bool api_encodeOneFrameFromShm(FFIO* ffio, int shmOffset, const char* seiMsg, int seiMsgSize){
   return encodeOneFrameFromShm(ffio, shmOffset, seiMsg, (uint32_t)seiMsgSize);
 }

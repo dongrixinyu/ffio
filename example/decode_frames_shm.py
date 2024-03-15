@@ -1,3 +1,15 @@
+# -*- coding=utf-8 -*-
+# Library: ffio
+# Author: dongrixinyu, koisi
+# License: MIT
+# Email: dongrixinyu.66@gmail.com
+# Github: https://github.com/dongrixinyu/ffio
+# Description: An easy-to-use Python wrapper for FFmpeg-C-API.
+# Website: http://www.jionlp.com
+
+# Note:
+#   - C log file is written in ~/.cache/ffio/clog-%d.txt.%s
+
 import time
 import numpy as np
 from multiprocessing import shared_memory

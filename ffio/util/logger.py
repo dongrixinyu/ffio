@@ -1,6 +1,6 @@
 # -*- coding=utf-8 -*-
 # Library: ffio
-# Author: dongrixinyu
+# Author: dongrixinyu, koisi
 # License: MIT
 # Email: dongrixinyu.66@gmail.com
 # Github: https://github.com/dongrixinyu/ffio
@@ -33,7 +33,7 @@ def _logging_level_from_str(level):
 
 
 def _refresh_logger(logger):
-    # 清除 logger 中的 handler
+    # refresh handler
     if len(logger.handlers) != 0:
         for i in range(len(logger.handlers)):
             logger.removeHandler(logger.handlers[0])
@@ -42,14 +42,14 @@ def _refresh_logger(logger):
 
 
 def set_logger(level='INFO', log_dir_name='.cache/ffio'):
-    """ ffio 日志打印
+    """ ffio print logger
 
     Args:
-        level(str): 日志级别，若为 None，则不打印日志
-        log_dir_name(str): 日志文件存储目录，若为 None，则不将日志写入文件
+        level(str): level of logger, do not print if set to `None`
+        log_dir_name(str): directory to store log, do not write to file if `None`
 
     """
-    # 设置日志级别
+    # set level
     if level is None:
         logger = logging.getLogger(__name__)
         _refresh_logger(logger)
@@ -57,22 +57,20 @@ def set_logger(level='INFO', log_dir_name='.cache/ffio'):
 
     level = _logging_level_from_str(level)
     logger = logging.getLogger(__name__)
-    # logger 为全局变量，因此须在申请前，先将日志清除
+
     _refresh_logger(logger)
     logger.setLevel(level)
 
-    # 日志格式
+    # log format
     formatter = logging.Formatter(
         fmt="%(asctime)s %(levelname)s %(funcName)s: %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S")
 
-    # 输出流控制器
     stream_handler = logging.StreamHandler(sys.stdout)
     stream_handler.setLevel(level)
     stream_handler.setFormatter(formatter)
 
     if log_dir_name is not None:
-        # 日志写入文件 hanlder
         if log_dir_name.startswith("/"):
             filename_directory = log_dir_name
         else:
@@ -80,7 +78,6 @@ def set_logger(level='INFO', log_dir_name='.cache/ffio'):
         if not os.path.exists(filename_directory):
             os.makedirs(filename_directory)
 
-        # 文件输出控制器
         file_handler = TimedRotatingFileHandler(
             os.path.join(filename_directory, "log.txt"),
             when="midnight", backupCount=30)

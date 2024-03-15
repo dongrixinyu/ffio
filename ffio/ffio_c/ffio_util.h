@@ -1,3 +1,13 @@
+/**
+ * Library : ffio
+ * Author : dongrixinyu, koisi
+ * License : MIT
+ * Email : dongrixinyu .66 @gmail.com
+ * Github : https://github.com/dongrixinyu/ffio
+ * Description : An easy-to-use Python wrapper for FFmpeg-C-API.
+ * Website : http://www.jionlp.com
+ */
+
 #pragma once
 
 // this param is set to return a timeout error when waiting for more than 5 seconds.
