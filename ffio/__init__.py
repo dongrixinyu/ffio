@@ -8,6 +8,7 @@
 # Website: http://www.jionlp.com
 
 
-__version__ = '2.0.1'
+__version__ = '2.0.2'
 
 from ffio.ffio import FFIO, CCodecParams, FFIOMode
+from ffio.ffio_check_cuda import cuda_is_available

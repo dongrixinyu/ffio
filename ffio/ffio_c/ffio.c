@@ -2,7 +2,7 @@
  * Library : ffio
  * Author : koisi, dongrixinyu
  * License : MIT
- * Email : dongrixinyu .66 @gmail.com
+ * Email : dongrixinyu.66@gmail.com
  * Github : https://github.com/dongrixinyu/ffio
  * Description : An easy-to-use Python wrapper for FFmpeg-C-API.
  * Website : http://www.jionlp.com

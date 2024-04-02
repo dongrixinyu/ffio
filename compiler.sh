@@ -4,6 +4,7 @@ global_ffmpeg_include_path=""
 global_ffmpeg_lib_path=""
 global_python_include_path=""
 global_python_lib_path=""
+global_cuda_flag=0
 
 check_and_set_ffmpeg_path() {
   if command -v pkg-config &> /dev/null            \
@@ -33,8 +34,20 @@ check_and_set_python_path(){
     && python3-config --ldflags  &> /dev/null ; then
       echo "[ffio_build] checking python3 includes and libs path by python3-config..."
       global_python_include_path=$(python3-config --includes 2> /dev/null | sed 's/-I//g' | awk '{print $1}')
-      local python_lib_dir_path=$( python3-config --ldflags  2> /dev/null | sed 's/-L//g' | awk '{print $1}')
-      global_python_lib_path=`find $python_lib_dir_path -name 'libpython*' | grep -E "\.(dylib|so)$" | head -n 1`
+      local python_lib_dir_path=$(python3-config --ldflags  2> /dev/null | sed 's/ /\n/g' | grep "\-L" | sed 's/-L//g')
+
+      for vari in ${python_lib_dir_path}
+      do
+          res=$(ls -lht ${vari} | grep -P "libpython.+so")
+          if [[ "$res" != "" ]]; then
+              # echo "res: ${res}"
+              global_python_lib_path=${vari}
+              break
+          fi;
+
+      done
+
+      # global_python_lib_path=`find $python_lib_dir_path -name 'libpython*' | grep -E "\.(dylib|so)$" | head -n 1`
   else
     echo "[ffio_build] checking python3 includes and libs path by trying python3 commands..."
     PYTHON_CMD=$(command -v python3 &> /dev/null && echo "python3" || echo "python")
@@ -46,19 +59,38 @@ check_and_set_python_path(){
   echo "find python3 libs     path: ${global_python_lib_path}"
 }
 
+check_and_set_cuda_path(){
+  if command -v python3-config &> /dev/null ; then
+    global_cuda_flag=1
+  else
+    global_cuda_flag=0
+  fi
+}
+
 check_and_set_ffmpeg_path
 check_and_set_python_path
+check_and_set_cuda_path
+
+# custom setting
+global_ffmpeg_include_path=/home/cuichengyu/pyffmpeg_workspace/ffmpeg-6.0/include
+global_ffmpeg_lib_path=/home/cuichengyu/pyffmpeg_workspace/ffmpeg-6.0/lib
+
+global_cuda_include_path=/usr/local/cuda/include
+global_cuda_lib_path=/usr/local/cuda/lib64
 
 if [ ! -d ffio/build ]; then
   mkdir ffio/build
 else
   rm -rf ffio/build/*
 fi
+
 cd ffio/build
 cmake ../.. \
     -DPYTHON_INCLUDE_DIRS=${global_python_include_path}  \
     -DPYTHON_LIBRARIES=${global_python_lib_path}         \
     -DFFMPEG_INCLUDE_DIRS=${global_ffmpeg_include_path}  \
-    -DFFMPEG_LIB_DIR_PATH=${global_ffmpeg_lib_path}
-
+    -DFFMPEG_LIB_DIR_PATH=${global_ffmpeg_lib_path} \
+    -DCUDA_INCLUDE_DIRS=${global_cuda_include_path} \
+    -DCUDA_LIB_DIR_PATH=${global_cuda_lib_path} \
+    -DCHECK_CUDA=${global_cuda_flag}
 make

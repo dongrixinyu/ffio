@@ -135,6 +135,19 @@ class CCodecParams(Structure):
 
 DIR_PATH = os.path.dirname(os.path.abspath(__file__))
 
+
+cuda_c_lib_path = (os.path.join(DIR_PATH, 'build', 'libcudaAPI.dylib')
+              if Path(os.path.join(DIR_PATH, 'build', 'libcudaAPI.dylib')).is_file()
+              else os.path.join(DIR_PATH, 'build', 'libcudaAPI.so'))
+try:
+  cuda_c_lib = PyDLL(cuda_c_lib_path)
+
+  cuda_c_lib.check_if_cuda_is_available.argtypes = []
+  cuda_c_lib.check_if_cuda_is_available.restype  = c_int
+except:
+  cuda_c_lib = None
+
+
 c_lib_path = (os.path.join(DIR_PATH, 'build', 'libinterfaceAPI.dylib')
               if Path(os.path.join(DIR_PATH, 'build', 'libinterfaceAPI.dylib')).is_file()
               else os.path.join(DIR_PATH, 'build', 'libinterfaceAPI.so'))

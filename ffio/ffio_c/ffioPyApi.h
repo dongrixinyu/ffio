@@ -15,6 +15,7 @@
 
 #include "ffio.h"
 
+
 FFIO* api_newFFIO();
 void api_initFFIO(
     FFIO* ffio, int mode, const char* streamUrl,
