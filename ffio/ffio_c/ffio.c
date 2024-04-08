@@ -193,7 +193,7 @@ static int hw_init_decoder(FFIO* ffio, const char* hw_device){
   ffio->avCodecContext->opaque     = &(ffio->hw_pix_fmt);
   ffio->avCodecContext->get_format = hw_callback_for_get_pix_fmts;
 
-  int ret = av_hwdevice_ctx_create(&(ffio->hwContext), type,NULL, NULL, 0);
+  int ret = av_hwdevice_ctx_create(&(ffio->hwContext), type, NULL, NULL, 0);
   if(ret != 0){
     LOG_ERROR("[D][init][hw] failed to create hw_ctx, ret: %d - %s.", ret, av_err2str(ret));
     return FFIO_ERROR_HARDWARE_ACCELERATION;
@@ -618,6 +618,22 @@ static AVFrame* convertFromRGBFrame(FFIO* ffio, unsigned char* rgbBytes){
   return avFrame;
 }
 
+int save_to_file(const char *ffio_bytes, const char *filename, int size)
+{
+  // concatenate file name
+  char pic_name[200] = {0};
+  sprintf(pic_name, "/home/cuichengyu/github/ffio/ffio/build/%s", filename);
+
+  // write to file
+  FILE *fp = NULL;
+  fp = fopen(pic_name, "wb+");
+
+  fwrite(ffio_bytes, 1, size, fp);
+  fclose(fp);
+
+  return 0;
+}
+
 static int convertToRgbFrame(FFIO* ffio){
   AVFrame *src_frame = ffio->avFrame;
   if( ffio->hw_enabled && (src_frame->format == ffio->hw_pix_fmt) ){
@@ -629,11 +645,19 @@ static int convertToRgbFrame(FFIO* ffio){
     src_frame=ffio->hwFrame;
   }
 
-  return sws_scale(
+  int ret = sws_scale(
       ffio->swsContext, (uint8_t const* const*)src_frame->data,
       src_frame->linesize, 0, ffio->avCodecContext->height,
       ffio->rgbFrame->data, ffio->rgbFrame->linesize
   );
+
+#ifdef DEBUG
+  ret = save_to_file(src_frame->data[0], "nv12_y", ffio->frame.width * ffio->frame.height);
+  ret = save_to_file(src_frame->data[1], "nv12_uv", ffio->frame.width * ffio->frame.height / 2);
+  ret = save_to_file(ffio->rgbFrame->data[0], "rgb", ffio->frame.width * ffio->frame.height * 3);
+#endif
+
+  return ret;
 }
 
 static FFIOFrame* decodeOneFrameToAVFrame(FFIO* ffio){

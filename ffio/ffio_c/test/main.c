@@ -2,7 +2,7 @@
  * Library : ffio
  * Author : koisi, dongrixinyu
  * License : MIT
- * Email : dongrixinyu .66 @gmail.com
+ * Email : dongrixinyu.66@gmail.com
  * Github : https://github.com/dongrixinyu/ffio
  * Description : An easy-to-use Python wrapper for FFmpeg-C-API.
  * Website : http://www.jionlp.com
@@ -59,11 +59,11 @@ int main(int argc, char *argv[]){
   };
   CodecParams o_params = i_params;
   initFFIO(i_ffio, FFIO_MODE_DECODE, i_url,
-           hw_enabled, "videotoolbox",
+           hw_enabled, "cuda",
            false, NULL, 0, 0, &i_params);
   if(o_url!=NULL){
     initFFIO(o_ffio, FFIO_MODE_ENCODE, o_url,
-             hw_enabled, "videotoolbox",
+             hw_enabled, "cuda",
              false, NULL, 0, 0, &o_params);
   }
 
