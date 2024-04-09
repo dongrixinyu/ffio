@@ -1,38 +1,86 @@
-#include <math.h>
 #include <stdio.h>
 #include <unistd.h>
 
 void __global__ yuv_2_rgb(
-    // int width, int height,
+    const int *width,
     const unsigned char *d_yuv_y, const unsigned char *d_yuv_uv, unsigned char *d_rgb);
-void check(const double *z, const int N);
-
-const char *dir_name = "/home/cuichengyu/github/ffio/ffio/";
-
-// BT.709, which is the standard for HDTV.
-float kColorConversion709Default[] = {
-    1.164,
-    1.164,
-    1.164,
-    0.0,
-    -0.213,
-    2.112,
-    1.793,
-    -0.533,
-    0.0,
-};
-
-static char str_buffer[128];
 
 int get_str_time()
 {
+    struct timeval tv;
+    gettimeofday(&tv, NULL); // get milliseconds
+
+    int milliseconds = (tv.tv_sec * 1000 + tv.tv_usec / 1000) % 1000;
+
+    char str_buffer[30];
+
     time_t raw_time;
     struct tm *time_info;
     time(&raw_time);
     time_info = localtime(&raw_time);
     strftime(str_buffer, sizeof(str_buffer), "%Y-%m-%d %H:%M:%S", time_info);
+    sprintf(str_buffer + strlen(str_buffer), ".%03d", milliseconds);
+
     // return str_buffer;
     printf("%s\n", str_buffer);
+    return 0;
+}
+
+void __global__ yuv_2_rgb(
+    const int *width, // int height,
+    const unsigned char *d_yuv_y, const unsigned char *d_yuv_uv, unsigned char *d_rgb)
+{
+    // int width = 1280;
+    int height = 720;
+    const int n = blockDim.x * blockIdx.x + threadIdx.x;
+
+    int i = n / (*width);
+    int j = n % (*width);
+
+    int u_index = 2 * (((i / 2) * (*width) / 2) + j / 2);
+    int v_index = u_index + 1;
+
+    d_rgb[n * 3] = (unsigned char)((d_yuv_y[n] - 16) * 1.164f + (d_yuv_uv[v_index] - 128) * 1.793f);
+    d_rgb[n * 3 + 1] = (unsigned char)((d_yuv_y[n] - 16) * 1.164f - (d_yuv_uv[u_index] - 128) * 0.213f - (d_yuv_uv[v_index] - 128) * 0.533f);
+    d_rgb[n * 3 + 2] = (unsigned char)((d_yuv_y[n] - 16) * 1.164f + (d_yuv_uv[u_index] - 128) * 2.112f);
+}
+
+int convertYUV2RGB(
+    int width, int height,
+    unsigned char *h_yuv_y, unsigned char *h_yuv_uv, unsigned char *h_rgb)
+{
+    int ret;
+
+    int base_size = width * height / 2;
+
+    const int block_size = 128; // choose between 128 and 256
+    const int grid_size = base_size * 2 / block_size;
+
+    unsigned char *d_yuv_y, *d_yuv_uv, *d_rgb;
+    int *d_width, d_height;
+    cudaMalloc((void **)&d_yuv_y, base_size * 2 * sizeof(unsigned char));
+    cudaMalloc((void **)&d_yuv_uv, base_size * sizeof(unsigned char));
+    cudaMalloc((void **)&d_rgb, base_size * 6 * sizeof(unsigned char));
+    cudaMalloc((void **)&d_width, sizeof(int));
+
+    cudaMemcpy(d_width, &width, 4, cudaMemcpyHostToDevice);
+    cudaMemcpy(d_yuv_y, h_yuv_y, base_size * 2 * sizeof(unsigned char), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_yuv_uv, h_yuv_uv, base_size * sizeof(unsigned char), cudaMemcpyHostToDevice);
+
+    ret = get_str_time();
+    yuv_2_rgb<<<grid_size, block_size>>>(d_width, d_yuv_y, d_yuv_uv, d_rgb);
+    ret = get_str_time();
+
+    cudaMemcpy(h_rgb, d_rgb, base_size * 6 * sizeof(unsigned char), cudaMemcpyDeviceToHost);
+    ret = get_str_time();
+
+    free(h_yuv_y);
+    free(h_yuv_uv);
+    free(h_rgb);
+    cudaFree(d_yuv_y);
+    cudaFree(d_yuv_uv);
+    cudaFree(d_rgb);
+
     return 0;
 }
 
@@ -63,17 +111,18 @@ int main(void)
     const int grid_size = base_size * 2 / block_size;
 
     unsigned char *d_yuv_y, *d_yuv_uv, *d_rgb;
-    // int *d_width, d_height;
+    int *d_width, d_height;
     cudaMalloc((void **)&d_yuv_y, base_size * 2 * sizeof(unsigned char));
     cudaMalloc((void **)&d_yuv_uv, base_size * sizeof(unsigned char));
     cudaMalloc((void **)&d_rgb, base_size * 6 * sizeof(unsigned char));
-    // cudaMalloc((void **)&d_width, sizeof(int));
+    cudaMalloc((void **)&d_width, sizeof(int));
 
+    cudaMemcpy(d_width, &width, 4, cudaMemcpyHostToDevice);
     cudaMemcpy(d_yuv_y, h_yuv_y, base_size * 2 * sizeof(unsigned char), cudaMemcpyHostToDevice);
     cudaMemcpy(d_yuv_uv, h_yuv_uv, base_size * sizeof(unsigned char), cudaMemcpyHostToDevice);
 
     ret = get_str_time();
-    yuv_2_rgb<<<grid_size, block_size>>>(d_yuv_y, d_yuv_uv, d_rgb);
+    yuv_2_rgb<<<grid_size, block_size>>>(d_width, d_yuv_y, d_yuv_uv, d_rgb);
 
     ret = get_str_time();
     // sleep(15);
@@ -105,27 +154,4 @@ int main(void)
     cudaFree(d_rgb);
 
     return 0;
-}
-
-void __global__ yuv_2_rgb(
-    // int width, int height,
-    const unsigned char *d_yuv_y, const unsigned char *d_yuv_uv, unsigned char *d_rgb)
-{
-    int width = 1280;
-    int height = 720;
-    const int n = blockDim.x * blockIdx.x + threadIdx.x;
-
-    int i = n / width;
-    int j = n % width;
-
-    // d_yuv_y[n] -= 16;
-    // d_yuv_uv[_n] -= 128;
-
-    int u_index = 2 * (((i / 2) * width / 2) + j / 2);
-    int v_index = u_index + 1;
-
-    d_rgb[n * 3 + 2] = (unsigned char)((d_yuv_y[n] - 16) * 1.164f + (d_yuv_uv[v_index] - 128) * 1.793f);
-    d_rgb[n * 3 + 1] = (unsigned char)((d_yuv_y[n] - 16) * 1.164f - (d_yuv_uv[u_index] - 128) * 0.213f - (d_yuv_uv[v_index] - 128) * 0.533f);
-    d_rgb[n * 3] = (unsigned char)((d_yuv_y[n] - 16) * 1.164f + (d_yuv_uv[u_index] - 128) * 2.112f);
-
 }
