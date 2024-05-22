@@ -1,9 +1,4 @@
-#include <stdio.h>
-#include <unistd.h>
-
-void __global__ yuv_2_rgb(
-    const int *width,
-    const unsigned char *d_yuv_y, const unsigned char *d_yuv_uv, unsigned char *d_rgb);
+#include "yuv2rgb.cuh"
 
 int get_str_time()
 {
@@ -45,113 +40,131 @@ void __global__ yuv_2_rgb(
     d_rgb[n * 3 + 2] = (unsigned char)((d_yuv_y[n] - 16) * 1.164f + (d_yuv_uv[u_index] - 128) * 2.112f);
 }
 
-int convertYUV2RGB(
-    int width, int height,
-    unsigned char *h_yuv_y, unsigned char *h_yuv_uv, unsigned char *h_rgb)
-{
-    int ret;
+extern "C"{
+    void *initCuda(int width, int height,
+                   unsigned char *d_yuv_y, unsigned char *d_yuv_uv, unsigned char *d_rgb,
+                   int *d_width)
+    {
+        int base_size = width * height / 2;
 
-    int base_size = width * height / 2;
+        cudaMalloc((void **)&d_yuv_y, base_size * 2 * sizeof(unsigned char));
+        cudaMalloc((void **)&d_yuv_uv, base_size * sizeof(unsigned char));
+        cudaMalloc((void **)&d_rgb, base_size * 6 * sizeof(unsigned char));
+        cudaMalloc((void **)&d_width, sizeof(int));
 
-    const int block_size = 128; // choose between 128 and 256
-    const int grid_size = base_size * 2 / block_size;
+        cudaMemcpy(d_width, &width, 4, cudaMemcpyHostToDevice);
+    }
 
-    unsigned char *d_yuv_y, *d_yuv_uv, *d_rgb;
-    int *d_width, d_height;
-    cudaMalloc((void **)&d_yuv_y, base_size * 2 * sizeof(unsigned char));
-    cudaMalloc((void **)&d_yuv_uv, base_size * sizeof(unsigned char));
-    cudaMalloc((void **)&d_rgb, base_size * 6 * sizeof(unsigned char));
-    cudaMalloc((void **)&d_width, sizeof(int));
+    void *finalizeCuda(
+        unsigned char *d_yuv_y, unsigned char *d_yuv_uv, unsigned char *d_rgb,
+        int *d_width)
+    {
+        cudaFree(d_yuv_y);
+        cudaFree(d_yuv_uv);
+        cudaFree(d_rgb);
+        cudaFree(d_width);
+    }
 
-    cudaMemcpy(d_width, &width, 4, cudaMemcpyHostToDevice);
-    cudaMemcpy(d_yuv_y, h_yuv_y, base_size * 2 * sizeof(unsigned char), cudaMemcpyHostToDevice);
-    cudaMemcpy(d_yuv_uv, h_yuv_uv, base_size * sizeof(unsigned char), cudaMemcpyHostToDevice);
+    int convertYUV2RGBbyCUDA(
+        int width, int height,
+        unsigned char *h_yuv_y, unsigned char *h_yuv_uv, unsigned char *h_rgb,
+        unsigned char *d_yuv_y, unsigned char *d_yuv_uv, unsigned char *d_rgb,
+        int *d_width)
+    {
+        int ret;
 
-    ret = get_str_time();
-    yuv_2_rgb<<<grid_size, block_size>>>(d_width, d_yuv_y, d_yuv_uv, d_rgb);
-    ret = get_str_time();
+        int base_size = width * height / 2;
 
-    cudaMemcpy(h_rgb, d_rgb, base_size * 6 * sizeof(unsigned char), cudaMemcpyDeviceToHost);
-    ret = get_str_time();
+        const int block_size = 128; // choose between 128 and 256
+        const int grid_size = base_size * 2 / block_size;
 
-    free(h_yuv_y);
-    free(h_yuv_uv);
-    free(h_rgb);
-    cudaFree(d_yuv_y);
-    cudaFree(d_yuv_uv);
-    cudaFree(d_rgb);
+        cudaMemcpy(d_width, &width, 4, cudaMemcpyHostToDevice);
+        cudaMemcpy(d_yuv_y, h_yuv_y, base_size * 2 * sizeof(unsigned char), cudaMemcpyHostToDevice);
+        cudaMemcpy(d_yuv_uv, h_yuv_uv, base_size * sizeof(unsigned char), cudaMemcpyHostToDevice);
 
-    return 0;
+        ret = get_str_time();
+        yuv_2_rgb<<<grid_size, block_size>>>(d_width, d_yuv_y, d_yuv_uv, d_rgb);
+        ret = get_str_time();
+
+        cudaMemcpy(h_rgb, d_rgb, base_size * 6 * sizeof(unsigned char), cudaMemcpyDeviceToHost);
+        ret = get_str_time();
+
+        // free(h_yuv_y);
+        // free(h_yuv_uv);
+        // free(h_rgb);
+
+        return 0;
+    }
 }
 
-int main(void)
-{
-    int ret;
+// int main(void)
+// {
+//     int ret;
 
-    const int width = 1280;
-    const int height = 720;
-    int base_size = width * height / 2;
-    unsigned char *h_yuv_y = (unsigned char *)malloc(base_size * 2);
-    unsigned char *h_yuv_uv = (unsigned char *)malloc(base_size);
-    unsigned char *h_rgb = (unsigned char *)malloc(base_size * 6);
-    unsigned char *h_orig_rgb = (unsigned char *)malloc(base_size * 6);
+//     const int width = 1280;
+//     const int height = 720;
+//     int base_size = width * height / 2;
+//     unsigned char *h_yuv_y = (unsigned char *)malloc(base_size * 2);
+//     unsigned char *h_yuv_uv = (unsigned char *)malloc(base_size);
+//     unsigned char *h_rgb = (unsigned char *)malloc(base_size * 6);
+//     unsigned char *h_orig_rgb = (unsigned char *)malloc(base_size * 6);
 
-    FILE *f_uv = fopen("/home/cuichengyu/github/ffio/ffio/nv12_uv", "r");
-    fread((char *)h_yuv_uv, base_size, 1, f_uv);
-    fclose(f_uv);
-    FILE *f_y = fopen("/home/cuichengyu/github/ffio/ffio/nv12_y", "r");
-    fread((char *)h_yuv_y, base_size * 2, 1, f_y);
-    fclose(f_y);
+//     FILE *f_uv = fopen("/home/cuichengyu/github/ffio/ffio/nv12_uv", "r");
+//     fread((char *)h_yuv_uv, base_size, 1, f_uv);
+//     fclose(f_uv);
+//     FILE *f_y = fopen("/home/cuichengyu/github/ffio/ffio/nv12_y", "r");
+//     fread((char *)h_yuv_y, base_size * 2, 1, f_y);
+//     fclose(f_y);
 
-    FILE *f_rgb = fopen("/home/cuichengyu/github/ffio/ffio/rgb", "r");
-    fread((char *)h_orig_rgb, base_size * 6, 1, f_rgb);
-    fclose(f_rgb);
+//     FILE *f_rgb = fopen("/home/cuichengyu/github/ffio/ffio/rgb", "r");
+//     fread((char *)h_orig_rgb, base_size * 6, 1, f_rgb);
+//     fclose(f_rgb);
 
-    const int block_size = 128; // choose between 128 and 256
-    const int grid_size = base_size * 2 / block_size;
+//     const int block_size = 128; // choose between 128 and 256
+//     const int grid_size = base_size * 2 / block_size;
 
-    unsigned char *d_yuv_y, *d_yuv_uv, *d_rgb;
-    int *d_width, d_height;
-    cudaMalloc((void **)&d_yuv_y, base_size * 2 * sizeof(unsigned char));
-    cudaMalloc((void **)&d_yuv_uv, base_size * sizeof(unsigned char));
-    cudaMalloc((void **)&d_rgb, base_size * 6 * sizeof(unsigned char));
-    cudaMalloc((void **)&d_width, sizeof(int));
+//     unsigned char *d_yuv_y, *d_yuv_uv, *d_rgb;
+//     int *d_width, d_height;
+//     cudaMalloc((void **)&d_yuv_y, base_size * 2 * sizeof(unsigned char));
+//     cudaMalloc((void **)&d_yuv_uv, base_size * sizeof(unsigned char));
+//     cudaMalloc((void **)&d_rgb, base_size * 6 * sizeof(unsigned char));
+//     cudaMalloc((void **)&d_width, sizeof(int));
 
-    cudaMemcpy(d_width, &width, 4, cudaMemcpyHostToDevice);
-    cudaMemcpy(d_yuv_y, h_yuv_y, base_size * 2 * sizeof(unsigned char), cudaMemcpyHostToDevice);
-    cudaMemcpy(d_yuv_uv, h_yuv_uv, base_size * sizeof(unsigned char), cudaMemcpyHostToDevice);
+//     cudaMemcpy(d_width, &width, 4, cudaMemcpyHostToDevice);
+//     cudaMemcpy(d_yuv_y, h_yuv_y, base_size * 2 * sizeof(unsigned char), cudaMemcpyHostToDevice);
+//     cudaMemcpy(d_yuv_uv, h_yuv_uv, base_size * sizeof(unsigned char), cudaMemcpyHostToDevice);
 
-    ret = get_str_time();
-    yuv_2_rgb<<<grid_size, block_size>>>(d_width, d_yuv_y, d_yuv_uv, d_rgb);
+//     ret = get_str_time();
+//     yuv_2_rgb<<<grid_size, block_size>>>(d_width, d_yuv_y, d_yuv_uv, d_rgb);
 
-    ret = get_str_time();
-    // sleep(15);
+//     ret = get_str_time();
+//     // sleep(15);
 
-    cudaMemcpy(h_rgb, d_rgb, base_size * 6 * sizeof(unsigned char), cudaMemcpyDeviceToHost);
-    ret = get_str_time();
+//     cudaMemcpy(h_rgb, d_rgb, base_size * 6 * sizeof(unsigned char), cudaMemcpyDeviceToHost);
+//     ret = get_str_time();
 
-    FILE *fw = NULL;
-    fw = fopen("/home/cuichengyu/github/ffio/ffio/rgb_res", "w");
-    fwrite(h_rgb, base_size * 6 * sizeof(unsigned char), 1, fw);
-    fclose(fw);
+//     FILE *fw = NULL;
+//     fw = fopen("/home/cuichengyu/github/ffio/ffio/rgb_res", "w");
+//     fwrite(h_rgb, base_size * 6 * sizeof(unsigned char), 1, fw);
+//     fclose(fw);
 
-    int i = 0;
-    int j = 1;
-    int index = i * width + j;
-    printf("index: %d\n", index);
-    printf("width: %d, height: %d.    yuv2rgb: %d, orig_rgb: %d.\n",
-           i, j, h_rgb[3 * index], h_orig_rgb[3 * index]);
-    printf("width: %d, height: %d.    yuv2rgb: %d, orig_rgb: %d.\n",
-           i, j, h_rgb[3 * index + 1], h_orig_rgb[3 * index + 1]);
-    printf("width: %d, height: %d.    yuv2rgb: %d, orig_rgb: %d.\n",
-           i, j, h_rgb[3 * index + 2], h_orig_rgb[3 * index + 2]);
+//     int i = 0;
+//     int j = 1;
+//     int index = i * width + j;
+//     printf("index: %d\n", index);
+//     printf("width: %d, height: %d.    yuv2rgb: %d, orig_rgb: %d.\n",
+//            i, j, h_rgb[3 * index], h_orig_rgb[3 * index]);
+//     printf("width: %d, height: %d.    yuv2rgb: %d, orig_rgb: %d.\n",
+//            i, j, h_rgb[3 * index + 1], h_orig_rgb[3 * index + 1]);
+//     printf("width: %d, height: %d.    yuv2rgb: %d, orig_rgb: %d.\n",
+//            i, j, h_rgb[3 * index + 2], h_orig_rgb[3 * index + 2]);
 
-    free(h_yuv_y);
-    free(h_yuv_uv);
-    free(h_rgb);
-    cudaFree(d_yuv_y);
-    cudaFree(d_yuv_uv);
-    cudaFree(d_rgb);
+//     free(h_yuv_y);
+//     free(h_yuv_uv);
+//     free(h_rgb);
+//     cudaFree(d_yuv_y);
+//     cudaFree(d_yuv_uv);
+//     cudaFree(d_rgb);
 
-    return 0;
-}
+//     return 0;
+// }
