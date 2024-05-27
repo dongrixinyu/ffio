@@ -484,8 +484,8 @@ static int ffio_init_cuda_pix_fmt_conversion(FFIO *ffio) {
   ffio->cudaFrame->height = ffio->avCodecContext->height;
 
   initCuda(ffio->cudaFrame->width, ffio->cudaFrame->height,
-           ffio->cudaFrame->d_yuv_y, ffio->cudaFrame->d_yuv_uv, ffio->cudaFrame->d_rgb,
-           ffio->cudaFrame->d_width);
+           &(ffio->cudaFrame->d_yuv_y), &(ffio->cudaFrame->d_yuv_uv), &(ffio->cudaFrame->d_rgb),
+           &(ffio->cudaFrame->d_width));
 }
 #endif
 

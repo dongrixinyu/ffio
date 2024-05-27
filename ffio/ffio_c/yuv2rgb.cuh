@@ -12,8 +12,8 @@ extern "C" {
 
     void initCuda(
         int width, int height,
-        unsigned char *d_yuv_y, unsigned char *d_yuv_uv, unsigned char *d_rgb,
-        int *d_width);
+        unsigned char **d_yuv_y, unsigned char **d_yuv_uv, unsigned char **d_rgb,
+        int **d_width);
 
     void finalizeCuda(
         unsigned char *d_yuv_y, unsigned char *d_yuv_uv, unsigned char *d_rgb,
