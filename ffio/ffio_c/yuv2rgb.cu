@@ -50,13 +50,13 @@ void initCuda(int width, int height,
               int *d_width)
 {
     int base_size = width * height / 2;
-
+    printf("init 1 malloc ... %p\n", (void **)(&d_yuv_y));
     int ret = get_str_time();
     cudaMalloc((void **)&d_yuv_y, base_size * 2 * sizeof(unsigned char));
     cudaMalloc((void **)&d_yuv_uv, base_size * sizeof(unsigned char));
     cudaMalloc((void **)&d_rgb, base_size * 6 * sizeof(unsigned char));
     cudaMalloc((void **)&d_width, sizeof(int));
-
+    printf("init 2 malloc ... %p\n", (void **)(&d_yuv_y));
     ret = get_str_time();
     // cudaMemcpy(cudaMemcpyDeviceToDevice);
     // cudaMemcpy(d_width, &width, 4, cudaMemcpyHostToDevice);
@@ -85,7 +85,7 @@ int convertYUV2RGBbyCUDA(
     const int block_size = 128; // choose between 128 and 256
     const int grid_size = base_size * 2 / block_size;
 
-    // printf("re malloc ...\n");
+    printf("re malloc ... %p\n", (void **)(&d_yuv_y));
     // ret = get_str_time();
     // cudaMalloc((void **)&d_yuv_y, base_size * 2 * sizeof(unsigned char));
     // cudaMalloc((void **)&d_yuv_uv, base_size * sizeof(unsigned char));
@@ -93,18 +93,18 @@ int convertYUV2RGBbyCUDA(
     // cudaMalloc((void **)&d_width, sizeof(int));
     // ret = get_str_time();
 
-    checkCudaErrors(cudaMemcpy(d_width, &width, 4, cudaMemcpyHostToDevice));
-    checkCudaErrors(cudaMemcpy(d_yuv_y, h_yuv_y, base_size * 2 * sizeof(unsigned char),
-                               cudaMemcpyHostToDevice));
-    checkCudaErrors(cudaMemcpy(d_yuv_uv, h_yuv_uv, base_size * sizeof(unsigned char),
-                               cudaMemcpyHostToDevice));
+    cudaMemcpy(d_width, &width, 4, cudaMemcpyHostToDevice);
+    cudaMemcpy(d_yuv_y, h_yuv_y, base_size * 2 * sizeof(unsigned char),
+                               cudaMemcpyHostToDevice);
+    cudaMemcpy(d_yuv_uv, h_yuv_uv, base_size * sizeof(unsigned char),
+                               cudaMemcpyHostToDevice);
 
     ret = get_str_time();
     yuv_2_rgb<<<grid_size, block_size>>>(d_width, d_yuv_y, d_yuv_uv, d_rgb);
     ret = get_str_time();
 
-    checkCudaErrors(cudaMemcpy(h_rgb, d_rgb, base_size * 6 * sizeof(unsigned char),
-                               cudaMemcpyDeviceToHost));
+    cudaMemcpy(h_rgb, d_rgb, base_size * 6 * sizeof(unsigned char),
+                               cudaMemcpyDeviceToHost);
     ret = get_str_time();
 
     // free(h_yuv_y);
