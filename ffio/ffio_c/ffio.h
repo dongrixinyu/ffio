@@ -12,6 +12,9 @@
 #define FFIO_C_FFIO_H
 
 #include "ffio_util.h"
+#ifdef CHECK_IF_CUDA_IS_AVAILABLE
+#include "yuv2rgb.cuh"
+#endif
 
 #define MAX_URL_LENGTH                  256
 #define FFIO_COLOR_DEPTH                3
@@ -87,6 +90,40 @@ typedef struct FFIOFrame {
   unsigned char  *data;
 } FFIOFrame;
 
+#ifdef CHECK_IF_CUDA_IS_AVAILABLE
+typedef struct FFIOCudaFrame {
+  FFIOFrameType type;
+  FFIOError     err;
+
+  int width;       // image size
+  int height;
+  int *d_width;
+
+  unsigned char *h_rgb;
+  unsigned char *h_yuv_y;
+  unsigned char *h_yuv_uv;
+  unsigned char *d_rgb;
+  unsigned char *d_yuv_y;
+  unsigned char *d_yuv_uv;
+
+} FFIOCudaFrame;
+
+// void *initCuda(
+//     int width, int height,
+//     unsigned char *d_yuv_y, unsigned char *d_yuv_uv, unsigned char *d_rgb,
+//     int *d_width);
+
+// void *finalizeCuda(
+//     unsigned char *d_yuv_y, unsigned char *d_yuv_uv, unsigned char *d_rgb,
+//     int *d_width);
+
+// int convertYUV2RGBbyCUDA(
+//     int width, int height,
+//     unsigned char *h_yuv_y, unsigned char *h_yuv_uv, unsigned char *h_rgb,
+//     unsigned char *d_yuv_y, unsigned char *d_yuv_uv, unsigned char *d_rgb,
+//     int *d_width);
+#endif
+
 typedef struct FFIO FFIO;
 struct FFIO{
   FFIOState ffioState;                       // to indicate that if the stream has been opened successfully
@@ -120,6 +157,9 @@ struct FFIO{
   unsigned char       *rawFrameShm;
   unsigned char        sei_buf[MAX_SEI_LENGTH];
   FFIOFrame            frame;
+#ifdef CHECK_IF_CUDA_IS_AVAILABLE
+  FFIOCudaFrame       *cudaFrame;
+#endif
 
   AVBufferRef         *hwContext;
   enum AVPixelFormat   hw_pix_fmt;

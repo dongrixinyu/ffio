@@ -1,14 +1,20 @@
-cmake_minimum_required(VERSION 3.0)
+cmake_minimum_required(VERSION 3.11)
+# 3.9 makes cuda compilation available.
 
 # An easy-to-use Python wrapper for FFmpeg-C-API,
 # aiming to facilitate computer-vision processing.
 project(ffio)
 
-add_compile_options(-O3)
-#add_compile_options(-O0 -g -DDEBUG)
-
 # set to -DCHECK_CUDA=0 means not add definition
 #        -DCHECK_CUDA=1 means add definition
+if(${CHECK_CUDA})
+    enable_language(CUDA)
+    find_package(CUDA REQUIRED)
+endif()
+
+# add_compile_options(-O3)
+add_compile_options(-O0 -g -DDEBUG)
+
 if(${CHECK_CUDA})
     add_definitions(-DCHECK_IF_CUDA_IS_AVAILABLE)
     message("add global definition `CHECK_IF_CUDA_IS_AVAILABLE`")
@@ -35,7 +41,6 @@ if(${CHECK_CUDA})
     find_library(CUDA_CUDART_LIBRARIES "cudart")
 endif()
 
-
 message("Project source directory:    ${PROJECT_SOURCE_DIR}")
 message("Python_INCLUDE_DIRS:         ${PYTHON_INCLUDE_DIRS}")
 message("Python_LIBRARIES:            ${PYTHON_LIBRARIES}")
@@ -50,7 +55,7 @@ message("  FFmpeg_AVDEVICE_LIBRARIES:   ${FFMPEG_AVDEVICE_LIBRARIES}")
 message("  FFmpeg_AVCODEC_LIBRARIES:    ${FFMPEG_AVCODEC_LIBRARIES}")
 message("  FFmpeg_AVFORMAT_LIBRARIES:   ${FFMPEG_AVFORMAT_LIBRARIES}")
 if(${CHECK_CUDA})
-    message("cuda_INCLUDE_DIRS:           ${CUDA_INCLUDE_DIRS}")
+    message("  cuda_INCLUDE_DIRS:           ${CUDA_INCLUDE_DIRS}")
     message("  cuda_cudart_LIBRARIES:       ${CUDA_CUDART_LIBRARIES}")
 endif()
 
@@ -76,10 +81,10 @@ set(FFIO_SOURCE_FILES ${FFIO_SOURCE_FILES} ${PROJECT_SOURCE_DIR}/ffio/ffio_c/ffi
 # endif()
 set(FFIO_SOURCE_FILES ${FFIO_SOURCE_FILES} ${PROJECT_SOURCE_DIR}/ffio/ffio_c/ffio_util.c)
 
-add_library(interfaceAPI SHARED
-    ${PROJECT_SOURCE_DIR}/ffio/ffio_c/ffioPyApi.c
-    ${FFIO_SOURCE_FILES})
+
 if(${CHECK_CUDA})
+
+
     add_library(cudaAPI SHARED
         ${PROJECT_SOURCE_DIR}/ffio/ffio_c/ffio_cuda_check.c)
     # message("Python_include_DIR:          ${PYTHON_INCLUDE_DIRS}")
@@ -91,10 +96,14 @@ if(${CHECK_CUDA})
     target_link_libraries(cudaAPI
         ${CUDA_LIBRARIES})
 
-    # link_directories(/usr/local/cuda/lib64)
-    # target_include_directories(cudaAPI PUBLIC /usr/local/cuda/include)
-    # target_link_libraries(cudaAPI /usr/local/cuda/lib64/libcudart.so)
 
+    set(FFIO_SOURCE_FILES ${FFIO_SOURCE_FILES} ${PROJECT_SOURCE_DIR}/ffio/ffio_c/yuv2rgb.cu)
+    # set(FFIO_SOURCE_FILES ${FFIO_SOURCE_FILES} ${PROJECT_SOURCE_DIR}/ffio/ffio_c/rgb2yuv.cu)
+
+
+    add_library(interfaceAPI SHARED
+        ${PROJECT_SOURCE_DIR}/ffio/ffio_c/ffioPyApi.c
+        ${FFIO_SOURCE_FILES})
     target_include_directories(interfaceAPI PUBLIC
         ${PROJECT_SOURCE_DIR}/ffio/ffio_c/
         ${FFMPEG_INCLUDE_DIRS}
@@ -103,7 +112,30 @@ if(${CHECK_CUDA})
         ${FFIO_LIBRARIES}
         ${PYTHON_LIBRARIES}
         )
+
+
+    set(FFIO_DEBUG_FILES ${FFIO_SOURCE_FILES} ${PROJECT_SOURCE_DIR}/ffio/ffio_c/test/main.c)
+    set(CUDA_NVCC_FLAGS "-O0 -g -G")
+    cuda_add_executable(main
+        ${FFIO_DEBUG_FILES})
+
+    set_target_properties(main
+        PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/ffio/ffio_c/test)
+    # set_target_properties(main
+    #     PROPERTIES CUDA_GENERATION_DEBUG ON)
+    target_include_directories(main PUBLIC
+        ${PROJECT_SOURCE_DIR}/ffio/ffio_c/
+        ${FFMPEG_INCLUDE_DIRS}
+        ${CUDA_INCLUDE_DIRS})
+    target_link_libraries(main
+        ${FFIO_LIBRARIES}
+        ${CUDA_LIBRARIES})
+        # /home/cuichengyu/github/ffio/ffio/ffio_c/test/libyuv2rgb.a)
+
 else()
+    add_library(interfaceAPI SHARED
+        ${PROJECT_SOURCE_DIR}/ffio/ffio_c/ffioPyApi.c
+        ${FFIO_SOURCE_FILES})
     target_include_directories(interfaceAPI PUBLIC
         ${FFMPEG_INCLUDE_DIRS}
         ${PYTHON_INCLUDE_DIRS})
@@ -114,12 +146,12 @@ endif()
 
 
 # for test.
-AUX_SOURCE_DIRECTORY(${PROJECT_SOURCE_DIR}/ffio/ffio_c/test    TEST_SOURCE_FILES)
-add_executable(ffio.test
-    ${FFIO_SOURCE_FILES}
-    ${TEST_SOURCE_FILES})
-target_include_directories(ffio.test PUBLIC
-    ${FFMPEG_INCLUDE_DIRS}
-    ${PROJECT_SOURCE_DIR}/ffio/ffio_c)
-target_link_libraries(ffio.test
-    ${FFIO_LIBRARIES})
+# AUX_SOURCE_DIRECTORY(${PROJECT_SOURCE_DIR}/ffio/ffio_c/test    TEST_SOURCE_FILES)
+# add_executable(ffio.test
+#     ${FFIO_SOURCE_FILES}
+#     ${TEST_SOURCE_FILES})
+# target_include_directories(ffio.test PUBLIC
+#     ${FFMPEG_INCLUDE_DIRS}
+#     ${PROJECT_SOURCE_DIR}/ffio/ffio_c)
+# target_link_libraries(ffio.test
+#     ${FFIO_LIBRARIES})

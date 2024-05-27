@@ -1,8 +1,10 @@
-#ifndef YUV2RGB
-#define YUV2RGB
+#ifndef RGB2YUV
+#define RGB2YUV
 
 #include <stdio.h>
 #include <unistd.h>
+#include <sys/time.h>
+// #include <cuda_runtime.h>
 
 void __global__ rgb_2_yuv(
     const int *width,

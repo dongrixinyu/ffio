@@ -23,7 +23,7 @@ int check_if_cuda_is_available()
 
     if (deviceCount == 0)
     {
-        printf("No CUDA devices available.\n");
+        printf("[ffio][C][-1] No CUDA devices available, but nvcc installed.\n");
         return -1;
     }
 
@@ -37,6 +37,28 @@ int check_if_cuda_is_available()
     }
 
     return 0;
-#endif
+#else
     return -2;
+#endif
 }
+
+#ifdef CHECK_IF_CUDA_IS_AVAILABLE
+int available_gpu_memory()
+{
+    size_t avail;
+    size_t total;
+
+    int deviceCount;
+    cudaGetDeviceCount(&deviceCount);
+    for (int i = 0; i < deviceCount; i++)
+    {
+        cudaSetDevice(i);
+        cudaMemGetInfo(&avail, &total);
+        int memory = (int)(avail / 1024 / 1024);
+        cudaDeviceReset();
+
+        return memory;
+    }
+    return 0;
+}
+#endif

@@ -1,6 +1,4 @@
-#include <stdio.h>
-#include <unistd.h>
-#include <sys/time.h>
+#include "rgb2yuv.cuh"
 
 void __global__ rgb_2_yuv(
     const int *width,

@@ -5,6 +5,8 @@ global_ffmpeg_lib_path=""
 global_python_include_path=""
 global_python_lib_path=""
 global_cuda_flag=0
+global_cuda_include_path=""
+global_cuda_lib_path=""
 
 check_and_set_ffmpeg_path() {
   if command -v pkg-config &> /dev/null            \
@@ -24,8 +26,8 @@ check_and_set_ffmpeg_path() {
     global_ffmpeg_lib_path=`dirname ${avutil_lib_file_path}`
   fi
 
-  echo "find ffmpeg includes path: ${global_ffmpeg_include_path}"
-  echo "find ffmpeg libs     path: ${global_ffmpeg_lib_path}"
+  echo "  - find ffmpeg includes path: ${global_ffmpeg_include_path}"
+  echo "  - find ffmpeg libs     path: ${global_ffmpeg_lib_path}"
 }
 
 check_and_set_python_path(){
@@ -55,16 +57,41 @@ check_and_set_python_path(){
     global_python_lib_path=$($PYTHON_CMD -c "import distutils.sysconfig as sysconfig;print(sysconfig.get_config_var('LIBDIR') + '/' + sysconfig.get_config_var('LDLIBRARY'))")
   fi
 
-  echo "find python3 includes path: ${global_python_include_path}"
-  echo "find python3 libs     path: ${global_python_lib_path}"
+  echo "  - find python3 includes path: ${global_python_include_path}"
+  echo "  - find python3 libs     path: ${global_python_lib_path}"
 }
 
 check_and_set_cuda_path(){
-  if command -v python3-config &> /dev/null ; then
+
+  if command -v nvcc &> /dev/null ; then
+    echo "[ffio_build] checking cuda includes and libs path by nvcc ..."
+    local nvcc_bin_path=`which nvcc`
+    local nvcc_bin_dir_path=`dirname ${nvcc_bin_path}`
+    local nvcc_base_dir_path=`dirname ${nvcc_bin_dir_path}`
+
+    global_cuda_include_path="${nvcc_base_dir_path}/include"
+    global_cuda_lib_path="${nvcc_base_dir_path}/lib64"
+    # echo "#### ${global_cuda_include_path}"
     global_cuda_flag=1
+
   else
-    global_cuda_flag=0
+    echo "[ffio_build] checking cuda includes path by searching the path of cuda_runtime.h ..."
+    # local nvcc_version=`nvcc --version | grep 'release' | awk -F '[ ,]' '{print $6}'`
+    local cuda_runtime_lib_file_path=`find /usr -name libcudart.so`
+    local cuda_runtime_header_file_path=`find /usr -name cuda_runtime.h`
+    if [ -n "${cuda_runtime_header_file_path}" ]; then
+      local cuda_runtime_include_path=`dirname ${cuda_runtime_header_file_path}`
+      global_cuda_include_path=cuda_runtime_include_path
+      local cuda_runtime_lib_path=`dirname ${cuda_runtime_lib_file_path}`
+      global_cuda_lib_path=cuda_runtime_lib_path
+      global_cuda_flag=1
+    else
+      global_cuda_flag=0
+    fi
   fi
+
+  echo "  - find cuda includes path: ${global_cuda_include_path}"
+  echo "  - find cuda libs     path: ${global_cuda_lib_path}"
 }
 
 check_and_set_ffmpeg_path
@@ -74,9 +101,7 @@ check_and_set_cuda_path
 # custom setting
 global_ffmpeg_include_path=/home/cuichengyu/pyffmpeg_workspace/ffmpeg-6.0/include
 global_ffmpeg_lib_path=/home/cuichengyu/pyffmpeg_workspace/ffmpeg-6.0/lib
-
-global_cuda_include_path=/usr/local/cuda/include
-global_cuda_lib_path=/usr/local/cuda/lib64
+# global_cuda_flag=0
 
 if [ ! -d ffio/build ]; then
   mkdir ffio/build
