@@ -7,6 +7,27 @@ global_python_lib_path=""
 global_cuda_flag=0
 global_cuda_include_path=""
 global_cuda_lib_path=""
+debug=0
+
+if [ -z "$1" ]; then
+    echo "Error: No arguments provided. You have to set 'debug' or 'release'."
+    exit 1
+fi
+
+case "$1" in
+    debug)
+        echo "Debug mode selected."
+        debug=1
+        ;;
+    release)
+        echo "Release mode selected."
+        debug=0
+        ;;
+    *)
+        echo "Error: Argument must be 'debug' or 'release'."
+        exit 2
+        ;;
+esac
 
 check_and_set_ffmpeg_path() {
   if command -v pkg-config &> /dev/null            \
@@ -103,6 +124,7 @@ global_ffmpeg_include_path=/home/cuichengyu/pyffmpeg_workspace/ffmpeg-6.0/includ
 global_ffmpeg_lib_path=/home/cuichengyu/pyffmpeg_workspace/ffmpeg-6.0/lib
 # global_cuda_flag=0
 
+
 if [ ! -d ffio/build ]; then
   mkdir ffio/build
 else
@@ -117,5 +139,6 @@ cmake ../.. \
     -DFFMPEG_LIB_DIR_PATH=${global_ffmpeg_lib_path} \
     -DCUDA_INCLUDE_DIRS=${global_cuda_include_path} \
     -DCUDA_LIB_DIR_PATH=${global_cuda_lib_path} \
-    -DCHECK_CUDA=${global_cuda_flag}
+    -DCHECK_CUDA=${global_cuda_flag} \
+    -DDEBUG=${debug}
 make

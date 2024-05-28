@@ -12,8 +12,13 @@ if(${CHECK_CUDA})
     find_package(CUDA REQUIRED)
 endif()
 
-# add_compile_options(-O3)
-add_compile_options(-O0 -g -DDEBUG)
+if(${DEBUG})
+    add_compile_options(-O0 -g -DDEBUG)
+    message("-- Project in [[ DEBUG ]] mode.")
+else()
+    add_compile_options(-O3)
+    message("-- Project in [[ RELEASE ]] mode.")
+endif()
 
 if(${CHECK_CUDA})
     add_definitions(-DCHECK_IF_CUDA_IS_AVAILABLE)
@@ -96,7 +101,11 @@ if(${CHECK_CUDA})
 
 
     set(FFIO_SOURCE_FILES ${FFIO_SOURCE_FILES} ${PROJECT_SOURCE_DIR}/ffio/ffio_c/pix_fmt_conversion.cu)
-
+    if(${DEBUG})
+        set(CUDA_NVCC_FLAGS "-O0 -g -G")
+    else()
+        set(CUDA_NVCC_FLAGS "-O3")
+    endif()
     cuda_add_library(interfaceAPI SHARED
         ${PROJECT_SOURCE_DIR}/ffio/ffio_c/ffioPyApi.c
         ${FFIO_SOURCE_FILES})
@@ -110,8 +119,11 @@ if(${CHECK_CUDA})
         )
 
     set(FFIO_DEBUG_FILES ${FFIO_SOURCE_FILES} ${PROJECT_SOURCE_DIR}/ffio/ffio_c/test/main.c)
-    # set(CUDA_NVCC_FLAGS "-O0 -g -G")
-    set(CUDA_NVCC_FLAGS "-O3")
+    if(${DEBUG})
+        set(CUDA_NVCC_FLAGS "-O0 -g -G")
+    else()
+        set(CUDA_NVCC_FLAGS "-O3")
+    endif()
     cuda_add_executable(main
         ${FFIO_DEBUG_FILES})
 
