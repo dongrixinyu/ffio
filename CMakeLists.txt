@@ -85,10 +85,8 @@ set(FFIO_SOURCE_FILES ${FFIO_SOURCE_FILES} ${PROJECT_SOURCE_DIR}/ffio/ffio_c/ffi
 if(${CHECK_CUDA})
 
 
-    add_library(cudaAPI SHARED
+    cuda_add_library(cudaAPI SHARED
         ${PROJECT_SOURCE_DIR}/ffio/ffio_c/ffio_cuda_check.c)
-    # message("Python_include_DIR:          ${PYTHON_INCLUDE_DIRS}")
-    # message("Python_LIBRARIES:            ${PYTHON_LIBRARIES}")
     message("cuda_INCLUDE_DIRS:           ${CUDA_INCLUDE_DIRS}")
     message("cuda_cudart_LIBRARIES:       ${CUDA_LIBRARIES}")
     target_include_directories(cudaAPI PUBLIC
@@ -97,11 +95,9 @@ if(${CHECK_CUDA})
         ${CUDA_LIBRARIES})
 
 
-    set(FFIO_SOURCE_FILES ${FFIO_SOURCE_FILES} ${PROJECT_SOURCE_DIR}/ffio/ffio_c/yuv2rgb.cu)
-    # set(FFIO_SOURCE_FILES ${FFIO_SOURCE_FILES} ${PROJECT_SOURCE_DIR}/ffio/ffio_c/rgb2yuv.cu)
+    set(FFIO_SOURCE_FILES ${FFIO_SOURCE_FILES} ${PROJECT_SOURCE_DIR}/ffio/ffio_c/pix_fmt_conversion.cu)
 
-
-    add_library(interfaceAPI SHARED
+    cuda_add_library(interfaceAPI SHARED
         ${PROJECT_SOURCE_DIR}/ffio/ffio_c/ffioPyApi.c
         ${FFIO_SOURCE_FILES})
     target_include_directories(interfaceAPI PUBLIC
@@ -113,9 +109,9 @@ if(${CHECK_CUDA})
         ${PYTHON_LIBRARIES}
         )
 
-
     set(FFIO_DEBUG_FILES ${FFIO_SOURCE_FILES} ${PROJECT_SOURCE_DIR}/ffio/ffio_c/test/main.c)
-    set(CUDA_NVCC_FLAGS "-O0 -g -G")
+    # set(CUDA_NVCC_FLAGS "-O0 -g -G")
+    set(CUDA_NVCC_FLAGS "-O3")
     cuda_add_executable(main
         ${FFIO_DEBUG_FILES})
 
@@ -130,7 +126,6 @@ if(${CHECK_CUDA})
     target_link_libraries(main
         ${FFIO_LIBRARIES}
         ${CUDA_LIBRARIES})
-        # /home/cuichengyu/github/ffio/ffio/ffio_c/test/libyuv2rgb.a)
 
 else()
     add_library(interfaceAPI SHARED

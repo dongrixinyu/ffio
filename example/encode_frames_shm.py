@@ -28,19 +28,20 @@ def test():
 
   i_url  = "rtmp://..."
   o_url  = "rtmp://..."
-  i_pipe = ffio.FFIO( i_url, ffio.FFIOMode.DECODE, True,
+  i_pipe = ffio.FFIO( i_url, ffio.FFIOMode.DECODE, True, True,
                       your_shm.name, shm_size, shm_offset=some_data_bytes)
   params = ffio.CCodecParams()
   params.width    = 1920
   params.height   = 1080
-  params.bitrate  = 2400*1024
+  params.bitrate  = 12000*1024
   params.fps      = 24
   params.gop      = 48
   params.b_frames = 0
   params.profile  = b"baseline"
   params.preset   = b"fast"
-  o_pipe = ffio.FFIO( o_url, ffio.FFIOMode.ENCODE, True,
-                      your_shm.name, shm_size, shm_offset=some_data_bytes, codec_params=params)
+  o_pipe = ffio.FFIO( o_url, ffio.FFIOMode.ENCODE, True, True,
+                      your_shm.name, shm_size, shm_offset=some_data_bytes,
+                      codec_params=params)
 
   if i_pipe and o_pipe:
     time_total = 0

@@ -13,7 +13,7 @@
 
 #include "ffio_util.h"
 #ifdef CHECK_IF_CUDA_IS_AVAILABLE
-#include "yuv2rgb.cuh"
+#include "pix_fmt_conversion.cuh"
 #endif
 
 #define MAX_URL_LENGTH                  256
@@ -92,36 +92,20 @@ typedef struct FFIOFrame {
 
 #ifdef CHECK_IF_CUDA_IS_AVAILABLE
 typedef struct FFIOCudaFrame {
-  FFIOFrameType type;
-  FFIOError     err;
 
-  int width;       // image size
+  // image size
+  int width;
   int height;
-  int *d_width;
+  int *d_width; // for cuda use
 
-  unsigned char *h_rgb;
-  unsigned char *h_yuv_y;
-  unsigned char *h_yuv_uv;
+  // for yuv2rgb and rgb2yuv use
   unsigned char *d_rgb;
   unsigned char *d_yuv_y;
   unsigned char *d_yuv_uv;
 
 } FFIOCudaFrame;
 
-// void *initCuda(
-//     int width, int height,
-//     unsigned char *d_yuv_y, unsigned char *d_yuv_uv, unsigned char *d_rgb,
-//     int *d_width);
 
-// void *finalizeCuda(
-//     unsigned char *d_yuv_y, unsigned char *d_yuv_uv, unsigned char *d_rgb,
-//     int *d_width);
-
-// int convertYUV2RGBbyCUDA(
-//     int width, int height,
-//     unsigned char *h_yuv_y, unsigned char *h_yuv_uv, unsigned char *h_rgb,
-//     unsigned char *d_yuv_y, unsigned char *d_yuv_uv, unsigned char *d_rgb,
-//     int *d_width);
 #endif
 
 typedef struct FFIO FFIO;
@@ -130,6 +114,7 @@ struct FFIO{
   FFIOMode  ffioMode;                        // encode or decode
   int       frameSeq;                        // the sequence number of the current video frame
   bool      hw_enabled;                      // indicate if using the hardware acceleration
+  bool      pix_fmt_hw_enabled;              // indicate if using the hardware to accelerate pixel format conversion
 
   bool      shmEnabled;
   int       shmFd;
@@ -174,11 +159,10 @@ struct FFIO{
 // Functions of FFIO lifecycle.
 FFIO* newFFIO();
 int initFFIO(
-    FFIO* ffio, FFIOMode mode, const char* streamUrl,
-    bool hw_enabled, const char* hw_device,
-    bool enableShm,  const char* shmName, int shmSize, int shmOffset,
-    CodecParams* codecParams
-);
+    FFIO *ffio, FFIOMode mode, const char *streamUrl,
+    bool hw_enabled, bool pix_fmt_hw_enabled, const char *hw_device,
+    bool enableShm, const char *shmName, int shmSize, int shmOffset,
+    CodecParams *codecParams);
 FFIO* finalizeFFIO(FFIO* ffio);
 
 /** decode one frame from the online video

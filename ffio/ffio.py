@@ -30,12 +30,13 @@ class FFIO(object):
   ffio_state   : int                        # from c struct:FFIO          @property
   codec_params : Optional[CCodecParams]
   hw_device    : str
+  pix_fmt_hw_device : str
 
   # or try others listed by ` ffmpeg -hwaccels` on your device.
   hw_device = "cuda" if platform.system() != 'Darwin' else "videotoolbox"
 
   def __init__(self, target_url: str, mode: FFIOMode = FFIOMode.DECODE,
-               hw_enabled: bool = False,
+               hw_enabled: bool = False, pix_fmt_hw_enabled: bool = False,
                shm_name: str = None, shm_size: int = 0, shm_offset: int = 0,
                codec_params: CCodecParams = None):
     start_time = time.time()
@@ -47,13 +48,19 @@ class FFIO(object):
     self._auto_set_pts_trick()
     self._c_ffio_ptr  = c_lib.api_newFFIO()
 
+    if pix_fmt_hw_enabled and not hw_enabled:
+      print(f'[ffio_py][{self.mode.name}][warning]: `pix_fmt_hw_enabled` '
+            'should not be set as True when `hw_enabled` as False')
+      pix_fmt_hw_enabled = False
+
     int_mode = 0 if mode == FFIOMode.DECODE else 1
     if shm_name is None:
       self.shm_enabled = False
       c_lib.api_initFFIO(
         self._c_ffio_ptr,
         int_mode, self.target_url.encode(),
-        hw_enabled, self.hw_device.encode(),
+        hw_enabled, pix_fmt_hw_enabled,
+        self.hw_device.encode(),
         self.shm_enabled, "".encode(), 0, 0,
         byref(self.codec_params)
       )
@@ -62,7 +69,8 @@ class FFIO(object):
       c_lib.api_initFFIO(
         self._c_ffio_ptr,
         int_mode, self.target_url.encode(),
-        hw_enabled, self.hw_device.encode(),
+        hw_enabled, pix_fmt_hw_enabled,
+        self.hw_device.encode(),
         self.shm_enabled, shm_name.encode(), shm_size, shm_offset,
         byref(self.codec_params)
       )

@@ -477,15 +477,18 @@ static int ffio_init_packet_and_frame(FFIO* ffio){
 
 #ifdef CHECK_IF_CUDA_IS_AVAILABLE
 static int ffio_init_cuda_pix_fmt_conversion(FFIO *ffio) {
-  int base_size = ffio->avCodecContext->width * ffio->avCodecContext->height / 2;
   ffio->cudaFrame = (FFIOCudaFrame *)malloc(sizeof(FFIOCudaFrame));
 
   ffio->cudaFrame->width = ffio->avCodecContext->width;
   ffio->cudaFrame->height = ffio->avCodecContext->height;
 
-  initCuda(ffio->cudaFrame->width, ffio->cudaFrame->height,
-           &(ffio->cudaFrame->d_yuv_y), &(ffio->cudaFrame->d_yuv_uv), &(ffio->cudaFrame->d_rgb),
-           &(ffio->cudaFrame->d_width));
+  initializeCuda(
+      ffio->cudaFrame->width, ffio->cudaFrame->height,
+      &(ffio->cudaFrame->d_yuv_y), &(ffio->cudaFrame->d_yuv_uv),
+      &(ffio->cudaFrame->d_rgb),
+      &(ffio->cudaFrame->d_width));
+
+  return 0;
 }
 #endif
 
@@ -569,12 +572,14 @@ static int ffio_init_check_and_set_codec_params(
 
   if(   params->width       <=   0 ){ params->width    = 1920;      }
   if(   params->height      <=   0 ){ params->height   = 1080;      }
-  if(   params->bitrate     <=   0 ){ params->bitrate  = 2400*1024; }
-  if(   params->fps         <=   0 ){ params->fps      = 24;        }
-  if(   params->gop         <    0 ){ params->gop      = 48;        }
+  if(   params->bitrate     <=   0 ){ params->bitrate  = 24000*1024; }
+  if(   params->fps         <=   0 ){ params->fps      = 12;        }
+  if(   params->gop         <    0 ){ params->gop      = 12;        }
   if(   params->b_frames    <    0 ){ params->b_frames = 0;         }
-  if(  (params->profile)[0] == '\0'){ snprintf(params->profile, sizeof(params->profile), "%s", "main"       ); }
-  if(  (params->preset )[0] == '\0'){ snprintf(params->preset,  sizeof(params->preset ), "%s", "veryfast"   ); }
+  // profile: baseline,main,high,high10,high422,high444
+  if(  (params->profile)[0] == '\0'){ snprintf(params->profile, sizeof(params->profile), "%s", "high422"       ); }
+  // preset: ultrafast,superfast,veryfast,faster,fast,medium,slow,slower,veryslow,placebo
+  if(  (params->preset )[0] == '\0'){ snprintf(params->preset,  sizeof(params->preset ), "%s", "veryslow"   ); }
 
   if(  (params->codec  )[0] == '\0'){
 
@@ -621,12 +626,39 @@ static AVFrame* convertFromRGBFrame(FFIO* ffio, unsigned char* rgbBytes){
    */
   av_image_fill_arrays(ffio->rgbFrame->data, ffio->rgbFrame->linesize,
                        rgbBytes, AV_PIX_FMT_RGB24, ffio->imageWidth, ffio->imageHeight, 1);
+#ifdef CHECK_IF_CUDA_IS_AVAILABLE
+  if (ffio->pix_fmt_hw_enabled) {
+    if (ffio->hw_pix_fmt == AV_PIX_FMT_CUDA)
+    {
+      int ret = convertRGB2YUVbyCUDA(
+          ffio->cudaFrame->width, ffio->cudaFrame->height,
+          ffio->avFrame->data[0], ffio->avFrame->data[1], ffio->rgbFrame->data[0],
+          ffio->cudaFrame->d_yuv_y, ffio->cudaFrame->d_yuv_uv,
+          ffio->cudaFrame->d_rgb,
+          ffio->cudaFrame->d_width);
+    }
+    else
+    {
+      LOG_WARNING("[E] warning occurred, pix-fmt conversion rgb->yuv failed when using cuda");
+      // first to initialize ffio->swsContext
+      sws_scale(
+          ffio->swsContext, (const uint8_t *const *)ffio->rgbFrame->data,
+          ffio->rgbFrame->linesize, 0, ffio->avCodecContext->height,
+          ffio->avFrame->data, ffio->avFrame->linesize);
+    }
+  } else {
+    sws_scale(
+        ffio->swsContext, (const uint8_t *const *)ffio->rgbFrame->data,
+        ffio->rgbFrame->linesize, 0, ffio->avCodecContext->height,
+        ffio->avFrame->data, ffio->avFrame->linesize);
+  }
 
+#else
   sws_scale(
       ffio->swsContext, (const uint8_t* const*)ffio->rgbFrame->data,
       ffio->rgbFrame->linesize, 0, ffio->avCodecContext->height,
-      ffio->avFrame->data, ffio->avFrame->linesize
-  );
+      ffio->avFrame->data, ffio->avFrame->linesize);
+#endif
 
   AVFrame *avFrame = ffio->avFrame;
   if(ffio->hw_enabled){
@@ -652,7 +684,7 @@ int save_to_file(const char *ffio_bytes, const char *filename, int size)
   return 0;
 }
 
-static int convertToRgbFrame(FFIO* ffio){
+static int convertToRGBFrame(FFIO* ffio){
   AVFrame *src_frame = ffio->avFrame;
   if( ffio->hw_enabled && (src_frame->format == ffio->hw_pix_fmt) ){
     int ret = av_hwframe_transfer_data(ffio->hwFrame, ffio->avFrame, 0);
@@ -662,17 +694,21 @@ static int convertToRgbFrame(FFIO* ffio){
       return -1;
     }
 #ifdef CHECK_IF_CUDA_IS_AVAILABLE
-    if (ffio->hw_pix_fmt == AV_PIX_FMT_CUDA)
-    {
-      ret = convertYUV2RGBbyCUDA(
-          ffio->cudaFrame->width, ffio->cudaFrame->height,
-          ffio->hwFrame->data[0], ffio->hwFrame->data[1], ffio->rgbFrame->data[0],
-          // ffio->rawFrame,
-          // ,
-          ffio->cudaFrame->d_yuv_y, ffio->cudaFrame->d_yuv_uv, ffio->cudaFrame->d_rgb,
-          ffio->cudaFrame->d_width);
-      return 0;
+    if (ffio->pix_fmt_hw_enabled) {
+      if (ffio->hw_pix_fmt == AV_PIX_FMT_CUDA)
+      {
+        ret = convertYUV2RGBbyCUDA(
+            ffio->cudaFrame->width, ffio->cudaFrame->height,
+            ffio->hwFrame->data[0], ffio->hwFrame->data[1], ffio->rgbFrame->data[0],
+            ffio->cudaFrame->d_yuv_y, ffio->cudaFrame->d_yuv_uv,
+            ffio->cudaFrame->d_rgb,
+            ffio->cudaFrame->d_width);
+        return ret;
+      }
     }
+    // else {
+    //   LOG_ERROR("[D] error occurred, pix-fmt conversion failed when using cuda.");
+    // }
 #endif
     src_frame = ffio->hwFrame;
   }
@@ -681,8 +717,6 @@ static int convertToRgbFrame(FFIO* ffio){
       ffio->swsContext, (uint8_t const *const *)src_frame->data,
       src_frame->linesize, 0, ffio->avCodecContext->height,
       ffio->rgbFrame->data, ffio->rgbFrame->linesize);
-
-
 
 #ifdef DEBUG
   ret = save_to_file(src_frame->data[0], "nv12_y", ffio->frame.width * ffio->frame.height);
@@ -730,7 +764,7 @@ ENDPOINT_RESEND_PACKET:
       // send_ret == 0 or AVERROR(EAGAIN):
       recv_ret = avcodec_receive_frame(ffio->avCodecContext, ffio->avFrame);
       if(recv_ret == 0){
-        if( convertToRgbFrame(ffio) < 0 ){ ffio->frame.err = FFIO_ERROR_SWS_FAILURE; goto ENDPOINT_DECODE_ERROR; }
+        if( convertToRGBFrame(ffio) < 0 ){ ffio->frame.err = FFIO_ERROR_SWS_FAILURE; goto ENDPOINT_DECODE_ERROR; }
         if( (ffio->frameSeq)%LOG_PRINT_FRAME_GAP == 0){
           LOG_INFO_T("[D] decoded %d frames.", ffio->frameSeq);
         }
@@ -899,17 +933,18 @@ FFIO *newFFIO(){
  *    success - 0
  */
 int initFFIO(
-    FFIO* ffio, FFIOMode mode, const char* streamUrl,
-    bool hw_enabled, const char* hw_device,
-    bool enableShm,  const char* shmName, int shmSize, int shmOffset,
-    CodecParams* codecParams
-){
+    FFIO *ffio, FFIOMode mode, const char *streamUrl,
+    bool hw_enabled, bool pix_fmt_hw_enabled, const char *hw_device,
+    bool enableShm, const char *shmName, int shmSize, int shmOffset,
+    CodecParams *codecParams)
+{
   int ret;
 
   if(ffio==NULL || ffio->ffioState != FFIO_STATE_INIT){ return FFIO_ERROR_FFIO_NOT_AVAILABLE; }
 
-  ffio->ffioMode    = mode;
-  ffio->hw_enabled  = hw_enabled;
+  ffio->ffioMode           = mode;
+  ffio->hw_enabled         = hw_enabled;
+  ffio->pix_fmt_hw_enabled = pix_fmt_hw_enabled;
   ffio_init_check_and_set_codec_params(ffio, codecParams, hw_device);
   snprintf(ffio->targetUrl, sizeof(ffio->targetUrl), "%s", streamUrl);
   LOG_INFO_T("[%s][init] codec params is checked. Target: %s.", get_ffioMode(ffio), streamUrl);
@@ -933,7 +968,7 @@ int initFFIO(
   if(ret != 0){ finalizeFFIO(ffio); return ret; }
   LOG_INFO("[%s][init] succeeded to bind rawFrame and rawFrameShm.", get_ffioMode(ffio));
 
-  if(ffio->hw_enabled){
+  if(ffio->pix_fmt_hw_enabled){
     if( strncmp(hw_device, "cuda", strlen("cuda")) == 0 ){
       // Initialize automatic cuda pix format conversion.
 #ifdef CHECK_IF_CUDA_IS_AVAILABLE
@@ -973,12 +1008,14 @@ int initFFIO(
 FFIO* finalizeFFIO(FFIO* ffio){
 
 #ifdef CHECK_IF_CUDA_IS_AVAILABLE
-  if(ffio->hw_enabled){
+  if(ffio->pix_fmt_hw_enabled){
     if (ffio->hw_pix_fmt == AV_PIX_FMT_CUDA)
     {
       finalizeCuda(
-          ffio->cudaFrame->d_yuv_y, ffio->cudaFrame->d_yuv_uv, ffio->cudaFrame->d_rgb,
+          ffio->cudaFrame->d_yuv_y, ffio->cudaFrame->d_yuv_uv,
+          ffio->cudaFrame->d_rgb,
           ffio->cudaFrame->d_width);
+
       free(ffio->cudaFrame);
     }
   }

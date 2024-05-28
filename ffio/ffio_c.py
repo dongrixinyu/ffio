@@ -161,7 +161,7 @@ c_lib.api_newFFIO.restype  = POINTER(CFFIO)
 
 c_lib.api_initFFIO.argtypes = [
   POINTER(CFFIO), c_int, c_char_p,
-  c_bool, c_char_p,
+  c_bool, c_bool, c_char_p,
   c_bool, c_char_p, c_int, c_int,
   POINTER(CCodecParams)
 ]

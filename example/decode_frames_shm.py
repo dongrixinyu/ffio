@@ -25,7 +25,7 @@ your_shm = shared_memory.SharedMemory(create=True, size=shm_size)
 
 target_url = "rtmp://..."
 ffio       = ffio.FFIO(
-  target_url, ffio.FFIOMode.DECODE, False,
+  target_url, ffio.FFIOMode.DECODE, False, False,
   your_shm.name, shm_size, shm_offset=some_data_bytes
 )
 if ffio:

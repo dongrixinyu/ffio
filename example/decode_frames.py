@@ -17,6 +17,7 @@
 # Note:
 #   - C log file is written in ~/.cache/ffio/clog-%d.txt.%s
 
+import pdb
 import sys
 import ffio
 
@@ -26,7 +27,7 @@ if len(sys.argv) < 2:
   sys.exit(1)
 
 video_path = sys.argv[1]
-read_num   = 10
+read_num   = 1000
 read_idx   = 0
 while read_idx < read_num:
 
@@ -34,8 +35,11 @@ while read_idx < read_num:
     Infinite trying to open ffio, until ffio_state returns success.
   """
   while True:
-    decoder = ffio.FFIO( video_path, mode=ffio.FFIOMode.DECODE, hw_enabled=False)
-    if decoder is True:
+    decoder = ffio.FFIO(
+      video_path, mode=ffio.FFIOMode.DECODE, hw_enabled=True,
+      pix_fmt_hw_enabled=False)
+
+    if decoder:
       break
 
   """
@@ -56,5 +60,6 @@ while read_idx < read_num:
       print(f"success get frame: [{read_idx}].")
       image = frame.as_image()
       image.save(f"output-{read_idx}.jpeg", 'JPEG')
+      pdb.set_trace()
 
   decoder.release_memory()

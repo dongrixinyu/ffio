@@ -18,11 +18,10 @@
 
 FFIO* api_newFFIO();
 void api_initFFIO(
-    FFIO* ffio, int mode, const char* streamUrl,
-    bool hw_enabled, const char* hw_device,
-    bool enableShm,  const char* shmName, int shmSize, int shmOffset,
-    CodecParams* codecParams
-);
+    FFIO *ffio, int mode, const char *streamUrl,
+    bool hw_enabled, bool pix_fmt_hw_enabled, const char *hw_device,
+    bool enableShm, const char *shmName, int shmSize, int shmOffset,
+    CodecParams *codecParams);
 void api_finalizeFFIO(FFIO* ffio);
 void api_deleteFFIO(FFIO* ffio);
 

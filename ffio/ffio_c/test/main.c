@@ -39,10 +39,17 @@ int main(int argc, char *argv[]){
   char *i_url = argv[1];
   char *o_url = NULL;
   bool hw_enabled = false;
-  if(argc==3){
-    if( strncmp(argv[2], "gpu", 3) == 0 ){ hw_enabled = true; }
+  bool pix_fmt_hw_enabled = false;
+  if (argc == 3)
+  {
+    if( strncmp(argv[2], "gpu", 3) == 0 ){
+      hw_enabled = true;
+      pix_fmt_hw_enabled = true;
+    }
     else{ o_url = argv[2]; }
-  }else if(argc>3){
+  }
+  else if (argc > 3)
+  {
     o_url = argv[2];
     if( strncmp(argv[3], "gpu", 3) == 0 ){ hw_enabled = true; }
   }
@@ -59,11 +66,14 @@ int main(int argc, char *argv[]){
   };
   CodecParams o_params = i_params;
   initFFIO(i_ffio, FFIO_MODE_DECODE, i_url,
-           hw_enabled, "cuda",
+           hw_enabled, pix_fmt_hw_enabled, "cuda",
            false, NULL, 0, 0, &i_params);
-  if(o_url!=NULL){
+  if(o_url != NULL){
+    // o_params.width = 1280;
+    // o_params.height = 720;
+    // bool hw_enabled = false;
     initFFIO(o_ffio, FFIO_MODE_ENCODE, o_url,
-             hw_enabled, "cuda",
+             hw_enabled, pix_fmt_hw_enabled, "cuda",
              false, NULL, 0, 0, &o_params);
   }
 
@@ -78,14 +88,14 @@ int main(int argc, char *argv[]){
   for(int i=0; i<200; ++i){
     frame = decodeOneFrame(i_ffio, NULL);
     LOG_INFO("[%d] decodeOneFrame returned %d.", i_ffio->frameSeq, ret);
-    if( frame->err==0 && i<200){
+    if( frame->err==0 && i<300){
       saveRGB2File(i_ffio);
     }
-    // if( frame->err==0 && o_url!=NULL){
-    //   ret = encodeOneFrame(o_ffio, i_ffio->rawFrame,
-    //                        "\"hello.\"", sizeof("\"hello.\""));
-    //   LOG_INFO("[%d] encodeOneFrame returned %d.", o_ffio->frameSeq, ret);
-    // }
+    if( frame->err==0 && o_url!=NULL){
+      ret = encodeOneFrame(o_ffio, i_ffio->rawFrame,
+                           "\"hello.\"", sizeof("\"hello.\""));
+      LOG_INFO("[%d] encodeOneFrame returned %d.", o_ffio->frameSeq, ret);
+    }
   }
 
   finalizeFFIO(i_ffio);

@@ -41,9 +41,10 @@ you can now interact directly with ffmpeg's C context in Python runtime.
 - [x] **Shared memory support**: Interact with image data across multiple processes using shared memory, reducing redundant data copying.(Currently, tests only passed on Linux.)
 - [x] **Send or recv SEI packets**: easy to get access to customized SEI info. See example: [encode_frames with SEI](https://github.com/dongrixinyu/ffio/blob/main/example/encode_frames.py)
 for detail.
+- [x] **accelarate pix_fmt conversion via cuda**: pix_fmt conversion(namely yuv->rgb and rgb->yuv) is written in cuda.
 - [ ] **Handle image with other formats**
 - [ ] **Handle non-video data**. Audio, or subtitle.
-- [ ] **accelarate pix_fmt conversion via cuda**
+
 
 # Installation
 
@@ -118,6 +119,10 @@ Examples of how to use ffio are given in the hyperlinks:
 | [encode video frames](https://github.com/dongrixinyu/ffio/blob/main/example/encode_frames.py) | To insert frames in Numpy format into a video stream  |
 | [encode video frames from shm](example/encode_frames_shm.py) | Encode rgb bytes from SharedMemory. |
 
+### For management of GPU, ffio provides two functions concerning cuda gpu.
+
+- `ffio.cuda_is_available()`: returns a bool value, indicating that if cuda is available, and print info of GPU.
+- `ffio.available_gpu_memory()`: returns an int value, indicating how much GPU memory is available to use, excluding those has been occupied. It is measured in `M`(mega) unit. It is helpful for deciding whether to set `hw_enabled` to `True`.
 
 # Reference
 
