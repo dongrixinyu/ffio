@@ -122,7 +122,7 @@ Examples of how to use ffio are given in the hyperlinks:
 ### For management of GPU, ffio provides two functions concerning cuda gpu.
 
 - `ffio.cuda_is_available()`: returns a bool value, indicating that if cuda is available, and print info of GPU.
-- `ffio.available_gpu_memory()`: returns an int value, indicating how much GPU memory is available to use, excluding those has been occupied. It is measured in `M`(mega) unit. It is helpful for deciding whether to set `hw_enabled` to `True`.
+- `ffio.available_gpu_memory()`: returns an int value, indicating how much GPU memory is available to use, excluding that been occupied. It is measured in `M`(mega) unit. It is helpful for deciding whether to set `hw_enabled` to `True`.
 
 # Reference
 

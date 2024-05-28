@@ -51,7 +51,12 @@ class FFIO(object):
     if pix_fmt_hw_enabled and not hw_enabled:
       print(f'[ffio_py][{self.mode.name}][warning]: `pix_fmt_hw_enabled` '
             'should not be set as True when `hw_enabled` as False')
+      # TODO:
+      # Actually these 2 params can be set freely, not constrained by the `if`
+      # statement. But the program encountered with a segment fault, which needs
+      # inspection.
       pix_fmt_hw_enabled = False
+      pass
 
     int_mode = 0 if mode == FFIOMode.DECODE else 1
     if shm_name is None:

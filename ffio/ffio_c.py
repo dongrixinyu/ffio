@@ -76,6 +76,7 @@ class CFFIO(Structure):
     ("ffio_mode",          c_int),
     ("frame_seq",          c_int),
     ("hw_enabled",         c_bool),
+    ("pix_fmt_hw_enabled", c_bool),
     ("shm_enabled",        c_bool),
     ("shm_fd",             c_int),
     ("shm_size",           c_int),
