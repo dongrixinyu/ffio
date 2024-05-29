@@ -7,6 +7,7 @@
 # Description: An easy-to-use Python wrapper for FFmpeg-C-API.
 # Website: http://www.jionlp.com
 
+import pdb
 import platform
 import time
 import numpy as np
@@ -51,16 +52,16 @@ class FFIO(object):
     if pix_fmt_hw_enabled and not hw_enabled:
       print(f'[ffio_py][{self.mode.name}][warning]: `pix_fmt_hw_enabled` '
             'should not be set as True when `hw_enabled` as False')
-      # TODO:
       # Actually these 2 params can be set freely, not constrained by the `if`
-      # statement. But the program encountered with a segment fault, which needs
-      # inspection.
+      # statement. But the program yields no opimization at CPU consumption
+      # while hw_enabled=False and pix_fmt_hw_enabled=True.
       pix_fmt_hw_enabled = False
       pass
 
     int_mode = 0 if mode == FFIOMode.DECODE else 1
     if shm_name is None:
       self.shm_enabled = False
+      # pdb.set_trace()
       c_lib.api_initFFIO(
         self._c_ffio_ptr,
         int_mode, self.target_url.encode(),

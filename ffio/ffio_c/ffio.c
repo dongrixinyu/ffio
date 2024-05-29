@@ -712,6 +712,17 @@ static int convertToRGBFrame(FFIO* ffio){
 #endif
     src_frame = ffio->hwFrame;
   }
+  else if ( ffio->pix_fmt_hw_enabled )
+  {
+    // here ffio->hw_enabled has been set to False
+    int ret = convertYUV2RGBbyCUDA(
+        ffio->cudaFrame->width, ffio->cudaFrame->height,
+        ffio->avFrame->data[0], ffio->avFrame->data[1], ffio->rgbFrame->data[0],
+        ffio->cudaFrame->d_yuv_y, ffio->cudaFrame->d_yuv_uv,
+        ffio->cudaFrame->d_rgb,
+        ffio->cudaFrame->d_width);
+    return ret;
+  }
 
   int ret = sws_scale(
       ffio->swsContext, (uint8_t const *const *)src_frame->data,
