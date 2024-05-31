@@ -8,12 +8,14 @@
 # Website: http://www.jionlp.com
 
 import os
+import pdb
 import base64
 import numpy as np
 
 from enum    import IntEnum
 from pathlib import Path
-from ctypes  import Structure, PyDLL, POINTER, c_int, c_bool, c_char_p, py_object, c_char, c_ubyte
+from ctypes  import Structure, PyDLL, POINTER, c_int, c_bool, c_char_p, py_object, \
+  c_char, c_ubyte, c_byte, string_at
 from PIL     import Image
 from io      import BytesIO
 
@@ -41,14 +43,16 @@ class CFFIOFrame(Structure):
   err     : int    # see  c: enum FFIOError
   _width  : int
   _height : int
-  sei_msg : bytes
+  sei_msg : POINTER(c_byte)
+  sei_msg_size: int
   data    : POINTER(c_ubyte)
   _fields_ = [
     ("type",    c_int),
     ("err",     c_int),
     ("_width",  c_int),
     ("_height", c_int),
-    ("sei_msg", c_char_p),
+    ("sei_msg", POINTER(c_byte)),
+    ("sei_msg_size", c_int),
     ("data",    POINTER(c_ubyte))
   ]
 
@@ -68,6 +72,9 @@ class CFFIOFrame(Structure):
     base64_str = base64.b64encode(buffer.getvalue()).decode()
 
     return base64_str
+
+  def get_sei(self) -> bytes:
+    return string_at(self.sei_msg, self.sei_msg_size)
 
 
 class CFFIO(Structure):

@@ -61,7 +61,6 @@ class FFIO(object):
     int_mode = 0 if mode == FFIOMode.DECODE else 1
     if shm_name is None:
       self.shm_enabled = False
-      # pdb.set_trace()
       c_lib.api_initFFIO(
         self._c_ffio_ptr,
         int_mode, self.target_url.encode(),

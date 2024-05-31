@@ -65,7 +65,7 @@ int main(int argc, char *argv[]){
        true
   };
   CodecParams o_params = i_params;
-  hw_enabled = false;
+  hw_enabled = true;
   pix_fmt_hw_enabled = true;
   initFFIO(i_ffio, FFIO_MODE_DECODE, i_url,
            hw_enabled, pix_fmt_hw_enabled, "cuda",

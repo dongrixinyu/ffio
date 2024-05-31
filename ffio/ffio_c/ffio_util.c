@@ -206,7 +206,7 @@ bool extend_sei_to_av_packet(bool useAnnexB, AVPacket* pkt,const uint8_t* uuid,
   return true;
 }
 
-bool get_sei_from_av_frame(AVFrame* avFrame, unsigned char* dst, const char* filter){
+int get_sei_from_av_frame(AVFrame* avFrame, unsigned char* dst, const char* filter){
   /*
    * Description:
    *   Set sei message from avFrame to (unsigned char*)dst.
@@ -214,6 +214,8 @@ bool get_sei_from_av_frame(AVFrame* avFrame, unsigned char* dst, const char* fil
    *   If a video frame has multiple side data,
    *   a filter can be provided, which will fill the first SEI side date
    *   that contains the filter string to the dst buffer.
+   *
+   *   It returns the length of sei message. 0 if sei is empty.
    */
   AVFrameSideData* side_data;
   for(int i=0; i < avFrame->nb_side_data; ++i){
@@ -221,14 +223,16 @@ bool get_sei_from_av_frame(AVFrame* avFrame, unsigned char* dst, const char* fil
 
     if(side_data->type == AV_FRAME_DATA_SEI_UNREGISTERED){
       // side_data->data+16: ignore 16 bytes of uuid.
-      strncpy((char*)dst, (const char*)side_data->data+16,
+      memcpy((unsigned char*)dst, (const char*)side_data->data+16,
               MAX_SEI_LENGTH-1 < side_data->size-16 ? MAX_SEI_LENGTH-1 :  side_data->size-16);
-      if(filter == NULL
-          || strstr((const char*)dst, filter) != NULL){
-        return true;
+      if(filter == NULL || strstr((const char*)dst, filter) != NULL){
+        printf("sei size: %d, %s\n", side_data->size, dst);
+        // return true;
+        return MAX_SEI_LENGTH - 1 < side_data->size - 16 ? MAX_SEI_LENGTH - 1 : side_data->size - 16;
       }
     }
 
   }
-  return false;
+  // return false;
+  return 0;
 }

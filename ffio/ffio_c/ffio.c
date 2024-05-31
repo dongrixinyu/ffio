@@ -243,7 +243,7 @@ static void ffio_reset(FFIO* ffio){
   ffio->time_start_at   = -1;
 
   ffio->sei_buf[MAX_SEI_LENGTH-1] = '\0';
-  ffio->frame = (FFIOFrame){0,0,0,0, NULL, NULL};
+  ffio->frame = (FFIOFrame){0,0,0,0, NULL, 0, NULL};
 #ifdef CHECK_IF_CUDA_IS_AVAILABLE
   ffio->cudaFrame       = NULL;
 #endif
@@ -1088,9 +1088,16 @@ FFIOFrame* decodeOneFrame(FFIO* ffio, const char* sei_filter){
   if(frame->type == FFIO_FRAME_TYPE_RGB){
     memcpy(ffio->rawFrame, ffio->rgbFrame->data[0], ffio->imageByteSize);
     ffio->frame.data    = ffio->rawFrame;
-    ffio->frame.sei_msg =
-        get_sei_from_av_frame(ffio->avFrame, ffio->sei_buf, sei_filter) ?
-        (char*)ffio->sei_buf : NULL;
+    // ffio->frame.sei_msg =
+    //     get_sei_from_av_frame(ffio->avFrame, ffio->sei_buf, sei_filter) ? (char *)ffio->sei_buf : NULL;
+    int sei_size = get_sei_from_av_frame(ffio->avFrame, ffio->sei_buf, sei_filter);
+    if (sei_size == 0) {
+      ffio->frame.sei_msg = NULL;
+      ffio->frame.sei_msg_size = 0;
+    } else {
+      ffio->frame.sei_msg = ffio->sei_buf;
+      ffio->frame.sei_msg_size = sei_size;
+    }
   }
 
   return frame;

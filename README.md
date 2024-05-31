@@ -104,7 +104,7 @@ But if you can configure `ffmpeg, python include path, dynamic library path` smo
 ```
 $ git clone https://github.com/dongrixinyu/ffio
 $ cd ffio
-$ ./compiler.sh  # you should configure all kinds of paths according to your OS environment, otherwise you would encounter errors.
+$ ./compiler.sh [debug|release] # you should configure all kinds of paths according to your OS environment, otherwise you would encounter errors.
 $ pip install -e .
 ```
 

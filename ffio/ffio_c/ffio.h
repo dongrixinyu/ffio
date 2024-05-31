@@ -87,7 +87,8 @@ typedef struct FFIOFrame {
   int             width;
   int             height;
   char           *sei_msg;
-  unsigned char  *data;
+  int sei_msg_size;
+  unsigned char *data;
 } FFIOFrame;
 
 #ifdef CHECK_IF_CUDA_IS_AVAILABLE
