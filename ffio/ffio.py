@@ -31,7 +31,7 @@ class FFIO(object):
   ffio_state   : int                        # from c struct:FFIO          @property
   codec_params : Optional[CCodecParams]
   hw_device    : str
-  pix_fmt_hw_device : str
+  pix_fmt_hw_enabled : bool
 
   # or try others listed by ` ffmpeg -hwaccels` on your device.
   hw_device = "cuda" if platform.system() != 'Darwin' else "videotoolbox"
@@ -44,6 +44,8 @@ class FFIO(object):
 
     self.target_url   = target_url
     self.mode         = mode
+    self.hw_enabled   = hw_enabled
+    self.pix_fmt_hw_enabled = pix_fmt_hw_enabled
     self.frame_seq_py = 0
     self.codec_params = codec_params if codec_params is not None else CCodecParams()
     self._auto_set_pts_trick()
@@ -92,6 +94,17 @@ class FFIO(object):
     else:
       print(f"[ffio_py][{self.mode.name}] failed to initialize ffio after: {(end_time-start_time):.4f} seconds.")
       c_lib.api_deleteFFIO(self._c_ffio_ptr)
+
+  def __repr__(self) -> str:
+    mode = 'decoder' if self.mode == FFIOMode.DECODE else 'encoder'
+    if self.__bool__():
+      shm_enabled = 'shm_enabled' if self.shm_enabled else "shm_disabled"
+      hw_enabled = 'hw_enabled' if self.hw_enabled else "hw_disabled"
+      pix_fmt_hw_enabled = 'pix_fmt_hw_enabled' if self.pix_fmt_hw_enabled else "pix_fmt_hw_disabled"
+      return f"<ffio.ffio.FFIO, valid {mode}, {self.width}x{self.height}, " \
+             f"{shm_enabled}, {hw_enabled}, {pix_fmt_hw_enabled} at {hex(id(self))}>"
+    else:
+      return f"<ffio.ffio.FFIO, invalid {mode} at {hex(id(self))}>"
 
   def __bool__(self):
     # see FFIOState defined in ffio.h

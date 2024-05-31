@@ -106,7 +106,6 @@ typedef struct FFIOCudaFrame {
 
 } FFIOCudaFrame;
 
-
 #endif
 
 typedef struct FFIO FFIO;

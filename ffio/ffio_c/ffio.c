@@ -1116,9 +1116,17 @@ FFIOFrame* decodeOneFrameToShm(FFIO* ffio, int shmOffset, const char* sei_filter
   if(frame->type == FFIO_FRAME_TYPE_RGB){
     memcpy(ffio->rawFrameShm + shmOffset, ffio->rgbFrame->data[0], ffio->imageByteSize);
     ffio->frame.data    = ffio->rawFrameShm + shmOffset;
-    ffio->frame.sei_msg =
-        get_sei_from_av_frame(ffio->avFrame, ffio->sei_buf, sei_filter) ?
-        (char*)ffio->sei_buf : NULL;
+    int sei_size = get_sei_from_av_frame(ffio->avFrame, ffio->sei_buf, sei_filter);
+    if (sei_size == 0)
+    {
+      ffio->frame.sei_msg = NULL;
+      ffio->frame.sei_msg_size = 0;
+    }
+    else
+    {
+      ffio->frame.sei_msg = ffio->sei_buf;
+      ffio->frame.sei_msg_size = sei_size;
+    }
   }
 
   return frame;

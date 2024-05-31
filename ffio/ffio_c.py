@@ -56,6 +56,15 @@ class CFFIOFrame(Structure):
     ("data",    POINTER(c_ubyte))
   ]
 
+  def __repr__(self) -> str:
+    # default: <ffio.ffio_c.CFFIOFrame object at 0x7f1719261a70>
+    if self.__bool__():
+      has_sei = True if self.sei_msg_size >0 else False
+      return f"<ffio.ffio_c.CFFIOFrame, valid frame, {self._width}x{self._height}, " \
+            f"has_sei: {has_sei} at {hex(id(self))}>"
+    else:
+      return f"<ffio.ffio_c.CFFIOFrame, invalid frame at {hex(id(self))}>"
+
   def __bool__(self):
     return self.type == FFIOFrameType.FFIO_FRAME_TYPE_RGB.value
 
