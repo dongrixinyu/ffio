@@ -220,6 +220,7 @@ static void ffio_reset(FFIO* ffio){
   ffio->imageWidth       = 0;
   ffio->imageHeight      = 0;
   ffio->imageByteSize    = 0;
+  ffio->framerate        = 0.0;
 
   ffio->pts_anchor       = -1;
 
@@ -298,6 +299,14 @@ static int ffio_init_decode_avcodec(FFIO* ffio, const char *hw_device) {
     return FFIO_ERROR_AVFORMAT_FAILURE;
   }
 
+  int num_fps = ffio->avFormatContext->streams[ffio->videoStreamIndex]->avg_frame_rate.num;
+  int den_fps = ffio->avFormatContext->streams[ffio->videoStreamIndex]->avg_frame_rate.den;
+  if (den_fps == 0){
+    ffio->framerate = 0.0;
+  } else{
+    ffio->framerate = (double)num_fps / den_fps;
+  }
+  // printf("framerate: %f\n", ffio->framerate);
   ffio->avCodecContext = avcodec_alloc_context3(ffio->avCodec);
   if(!ffio->avCodecContext){
     LOG_ERROR("[D][init] failed to alloc codec ctx.");

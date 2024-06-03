@@ -226,7 +226,7 @@ int get_sei_from_av_frame(AVFrame* avFrame, unsigned char* dst, const char* filt
       memcpy((unsigned char*)dst, (const char*)side_data->data+16,
               MAX_SEI_LENGTH-1 < side_data->size-16 ? MAX_SEI_LENGTH-1 :  side_data->size-16);
       if(filter == NULL || strstr((const char*)dst, filter) != NULL){
-        printf("sei size: %d, %s\n", side_data->size, dst);
+        // printf("sei size: %d, %s\n", side_data->size, dst);
         // return true;
         return MAX_SEI_LENGTH - 1 < side_data->size - 16 ? MAX_SEI_LENGTH - 1 : side_data->size - 16;
       }

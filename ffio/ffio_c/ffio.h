@@ -124,6 +124,7 @@ struct FFIO{
   int       imageWidth;
   int       imageHeight;
   int       imageByteSize;
+  double    framerate;
 
   int64_t   pts_anchor;
 

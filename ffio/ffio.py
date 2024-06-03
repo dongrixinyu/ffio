@@ -91,6 +91,8 @@ class FFIO(object):
 
       self.width  = self._c_ffio_ptr.contents.image_width
       self.height = self._c_ffio_ptr.contents.image_height
+      self.framerate = self._c_ffio_ptr.contents.framerate
+
     else:
       print(f"[ffio_py][{self.mode.name}] failed to initialize ffio after: {(end_time-start_time):.4f} seconds.")
       c_lib.api_deleteFFIO(self._c_ffio_ptr)
@@ -115,6 +117,10 @@ class FFIO(object):
   @property
   def ffio_state(self) -> bool:
     return self.__bool__()
+
+  @property
+  def fps(self) -> float:
+    return self.framerate
 
   @property
   def frame_seq_c(self):
