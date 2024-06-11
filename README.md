@@ -42,7 +42,6 @@ you can now interact directly with ffmpeg's C context in Python runtime.
 - [x] **Send or recv SEI packets**: easy to get access to customized SEI info. See example: [encode_frames with SEI](https://github.com/dongrixinyu/ffio/blob/main/example/encode_frames.py)
 for detail.
 - [x] **accelarate pix_fmt conversion via cuda**: pix_fmt conversion(namely yuv->rgb and rgb->yuv) is written in cuda.[statistics](https://github.com/dongrixinyu/ffio/wiki/CPU-GPU-utilization-of-ffio#GPU-usage-statistics)
-- [ ] **Handle image with other formats**
 - [ ] **Handle non-video data**. Audio, or subtitle.
 
 
