@@ -43,7 +43,16 @@ class FFIO(object):
     start_time = time.time()
 
     self.target_url   = target_url
-    self.mode         = mode
+    if type(mode) is str:
+      if mode.lower() in ['encoder', 'encode']:
+        self.mode = FFIOMode.ENCODE
+      elif mode.lower() in ['decoder', 'decode']:
+        self.mode = FFIOMode.DECODE
+      else:
+        raise ValueError('the kwarg `mode`={} is invalid.'.format(mode))
+    else:
+      self.mode         = mode
+
     self.hw_enabled   = hw_enabled
     self.pix_fmt_hw_enabled = pix_fmt_hw_enabled
     self.frame_seq_py = 0

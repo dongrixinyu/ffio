@@ -14,3 +14,7 @@
 #include <stdio.h>
 
 int check_if_cuda_is_available();
+
+#ifdef CHECK_IF_CUDA_IS_AVAILABLE
+int available_gpu_memory();
+#endif
