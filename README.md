@@ -42,7 +42,6 @@ you can now interact directly with ffmpeg's C context in Python runtime.
 - [x] **Send or recv SEI packets**: easy to get access to customized SEI info. See example: [encode_frames with SEI](https://github.com/dongrixinyu/ffio/blob/main/example/encode_frames.py)
 for detail.
 - [x] **accelarate pix_fmt conversion via cuda**: pix_fmt conversion(namely yuv->rgb and rgb->yuv) is written in cuda.[statistics](https://github.com/dongrixinyu/ffio/wiki/CPU-GPU-utilization-of-ffio#GPU-usage-statistics)
-- [ ] **Handle image with other formats**
 - [ ] **Handle non-video data**. Audio, or subtitle.
 
 
@@ -95,6 +94,7 @@ But if you can configure `ffmpeg, python include path, dynamic library path` smo
 - gcc, make, cmake tools etc.
 - ffmpeg>=4.2.0 should have been installed correctly.
 - Python>=3.8
+- nvcc (if intend to use `hw_enabled` and `pix_fmt_hw_enabled`)
 
 #### Installation method
 
