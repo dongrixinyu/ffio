@@ -94,6 +94,7 @@ But if you can configure `ffmpeg, python include path, dynamic library path` smo
 - gcc, make, cmake tools etc.
 - ffmpeg>=4.2.0 should have been installed correctly.
 - Python>=3.8
+- nvcc (if intend to use `hw_enabled` and `pix_fmt_hw_enabled`)
 
 #### Installation method
 
