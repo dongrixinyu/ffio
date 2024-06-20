@@ -106,12 +106,17 @@ class FFIO(object):
       print(f"[ffio_py][{self.mode.name}] failed to initialize ffio after: {(end_time-start_time):.4f} seconds.")
       c_lib.api_deleteFFIO(self._c_ffio_ptr)
 
+      self.width  = 0
+      self.height = 0
+      self.framerate = 0
+
   def __repr__(self) -> str:
     mode = 'decoder' if self.mode == FFIOMode.DECODE else 'encoder'
     if self.__bool__():
       shm_enabled = 'shm_enabled' if self.shm_enabled else "shm_disabled"
       hw_enabled = 'hw_enabled' if self.hw_enabled else "hw_disabled"
       pix_fmt_hw_enabled = 'pix_fmt_hw_enabled' if self.pix_fmt_hw_enabled else "pix_fmt_hw_disabled"
+
       return f"<ffio.ffio.FFIO, valid {mode}, {self.width}x{self.height}, " \
              f"{shm_enabled}, {hw_enabled}, {pix_fmt_hw_enabled} at {hex(id(self))}>"
     else:
