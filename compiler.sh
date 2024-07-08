@@ -120,8 +120,8 @@ check_and_set_python_path
 check_and_set_cuda_path
 
 # custom setting
-global_ffmpeg_include_path=/home/cuichengyu/pyffmpeg_workspace/ffmpeg-6.0/include
-global_ffmpeg_lib_path=/home/cuichengyu/pyffmpeg_workspace/ffmpeg-6.0/lib
+# global_ffmpeg_include_path=/home/cuichengyu/pyffmpeg_workspace/ffmpeg-6.0/include
+# global_ffmpeg_lib_path=/home/cuichengyu/pyffmpeg_workspace/ffmpeg-6.0/lib
 # global_cuda_flag=0
 
 
