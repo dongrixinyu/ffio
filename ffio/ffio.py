@@ -53,6 +53,9 @@ class FFIO(object):
     else:
       self.mode         = mode
 
+    if self.mode == FFIOMode.DECODE and codec_params is not None:
+      raise ValueError("`codec_params` should be set to None when `mode` is FFIOMode.DECODE")
+
     self.hw_enabled   = hw_enabled
     self.pix_fmt_hw_enabled = pix_fmt_hw_enabled
     self.frame_seq_py = 0
