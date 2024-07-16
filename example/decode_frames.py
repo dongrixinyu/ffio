@@ -40,6 +40,8 @@ while read_idx < read_num:
       pix_fmt_hw_enabled=True)
 
     if decoder:
+      print('stream width: ', decoder.width)
+      print('stream height: ', decoder.height)
       break
 
   """
@@ -53,12 +55,14 @@ while read_idx < read_num:
         you should release current FFIO instance by calling `release_memory()`.
         Than retry to create new instance as you need.
       """
-      break
+      # break
+      continue
 
     else:
       read_idx += 1
       print(f"success get frame: [{read_idx}].")
       image = frame.as_image()
+      print("image shape: ", image.shape)
       image.save(f"output-{read_idx}.jpeg", 'JPEG')
       pdb.set_trace()
 
