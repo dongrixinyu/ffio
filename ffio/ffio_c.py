@@ -106,21 +106,26 @@ class CFFIO(Structure):
 
 
 class CCodecParams(Structure):
-  width      : int
-  height     : int
-  bitrate    : int
-  fps        : int
-  gop        : int
-  b_frames   : int
-  pts_trick  : int
-  profile    : bytes
-  preset     : bytes
-  tune       : bytes
-  pix_fmt    : bytes
-  format     : bytes
-  codec      : bytes
-  sei_uuid   : c_ubyte * 16
-  use_h264_AnnexB_sei : bool
+  # All parameters are provided with default values properly, so ffio can run normally
+  # even if you do not provide a CCodecParams.
+  # If a parameter is required only by the encoder, you can simply ignore it when you are
+  # working on decoding.(Currently all params are required by encoder only.)
+                                       # Required by (E)ncoder or (D)ecoder  |   default value, see: ffio_init_check_and_set_codec_params()
+  width               : int            # E   | 1920
+  height              : int            # E   | 1080
+  bitrate             : int            # E   | 2.4Mbps
+  fps                 : int            # E   | 12
+  gop                 : int            # E   | 12
+  b_frames            : int            # E   | 0
+  pts_trick           : int            # E   | see: FFIO._auto_set_pts_trick()
+  profile             : bytes          # E   | "high422"
+  preset              : bytes          # E   | "veryslow"
+  tune                : bytes          # E   | None
+  pix_fmt             : bytes          # E   | see: find_avcodec_1st_sw_pix_fmt()
+  format              : bytes          # E   | rtmp -> flv; srt -> mpegts
+  codec               : bytes          # E   | hw_enabled ? h264_nvenc : libx264;
+  sei_uuid            : c_ubyte * 16   # E   | see: CCodecParams.__init__()
+  use_h264_AnnexB_sei : bool           # E   | True
 
   _fields_ = [
     ("width",               c_int),
