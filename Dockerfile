@@ -29,7 +29,7 @@ RUN apt-get install libsdl2-2.0 libsdl2-dev -y
 RUN apt install cmake git -y
 
 
-# install nvidia-cuda, default 12.3
+# install nvidia-cuda, default the latest 12.3 or 12.5
 
 # from package manager
 RUN wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/cuda-keyring_1.1-1_all.deb
@@ -120,7 +120,7 @@ ENV LD_LIBRARY_PATH=/usr/local/lib:/usr/local/lib64/:/root/Python-${PYTHON_VERSI
 WORKDIR /root
 RUN git clone https://github.com/dongrixinyu/ffio
 WORKDIR /root/ffio
-RUN ./compiler.sh
+RUN ./compiler.sh release
 RUN pip install -e .
 
 WORKDIR /workspace
