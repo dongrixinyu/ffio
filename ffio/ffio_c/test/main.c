@@ -56,14 +56,11 @@ int main(int argc, char *argv[]){
 
   FFIO* i_ffio = newFFIO();
   FFIO* o_ffio = newFFIO();
-
+  // ffmpeg -flags2 showall -f h264 -i raw-1677141437.h264
+  //     -c:v h264 -bf 0 -g 90 -profile:v high -b:v 2000k
+  //     -maxrate 2000k -an -movflags +faststart  gdr_video2.mp4
   CodecParams i_params = {
-      0, 0, 0, 0, 0, 0, FFIO_PTS_TRICK_EVEN,
-      "", "", "", "", "", "",
-      {0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88,
-       0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88},
-       true
-  };
+      0, 0, 0, 0, 30, 90, 0, FFIO_PTS_TRICK_EVEN, "", "", "", "", "", "", "", "", {0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88}, true, false};
   CodecParams o_params = i_params;
   hw_enabled = true;
   pix_fmt_hw_enabled = true;
@@ -71,8 +68,8 @@ int main(int argc, char *argv[]){
            hw_enabled, pix_fmt_hw_enabled, "cuda",
            false, NULL, 0, 0, &i_params);
   if(o_url != NULL){
-    // o_params.width = 1280;
-    // o_params.height = 720;
+    o_params.width = 1280;
+    o_params.height = 720;
     // bool hw_enabled = false;
     initFFIO(o_ffio, FFIO_MODE_ENCODE, o_url,
              hw_enabled, pix_fmt_hw_enabled, "cuda",
@@ -87,11 +84,14 @@ int main(int argc, char *argv[]){
 
   FFIOFrame* frame;
   int ret;
-  for(int i=0; i<200; ++i){
+  for(int i=0; i<1000; ++i){
     frame = decodeOneFrame(i_ffio, NULL);
     LOG_INFO("[%d] decodeOneFrame returned %d.", i_ffio->frameSeq, ret);
+    if (frame->err!=0){
+      continue;
+    }
     if( frame->err==0 && i<300){
-      saveRGB2File(i_ffio);
+      // saveRGB2File(i_ffio);
     }
     if( frame->err==0 && o_url!=NULL){
       ret = encodeOneFrame(o_ffio, i_ffio->rawFrame,

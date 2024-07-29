@@ -153,12 +153,19 @@ endif()
 
 
 # for test.
-# AUX_SOURCE_DIRECTORY(${PROJECT_SOURCE_DIR}/ffio/ffio_c/test    TEST_SOURCE_FILES)
-# add_executable(ffio.test
-#     ${FFIO_SOURCE_FILES}
-#     ${TEST_SOURCE_FILES})
-# target_include_directories(ffio.test PUBLIC
-#     ${FFMPEG_INCLUDE_DIRS}
-#     ${PROJECT_SOURCE_DIR}/ffio/ffio_c)
-# target_link_libraries(ffio.test
-#     ${FFIO_LIBRARIES})
+AUX_SOURCE_DIRECTORY(${PROJECT_SOURCE_DIR}/ffio/ffio_c/test    TEST_SOURCE_FILES)
+if(${CHECK_CUDA})
+    cuda_add_executable(ffio.test
+        ${FFIO_SOURCE_FILES}
+        ${TEST_SOURCE_FILES})
+else()
+    add_executable(ffio.test
+        ${FFIO_SOURCE_FILES}
+        ${TEST_SOURCE_FILES})
+endif()
+
+target_include_directories(ffio.test PUBLIC
+    ${FFMPEG_INCLUDE_DIRS}
+    ${PROJECT_SOURCE_DIR}/ffio/ffio_c)
+target_link_libraries(ffio.test
+    ${FFIO_LIBRARIES})

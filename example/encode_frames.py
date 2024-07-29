@@ -37,8 +37,8 @@ def main():
   params.b_frames = 0
   params.profile  = b"baseline"
   params.preset   = b"fast"
-  encoder = ffio.FFIO( o_path, mode=ffio.FFIOMode.ENCODE, hw_enabled=True, codec_params=params)
-  decoder = ffio.FFIO( i_path, mode=ffio.FFIOMode.DECODE, hw_enabled=True)
+  encoder = ffio.FFIO( o_path, mode='encoder', hw_enabled=True, codec_params=params)
+  decoder = ffio.FFIO( i_path, mode='DECODE', hw_enabled=True)
 
   if decoder and encoder:
     time_total = 0

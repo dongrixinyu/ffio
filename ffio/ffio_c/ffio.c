@@ -313,6 +313,31 @@ static int ffio_init_decode_avcodec(FFIO* ffio, const char *hw_device) {
     return FFIO_ERROR_AVCODEC_FAILURE;
   }
 
+  if (strncmp(ffio->codecParams->flags2, "showall", strlen("showall")) == 0)
+  {
+    ffio->avCodecContext->flags2 = (1 << 22);
+  }
+  else if (strncmp(ffio->codecParams->flags2, "ignorecrop", strlen("ignorecrop")) == 0)
+  {
+    ffio->avCodecContext->flags2 = (1 << 16);
+  }
+  else if (strncmp(ffio->codecParams->flags2, "chunks", strlen("chunks")) == 0)
+  {
+    ffio->avCodecContext->flags2 = (1 << 15);
+  }
+  else if (strncmp(ffio->codecParams->flags2, "fast", strlen("fast")) == 0)
+  {
+    ffio->avCodecContext->flags2 = (1 << 0);
+  }
+  else if (strncmp(ffio->codecParams->flags2, "noout", strlen("noout")) == 0)
+  {
+    ffio->avCodecContext->flags2 = (1 << 2);
+  }
+  else if (strncmp(ffio->codecParams->flags2, "local_header", strlen("local_header")) == 0)
+  {
+    ffio->avCodecContext->flags2 = (1 << 3);
+  }
+
   ret = avcodec_parameters_to_context(ffio->avCodecContext,
                                       ffio->avFormatContext->streams[ffio->videoStreamIndex]->codecpar);
   if(ret < 0){
@@ -363,6 +388,7 @@ static int ffio_init_encode_avcodec(FFIO* ffio, const char* hw_device) {
   ffio->avCodecContext->width        = ffio->codecParams->width;
   ffio->avCodecContext->height       = ffio->codecParams->height;
   ffio->avCodecContext->bit_rate     = ffio->codecParams->bitrate;
+  ffio->avCodecContext->rc_max_rate  = ffio->codecParams->max_bitrate;
   ffio->avCodecContext->gop_size     = ffio->codecParams->gop;
   ffio->avCodecContext->max_b_frames = ffio->codecParams->b_frames;
   ffio->avCodecContext->time_base    = ffio->codecParams->pts_trick == FFIO_PTS_TRICK_RELATIVE ?
@@ -581,7 +607,8 @@ static int ffio_init_check_and_set_codec_params(
 
   if(   params->width       <=   0 ){ params->width    = 1920;      }
   if(   params->height      <=   0 ){ params->height   = 1080;      }
-  if(   params->bitrate     <=   0 ){ params->bitrate  = 24000*1024; }
+  if(   params->bitrate     <=   0 ){ params->bitrate  = 2400*1024; }
+  if(   params->max_bitrate <=   0 ){ params->max_bitrate = 3600 * 1024;}
   if(   params->fps         <=   0 ){ params->fps      = 12;        }
   if(   params->gop         <    0 ){ params->gop      = 12;        }
   if(   params->b_frames    <    0 ){ params->b_frames = 0;         }
@@ -780,6 +807,12 @@ ENDPOINT_RESEND_PACKET:
                   send_ret, av_err2str(send_ret));
         ffio->frame.err = FFIO_ERROR_SEND_TO_CODEC; goto ENDPOINT_DECODE_ERROR;
       }
+      else if (send_ret == AVERROR(EAGAIN)) {
+        usleep(2000);  // sleep for about a duration of one frame
+        goto ENDPOINT_RESEND_PACKET;
+      }
+
+      av_packet_unref(ffio->avPacket);
 
       // send_ret == 0 or AVERROR(EAGAIN):
       recv_ret = avcodec_receive_frame(ffio->avCodecContext, ffio->avFrame);
@@ -820,7 +853,8 @@ ENDPOINT_DECODE_EOF:
     ffio->ffioState  = FFIO_STATE_END;
     ffio->frame.type = FFIO_FRAME_TYPE_EOF;
     ffio->frame.err  = FFIO_ERROR_STREAM_EOF;
-    ffio->frame.data = NULL; ffio->frame.sei_msg = NULL;
+    ffio->frame.data = NULL;
+    ffio->frame.sei_msg = NULL;
     return &(ffio->frame);
 
   }else{
@@ -828,7 +862,8 @@ ENDPOINT_DECODE_EOF:
     ffio->frame.err  = FFIO_ERROR_READ_OR_WRITE_TARGET;
 ENDPOINT_DECODE_ERROR:
     ffio->frame.type = FFIO_FRAME_TYPE_ERROR;
-    ffio->frame.data = NULL; ffio->frame.sei_msg = NULL;
+    ffio->frame.data = NULL;
+    ffio->frame.sei_msg = NULL;
 
     return &(ffio->frame);
   }
@@ -864,6 +899,7 @@ static FFIOError encodeOneFrameFromRGBFrame(FFIO* ffio, unsigned char* rgbBytes,
   srcFrame->pts      = ffio->get_current_pts(ffio);
   if(srcFrame->pts == -1){
     // skip this frame, maybe get frame too fast.
+    // LOG_INFO_T("[E] skip this frame, maybe get frame too fast.");
     return 0;
   }
 

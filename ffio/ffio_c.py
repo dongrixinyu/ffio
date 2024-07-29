@@ -110,14 +110,18 @@ class CCodecParams(Structure):
   # even if you do not provide a CCodecParams.
   # If a parameter is required only by the encoder, you can simply ignore it when you are
   # working on decoding.(Currently all params are required by encoder only.)
-                                       # Required by (E)ncoder or (D)ecoder  |   default value, see: ffio_init_check_and_set_codec_params()
+
+  # Required by (E)ncoder or (D)ecoder  |   default value, see: ffio_init_check_and_set_codec_params()
   width               : int            # E   | 1920
   height              : int            # E   | 1080
   bitrate             : int            # E   | 2.4Mbps
+  max_bitrate         : int            # E   | 2.4Mbps
   fps                 : int            # E   | 12
   gop                 : int            # E   | 12
   b_frames            : int            # E   | 0
   pts_trick           : int            # E   | see: FFIO._auto_set_pts_trick()
+  flags               : bytes
+  flags2              : bytes
   profile             : bytes          # E   | "high422"
   preset              : bytes          # E   | "veryslow"
   tune                : bytes          # E   | None
@@ -131,10 +135,13 @@ class CCodecParams(Structure):
     ("width",               c_int),
     ("height",              c_int),
     ("bitrate",             c_int),
+    ("max_bitrate",         c_int),
     ("fps",                 c_int),
     ("gop",                 c_int),
     ("b_frames",            c_int),
     ("pts_trick",           c_int),
+    ("flags",               c_char * 24),
+    ("flags2",              c_char * 24),
     ("profile",             c_char * 24),
     ("preset",              c_char * 24),
     ("tune",                c_char * 24),

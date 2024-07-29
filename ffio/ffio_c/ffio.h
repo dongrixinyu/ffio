@@ -61,10 +61,14 @@ typedef struct CodecParams {
   int      width;
   int      height;
   int      bitrate;
+  int      max_bitrate;
   int      fps;
   int      gop;
   int      b_frames;
   int      pts_trick;                        // see: enum FFIOPTSTrick & FFIO.get_current_pts()
+
+  char     flags   [24];
+  char     flags2  [24];
   char     profile [24];
   char     preset  [24];
   char     tune    [24];
