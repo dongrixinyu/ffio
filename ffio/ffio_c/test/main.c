@@ -60,7 +60,7 @@ int main(int argc, char *argv[]){
   //     -c:v h264 -bf 0 -g 90 -profile:v high -b:v 2000k
   //     -maxrate 2000k -an -movflags +faststart  gdr_video2.mp4
   CodecParams i_params = {
-      0, 0, 0, 0, 30, 90, 0, FFIO_PTS_TRICK_EVEN, "", "", "", "", "", "", "", "", {0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88}, true, false};
+      0, 0, 0, 0, 30, 90, 0, FFIO_PTS_TRICK_INCREASE, "", "", "", "", "", "", "", "", {0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88}, true};
   CodecParams o_params = i_params;
   hw_enabled = true;
   pix_fmt_hw_enabled = true;
@@ -84,7 +84,7 @@ int main(int argc, char *argv[]){
 
   FFIOFrame* frame;
   int ret;
-  for(int i=0; i<1000; ++i){
+  for(int i=0; i<9000; ++i){
     frame = decodeOneFrame(i_ffio, NULL);
     LOG_INFO("[%d] decodeOneFrame returned %d.", i_ffio->frameSeq, ret);
     if (frame->err!=0){

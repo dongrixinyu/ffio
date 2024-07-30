@@ -35,9 +35,11 @@ while read_idx < read_num:
     Infinite trying to open ffio, until ffio_state returns success.
   """
   while True:
+    params = ffio.CCodecParams()
+    # params.flags2 = b"showall"
     decoder = ffio.FFIO(
       video_path, mode=ffio.FFIOMode.DECODE, hw_enabled=False,
-      pix_fmt_hw_enabled=True)
+      pix_fmt_hw_enabled=True, codec_params=params)
 
     if decoder:
       print('stream width: ', decoder.width)
@@ -56,13 +58,15 @@ while read_idx < read_num:
         Than retry to create new instance as you need.
       """
       # break
+      print("error.")
       continue
 
     else:
       read_idx += 1
       print(f"success get frame: [{read_idx}].")
       image = frame.as_image()
-      print("image shape: ", image.shape)
+      # pdb.set_trace()
+      # print("image shape: ", image.shape)
       image.save(f"output-{read_idx}.jpeg", 'JPEG')
       pdb.set_trace()
 

@@ -51,10 +51,16 @@ class FFIO(object):
       else:
         raise ValueError('the kwarg `mode`={} is invalid.'.format(mode))
     else:
-      self.mode         = mode
+      self.mode = mode
 
     if self.mode == FFIOMode.DECODE and codec_params is not None:
-      raise ValueError("`codec_params` should be set to None when `mode` is FFIOMode.DECODE")
+      params = [name for name in dir(codec_params) if not name.startswith('_')]
+      params.remove('flags')
+      params.remove('flags2')
+      params.remove('sei_uuid')
+      for param in params:
+        if getattr(codec_params, param) not in [0, -1, b'', True, False]:
+          raise ValueError("`codec_params` should restrict most params when `mode` is FFIOMode.DECODE")
 
     self.hw_enabled   = hw_enabled
     self.pix_fmt_hw_enabled = pix_fmt_hw_enabled
