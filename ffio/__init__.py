@@ -8,7 +8,7 @@
 # Website: http://www.jionlp.com
 
 
-__version__ = '2.0.2'
+__version__ = '2.0.3'
 
 from ffio.ffio_check_cuda import cuda_is_available, available_gpu_memory
 from ffio.ffio import FFIO, CCodecParams, FFIOMode
