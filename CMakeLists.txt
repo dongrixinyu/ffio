@@ -95,9 +95,9 @@ if(${CHECK_CUDA})
     message("cuda_INCLUDE_DIRS:           ${CUDA_INCLUDE_DIRS}")
     message("cuda_cudart_LIBRARIES:       ${CUDA_LIBRARIES}")
     target_include_directories(cudaAPI PUBLIC
-        ${CUDA_INCLUDE_DIRS})
+        ${CUDA_INCLUDE_DIRS} ${PYTHON_INCLUDE_DIRS})
     target_link_libraries(cudaAPI
-        ${CUDA_LIBRARIES})
+        ${CUDA_LIBRARIES} ${PYTHON_LIBRARIES})
 
 
     set(FFIO_SOURCE_FILES ${FFIO_SOURCE_FILES} ${PROJECT_SOURCE_DIR}/ffio/ffio_c/pix_fmt_conversion.cu)
