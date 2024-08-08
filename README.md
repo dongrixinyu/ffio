@@ -1,7 +1,7 @@
 # ffio
 
 <p align="left">
-<img src="https://img.shields.io/badge/version-2.0.2-green" />
+<img src="https://img.shields.io/badge/version-2.0.3-green" />
 <img src="https://img.shields.io/docker/pulls/jionlp/pyffmpeg?color=brightgreen" />
 </p>
 
@@ -119,11 +119,8 @@ Examples of how to use ffio are given in the hyperlinks:
 | [decode video frames to shm](example/decode_frames_shm.py) | Decoded rgb bytes will be written to SharedMemory.  |
 | [encode video frames](https://github.com/dongrixinyu/ffio/blob/main/example/encode_frames.py) | To insert frames in Numpy format into a video stream  |
 | [encode video frames from shm](example/encode_frames_shm.py) | Encode rgb bytes from SharedMemory. |
-
-### For management of GPU, ffio provides two functions concerning cuda gpu.
-
-- `ffio.cuda_is_available()`: returns a bool value, indicating that if cuda is available, and print info of GPU.
-- `ffio.available_gpu_memory()`: returns an int value, indicating how much GPU memory is available to use, excluding that been occupied. It is measured in `M`(mega) unit. It is helpful for deciding whether to set `hw_enabled` to `True`.
+|`ffio.cuda_is_available()` | returns a bool value, indicating that if cuda is available, and print info of GPU. |
+|`ffio.available_gpu_memory()` | returns a list, indicating how much GPU memory is available to use for every GPU card, excluding that been occupied. It is measured in `M`(mega) unit. It is helpful for deciding whether to set `hw_enabled` and `pix_fmt_hw_enabled` to `True`.|
 
 # Reference
 
