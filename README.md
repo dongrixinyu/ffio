@@ -111,7 +111,7 @@ $ pip install -e .
 
 # Usage
 
-Examples of how to use ffio are given in the hyperlinks:
+Here is [Documentation](https://github.com/dongrixinyu/ffio/wiki/Documentation). Examples of how to use ffio are given in the hyperlinks:
 
 | function       | description    |
 |----------------| ---------------|
