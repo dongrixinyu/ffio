@@ -176,7 +176,7 @@ try:
   cuda_c_lib.check_if_cuda_is_available.restype  = c_int
 
   cuda_c_lib.available_gpu_memory.argtypes = []
-  cuda_c_lib.available_gpu_memory.restype  = c_int
+  cuda_c_lib.available_gpu_memory.restype  = py_object
 except:
   cuda_c_lib = None
 

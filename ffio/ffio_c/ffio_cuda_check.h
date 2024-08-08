@@ -11,10 +11,11 @@
 #ifdef CHECK_IF_CUDA_IS_AVAILABLE
 #include "cuda_runtime_api.h"
 #endif
+#include "Python.h"
 #include <stdio.h>
 
 int check_if_cuda_is_available();
 
 #ifdef CHECK_IF_CUDA_IS_AVAILABLE
-int available_gpu_memory();
+PyObject *available_gpu_memory();
 #endif

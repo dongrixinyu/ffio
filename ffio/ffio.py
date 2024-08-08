@@ -9,6 +9,7 @@
 
 import pdb
 import platform
+import re
 import time
 import numpy as np
 
@@ -38,6 +39,7 @@ class FFIO(object):
 
   def __init__(self, target_url: str, mode: FFIOMode = FFIOMode.DECODE,
                hw_enabled: bool = False, pix_fmt_hw_enabled: bool = False,
+               hw_device: str = "",
                shm_name: str = None, shm_size: int = 0, shm_offset: int = 0,
                codec_params: CCodecParams = None):
     start_time = time.time()
@@ -62,7 +64,19 @@ class FFIO(object):
         if getattr(codec_params, param) not in [0, -1, b'', True, False]:
           raise ValueError("`codec_params` should restrict most params when `mode` is FFIOMode.DECODE")
 
-    self.hw_enabled   = hw_enabled
+    self.hw_enabled = hw_enabled
+
+    if len(hw_device) > 0:
+        cuda_pattern = re.compile('^cuda:\d{1,2}$')
+        if hw_device.lower() == "cuda":
+            self.hw_device = "cuda:0"
+        elif cuda_pattern.search(hw_device):
+            self.hw_device = hw_device
+        else:
+            raise ValueError("`hw_device` should be set as bool or string like `cuda:0`")
+    else:
+        pass
+
     self.pix_fmt_hw_enabled = pix_fmt_hw_enabled
     self.frame_seq_py = 0
     self.codec_params = codec_params if codec_params is not None else CCodecParams()

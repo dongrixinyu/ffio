@@ -30,12 +30,22 @@ case "$1" in
 esac
 
 check_and_set_ffmpeg_path() {
-  if command -v pkg-config &> /dev/null            \
-    && pkg-config --cflags libavcodec &> /dev/null \
-    && pkg-config --libs   libavcodec &> /dev/null ; then
+  if command -v pkg-config &> /dev/null; then
+    tmp=$(pkg-config --list-all | grep libavcodec)
+    if [ ! -z "$tmp" ]; then
       echo "[ffio_build] checking ffmpeg includes and libs path by pkg-config..."
       global_ffmpeg_include_path=$(pkg-config --cflags libavcodec 2> /dev/null | sed 's/-I//g')
       global_ffmpeg_lib_path=$(    pkg-config --libs   libavcodec 2> /dev/null | sed 's/-L//g' | awk '{print $1}')
+    else
+        echo "[ffio_build] checking ffmpeg includes path by searching the path of avutil.h..."
+	local avutil_header_file_path=`find /usr -name avutil.h`
+        local avutil_include_path=`dirname ${avutil_header_file_path}`
+        global_ffmpeg_include_path=`dirname ${avutil_include_path}`
+
+        echo "[ffio_build] checking ffmpeg libs path by searching the path of libavutil.so..."
+        local avutil_lib_file_path=`find /usr -name libavutil.so`
+        global_ffmpeg_lib_path=`dirname ${avutil_lib_file_path}`
+    fi
   else
     echo "[ffio_build] checking ffmpeg includes path by searching the path of avutil.h..."
     local avutil_header_file_path=`find /usr -name avutil.h`
@@ -57,7 +67,7 @@ check_and_set_python_path(){
     && python3-config --ldflags  &> /dev/null ; then
       echo "[ffio_build] checking python3 includes and libs path by python3-config..."
       global_python_include_path=$(python3-config --includes 2> /dev/null | sed 's/-I//g' | awk '{print $1}')
-      local python_lib_dir_path=$(python3-config --ldflags  2> /dev/null | sed 's/ /\n/g' | grep "\-L" | sed 's/-L//g')
+      python_lib_dir_path=$(python3-config --ldflags  2> /dev/null | sed 's/ /\n/g' | grep "\-L" | sed 's/-L//g')
 
       for vari in ${python_lib_dir_path}
       do
@@ -120,8 +130,8 @@ check_and_set_python_path
 check_and_set_cuda_path
 
 # custom setting
-# global_ffmpeg_include_path=/home/cuichengyu/pyffmpeg_workspace/ffmpeg-6.0/include
-# global_ffmpeg_lib_path=/home/cuichengyu/pyffmpeg_workspace/ffmpeg-6.0/lib
+# global_ffmpeg_include_path=/usr/local/ffmpeg/include
+# global_ffmpeg_lib_path=/usr/local/ffmpeg/lib
 # global_cuda_flag=0
 
 

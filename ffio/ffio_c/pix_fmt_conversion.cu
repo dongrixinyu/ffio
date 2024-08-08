@@ -75,8 +75,10 @@ void __global__ rgb_2_yuv(
 void initializeCuda(
     int width, int height,
     unsigned char **d_yuv_y, unsigned char **d_yuv_uv, unsigned char **d_rgb,
-    int **d_width)
+    int **d_width, int cuda_id)
 {
+    int ret = cudaSetDevice(cuda_id);
+
     int base_size = width * height / 2;
     // printf("init 1 malloc ... %p\n", (void **)d_yuv_y);
     cudaMalloc((void **)d_yuv_y, base_size * 2 * sizeof(unsigned char));

@@ -18,6 +18,8 @@
 
 #include <stdio.h>
 #include <unistd.h>
+#include <regex.h>
+#include <stdlib.h>
 #include <time.h>
 #include <sys/types.h>
 #include <pwd.h>
@@ -67,3 +69,4 @@ enum AVPixelFormat find_avcodec_1st_hw_pix_fmt(AVCodec *codec);
 bool extend_sei_to_av_packet(bool useAnnexB, AVPacket* pkt,const uint8_t* uuid,
                              const char* message, uint32_t sei_message_size);
 int get_sei_from_av_frame(AVFrame* avFrame, unsigned char* dst, const char* filter);
+bool cuda_re_check(const char *string);

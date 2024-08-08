@@ -236,3 +236,31 @@ int get_sei_from_av_frame(AVFrame* avFrame, unsigned char* dst, const char* filt
   // return false;
   return 0;
 }
+
+bool cuda_re_check(const char *string) {
+
+  if( strncmp(string, "cuda", strlen("cuda")) == 0 ) {
+    return true;
+  }
+
+  const char *cuda_pattern = "^cuda:[0-9]{1,2}$";
+  regex_t cuda_regex;
+  
+  int ret;
+  ret = regcomp(&cuda_regex, cuda_pattern, REG_EXTENDED);
+  if (ret) {
+    return false;
+  }
+  
+  ret = regexec(&cuda_regex, string, 0, NULL, 0);
+  regfree(&cuda_regex);
+
+  if (!ret) {
+    return true;
+  } else if (ret == REG_NOMATCH) {
+    return false;
+  } else {
+    return false;
+  }
+}
+

@@ -43,11 +43,13 @@ int check_if_cuda_is_available()
 }
 
 #ifdef CHECK_IF_CUDA_IS_AVAILABLE
-int available_gpu_memory()
+PyObject *available_gpu_memory()
 {
     size_t avail;
     size_t total;
 
+    PyObject *memoryList = PyList_New(0);
+    int ret;
     int deviceCount;
     cudaGetDeviceCount(&deviceCount);
     for (int i = 0; i < deviceCount; i++)
@@ -55,10 +57,12 @@ int available_gpu_memory()
         cudaSetDevice(i);
         cudaMemGetInfo(&avail, &total);
         int memory = (int)(avail / 1024 / 1024);
+        PyObject *py_memory = PyLong_FromLong(memory);
+	ret = PyList_Append(memoryList, py_memory);
+
         cudaDeviceReset();
 
-        return memory;
     }
-    return 0;
+    return memoryList;
 }
 #endif

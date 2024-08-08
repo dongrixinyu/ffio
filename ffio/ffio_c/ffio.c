@@ -144,7 +144,22 @@ static int hw_init_encoder(FFIO* ffio, const char* hw_device){
    *
    * hw_device: "cuda"
    */
-  enum AVHWDeviceType hw_type = av_hwdevice_find_type_by_name(hw_device);
+
+  bool retb = cuda_re_check(hw_device); // like cuda:23
+  enum AVHWDeviceType hw_type;
+  char *cuda_id;
+
+  if (retb) {
+    if ( strncmp(hw_device, "cuda:", strlen("cuda:")) == 0 ){
+        cuda_id = hw_device + 5;
+    } else {
+        cuda_id = "0";
+    }
+    hw_type = av_hwdevice_find_type_by_name("cuda");
+  } else {
+    hw_type = av_hwdevice_find_type_by_name(hw_device);
+  }
+
   if(hw_type == AV_HWDEVICE_TYPE_NONE){ return FFIO_ERROR_HARDWARE_ACCELERATION; }
 
   hw_set_pix_fmt_according_avcodec(ffio, hw_device);
@@ -152,7 +167,12 @@ static int hw_init_encoder(FFIO* ffio, const char* hw_device){
            av_get_pix_fmt_name(ffio->hw_pix_fmt) );
   ffio->avCodecContext->pix_fmt = ffio->hw_pix_fmt;
 
-  int ret = av_hwdevice_ctx_create(&(ffio->hwContext), hw_type,NULL, NULL, 0);
+  int ret;
+  if (retb) {
+    ret = av_hwdevice_ctx_create(&(ffio->hwContext), hw_type, cuda_id, NULL, 0);
+  } else {
+    ret = av_hwdevice_ctx_create(&(ffio->hwContext), hw_type, NULL, NULL, 0);
+  }
   if(ret != 0){
     LOG_ERROR("[E][init][hw] failed to init hw_ctx, ret: %d - %s.", ret, av_err2str(ret));
     return FFIO_ERROR_HARDWARE_ACCELERATION;
@@ -186,14 +206,33 @@ static int hw_init_encoder(FFIO* ffio, const char* hw_device){
 }
 
 static int hw_init_decoder(FFIO* ffio, const char* hw_device){
-  enum AVHWDeviceType type = av_hwdevice_find_type_by_name(hw_device);
-  if(type == AV_HWDEVICE_TYPE_NONE){ return FFIO_ERROR_HARDWARE_ACCELERATION; }
+  bool retb = cuda_re_check(hw_device); // like cuda:23
+  enum AVHWDeviceType type;
+  char *cuda_id;
 
+  if (retb) {
+    if ( strncmp(hw_device, "cuda:", strlen("cuda:")) == 0 ){
+        cuda_id = hw_device + 5;
+    } else {
+        cuda_id = "0";
+    }
+    type = av_hwdevice_find_type_by_name("cuda");
+  } else {
+    type = av_hwdevice_find_type_by_name(hw_device);
+  }
+
+  if(type == AV_HWDEVICE_TYPE_NONE){ return FFIO_ERROR_HARDWARE_ACCELERATION; }
+  printf("hw_devide debug: %s\n", hw_device);
   hw_set_pix_fmt_according_avcodec(ffio, hw_device);
   ffio->avCodecContext->opaque     = &(ffio->hw_pix_fmt);
   ffio->avCodecContext->get_format = hw_callback_for_get_pix_fmts;
 
-  int ret = av_hwdevice_ctx_create(&(ffio->hwContext), type, NULL, NULL, 0);
+  int ret;
+  if (retb) {
+    ret = av_hwdevice_ctx_create(&(ffio->hwContext), type, cuda_id, NULL, 0);
+  } else {
+    ret = av_hwdevice_ctx_create(&(ffio->hwContext), type, NULL, NULL, 0);
+  }
   if(ret != 0){
     LOG_ERROR("[D][init][hw] failed to create hw_ctx, ret: %d - %s.", ret, av_err2str(ret));
     return FFIO_ERROR_HARDWARE_ACCELERATION;
@@ -511,17 +550,19 @@ static int ffio_init_packet_and_frame(FFIO* ffio){
 }
 
 #ifdef CHECK_IF_CUDA_IS_AVAILABLE
-static int ffio_init_cuda_pix_fmt_conversion(FFIO *ffio) {
+static int ffio_init_cuda_pix_fmt_conversion(FFIO *ffio, const char *hw_device) {
   ffio->cudaFrame = (FFIOCudaFrame *)malloc(sizeof(FFIOCudaFrame));
 
   ffio->cudaFrame->width = ffio->avCodecContext->width;
   ffio->cudaFrame->height = ffio->avCodecContext->height;
 
+  int cuda_id = atoi(hw_device + 5);
   initializeCuda(
       ffio->cudaFrame->width, ffio->cudaFrame->height,
       &(ffio->cudaFrame->d_yuv_y), &(ffio->cudaFrame->d_yuv_uv),
       &(ffio->cudaFrame->d_rgb),
-      &(ffio->cudaFrame->d_width));
+      &(ffio->cudaFrame->d_width),
+      cuda_id);
 
   return 0;
 }
@@ -1028,7 +1069,7 @@ int initFFIO(
     if( strncmp(hw_device, "cuda", strlen("cuda")) == 0 ){
       // Initialize automatic cuda pix format conversion.
 #ifdef CHECK_IF_CUDA_IS_AVAILABLE
-      ret = ffio_init_cuda_pix_fmt_conversion(ffio);
+      ret = ffio_init_cuda_pix_fmt_conversion(ffio, hw_device);
 #else
       ret = ffio_init_sws_context(ffio);
       if (ret != 0)
