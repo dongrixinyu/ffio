@@ -157,6 +157,7 @@ struct FFIO{
 
   CodecParams         *codecParams;
   int64_t              time_start_at;
+  struct Clicker      *clicker;
 
   int64_t (*get_current_pts)(FFIO *);
 };
