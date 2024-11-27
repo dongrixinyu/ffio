@@ -11,7 +11,7 @@
 #pragma once
 
 // this param is set to return a timeout error when waiting for more than 5 seconds.
-#define WAIT_FOR_STREAM_TIMEOUT 5
+#define WAIT_FOR_STREAM_TIMEOUT 4  // changed to 4 seconds
 
 // write log to file in every PRINT_FRAME_GAP frames to make sure correctness.
 #define LOG_PRINT_FRAME_GAP 500
