@@ -16,7 +16,7 @@ import setuptools
 
 # get version tag
 DIR_PATH = os.path.dirname(os.path.abspath(__file__))
-__version__ = '2.0.3'
+__version__ = '2.0.4'
 
 with open(os.path.join(DIR_PATH, 'requirements.txt'),
           'r', encoding='utf-8') as f:
