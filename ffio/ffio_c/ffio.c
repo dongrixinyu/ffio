@@ -281,7 +281,7 @@ static void ffio_reset(FFIO* ffio){
 
   ffio->codecParams     = NULL;
   ffio->time_start_at   = -1;
-  ffio->clicker         = NULL;
+  // ffio->clicker         = NULL;
 
   ffio->sei_buf[MAX_SEI_LENGTH-1] = '\0';
   ffio->frame = (FFIOFrame){0,0,0,0, NULL, 0, NULL};
@@ -295,13 +295,13 @@ static void ffio_reset(FFIO* ffio){
 static int ffio_init_decode_avformat(FFIO* ffio){
   int ret;
 
-  // nonblocking mode: set the auto timeout to avoid waiting for the stream forever.
-  ffio->clicker = (struct Clicker *)calloc(1, sizeof(struct Clicker));
+  // // nonblocking mode: set the auto timeout to avoid waiting for the stream forever.
+  // ffio->clicker = (struct Clicker *)calloc(1, sizeof(struct Clicker));
 
-  ffio->avFormatContext = avformat_alloc_context();
-  ffio->avFormatContext->interrupt_callback.callback = interrupt_callback;
-  ffio->avFormatContext->interrupt_callback.opaque = (void *)ffio->clicker;
-  ffio->clicker->lasttime = time(NULL); // the current time
+  // ffio->avFormatContext = avformat_alloc_context();
+  // ffio->avFormatContext->interrupt_callback.callback = interrupt_callback;
+  // ffio->avFormatContext->interrupt_callback.opaque = (void *)ffio->clicker;
+  // ffio->clicker->lasttime = time(NULL); // the current time
 
   ret = avformat_open_input(&ffio->avFormatContext, ffio->targetUrl, NULL, NULL);
   if(ret < 0){
@@ -845,7 +845,7 @@ static FFIOFrame* decodeOneFrameToAVFrame(FFIO* ffio){
   while(true) {
     av_packet_unref(ffio->avPacket);
 
-    ffio->clicker->lasttime = time(NULL);
+    // ffio->clicker->lasttime = time(NULL);
     read_ret = av_read_frame(ffio->avFormatContext, ffio->avPacket);
     if(read_ret<0){ break; }
 
@@ -1138,7 +1138,7 @@ FFIO* finalizeFFIO(FFIO* ffio){
   if(ffio->avPacket)       { av_packet_free( &(ffio->avPacket) );              }
   if(ffio->avCodecContext) { avcodec_free_context( &(ffio->avCodecContext) );  }
   if(ffio->hwContext)      { av_buffer_unref(&(ffio->hwContext));              }
-  if(ffio->clicker)        { free(ffio->clicker);                              }
+  // if(ffio->clicker)        { free(ffio->clicker);                              }
 
   if(ffio->avFormatContext){
     if(ffio->ffioMode == FFIO_MODE_DECODE){
