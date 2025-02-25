@@ -92,7 +92,7 @@ class FFIO(object):
       pix_fmt_hw_enabled = False
       pass
 
-    int_mode = 0 if mode == FFIOMode.DECODE else 1
+    int_mode = 0 if self.mode == FFIOMode.DECODE else 1
     if shm_name is None:
       self.shm_enabled = False
       c_lib.api_initFFIO(
