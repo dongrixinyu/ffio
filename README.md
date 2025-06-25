@@ -30,7 +30,7 @@ Naturally, you can chain two `ffio.FFio` instances together to facilitate video 
 However, if you don't have to do some stuff with raw RGB images, simply
 consider using ffmpeg as a more straightforward solution.
 
-Just keep in mind, the main character in **ffio** are `images in raw format`.
+Just keep in mind, the main character in **ffio** is `images in raw format`.
 
 # Features
 - [x] **Easy to use**: You don't have to tackle the complex video processing problems concerning FFmpeg anymore.
