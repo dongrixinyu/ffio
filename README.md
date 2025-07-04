@@ -18,7 +18,7 @@ that specifically deals with raw RGB data.
 ```
 [Video]        [FFIO]      [Raw-RGB-Image]     [FFIO]          [Video]
    ● ------> (decoding)  ------>  □
-                                  ◘
+                                  ◘  ----->  (may be AI processing, etc.)
                                   □  ----->  (encoding) ------->  ●
 ```
 
