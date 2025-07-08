@@ -15,7 +15,7 @@ import numpy as np
 from enum    import IntEnum
 from pathlib import Path
 from ctypes  import Structure, PyDLL, POINTER, c_int, c_bool, c_char_p, py_object, \
-  c_char, c_ubyte, c_byte, string_at, c_double
+  c_char, c_ubyte, c_byte, string_at, c_double, c_int64
 from PIL     import Image
 from io      import BytesIO
 
@@ -99,9 +99,10 @@ class CFFIO(Structure):
     ("video_stream_index", c_int),
     ("image_width",        c_int),
     ("image_height",       c_int),
-    ("framerate",          c_double),
     ("image_byte_size",    c_int),
-    ("pts_anchor",         c_int)
+    ("framerate",          c_double),
+
+    ("pts_anchor",         c_int64)
   ]
 
 
