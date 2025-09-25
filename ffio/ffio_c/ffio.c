@@ -798,6 +798,7 @@ static int convertToRGBFrame(FFIO* ffio){
 #endif
     src_frame = ffio->hwFrame;
   }
+  #ifdef CHECK_IF_CUDA_IS_AVAILABLE
   else if ( ffio->pix_fmt_hw_enabled )
   {
     // here ffio->hw_enabled has been set to False
@@ -809,6 +810,7 @@ static int convertToRGBFrame(FFIO* ffio){
         ffio->cudaFrame->d_width);
     return ret;
   }
+  #endif
 
   int ret = sws_scale(
       ffio->swsContext, (uint8_t const *const *)src_frame->data,
