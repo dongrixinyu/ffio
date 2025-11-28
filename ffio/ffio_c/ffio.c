@@ -457,16 +457,130 @@ static int ffio_init_encode_avcodec(FFIO* ffio, const char* hw_device) {
   }
 
   int ret;
+  bool hw_init_attempted = false;
+  
   if(ffio->hw_enabled){
+    hw_init_attempted = true;
     ret = hw_init_encoder(ffio, hw_device);
-    if(ret!=0){ LOG_ERROR_T("[E][init][hw] failed to init hw ctx."); return ret; }
-    LOG_INFO("[E][init][hw] succeeded to init hw ctx.");
+    if(ret!=0){ 
+      LOG_WARNING("[E][init][hw] failed to init hw ctx, will try software encoder.");
+      // 硬件初始化失败，准备回退到软件编码
+      hw_init_attempted = false;
+      ffio->hw_enabled = false;
+    } else {
+      LOG_INFO("[E][init][hw] succeeded to init hw ctx.");
+    }
   }
 
   ret = avcodec_open2(ffio->avCodecContext, ffio->avCodec, NULL);
   if(ret < 0){
-    LOG_ERROR_T("[E][init] can not open codec.");
-    return FFIO_ERROR_AVCODEC_FAILURE;
+    // 如果是硬件编码失败，尝试回退到软件编码
+    if(hw_init_attempted){
+      LOG_WARNING("[E][init] Hardware encoder failed to open, falling back to software encoder.");
+      
+      // 清理硬件相关的上下文
+      if(ffio->avCodecContext->hw_frames_ctx){
+        av_buffer_unref(&ffio->avCodecContext->hw_frames_ctx);
+      }
+      if(ffio->hwContext){
+        av_buffer_unref(&ffio->hwContext);
+        ffio->hwContext = NULL;
+      }
+      
+      // 重置硬件相关的标志和像素格式
+      ffio->hw_enabled = false;
+      ffio->hw_pix_fmt = AV_PIX_FMT_NONE;
+      
+      // 关闭并重新分配codec context
+      avcodec_free_context(&ffio->avCodecContext);
+      
+      // 尝试查找对应的软件编码器
+      const char* sw_codec_name = codec_name;
+      
+      // 如果是硬件编码器名称，转换为对应的软件编码器
+      // 例如: h264_nvenc -> libx264, hevc_nvenc -> libx265
+      if(strstr(codec_name, "_nvenc") != NULL){
+        if(strstr(codec_name, "h264") != NULL){
+          sw_codec_name = "libx264";
+        } else if(strstr(codec_name, "hevc") != NULL || strstr(codec_name, "h265") != NULL){
+          sw_codec_name = "libx265";
+        }
+      } else if(strstr(codec_name, "_videotoolbox") != NULL){
+        if(strstr(codec_name, "h264") != NULL){
+          sw_codec_name = "libx264";
+        } else if(strstr(codec_name, "hevc") != NULL || strstr(codec_name, "h265") != NULL){
+          sw_codec_name = "libx265";
+        }
+      } else if(strstr(codec_name, "_qsv") != NULL){
+        if(strstr(codec_name, "h264") != NULL){
+          sw_codec_name = "libx264";
+        } else if(strstr(codec_name, "hevc") != NULL || strstr(codec_name, "h265") != NULL){
+          sw_codec_name = "libx265";
+        }
+      } else if(strstr(codec_name, "_vaapi") != NULL){
+        if(strstr(codec_name, "h264") != NULL){
+          sw_codec_name = "libx264";
+        } else if(strstr(codec_name, "hevc") != NULL || strstr(codec_name, "h265") != NULL){
+          sw_codec_name = "libx265";
+        }
+      }
+      
+      LOG_INFO("[E][init] Trying software encoder: %s", sw_codec_name);
+      
+      // 查找软件编码器
+      ffio->avCodec = (AVCodec*)avcodec_find_encoder_by_name(sw_codec_name);
+      if (!ffio->avCodec){
+        LOG_ERROR_T("[E][init] Software codec '%s' not found.", sw_codec_name);
+        return FFIO_ERROR_AVCODEC_FAILURE;
+      }
+      
+      // 重新分配codec context
+      ffio->avCodecContext = avcodec_alloc_context3(ffio->avCodec);
+      if (!ffio->avCodecContext){
+        LOG_ERROR_T("[E][init] Could not allocate software codec context.");
+        return FFIO_ERROR_AVCODEC_FAILURE;
+      }
+      
+      // 重新设置编码参数
+      ffio->avCodecContext->width        = ffio->codecParams->width;
+      ffio->avCodecContext->height       = ffio->codecParams->height;
+      ffio->avCodecContext->bit_rate     = ffio->codecParams->bitrate;
+      ffio->avCodecContext->rc_max_rate  = ffio->codecParams->max_bitrate;
+      ffio->avCodecContext->gop_size     = ffio->codecParams->gop;
+      ffio->avCodecContext->max_b_frames = ffio->codecParams->b_frames;
+      ffio->avCodecContext->time_base    = ffio->codecParams->pts_trick == FFIO_PTS_TRICK_RELATIVE ?
+          FFIO_TIME_BASE_MILLIS : (AVRational){1, ffio->codecParams->fps, };
+      ffio->avCodecContext->framerate    = (AVRational){ffio->codecParams->fps, 1};
+      
+      // 设置软件编码器的像素格式
+      ffio->avCodecContext->pix_fmt = is_empty_string(ffio->codecParams->pix_fmt) ?
+          find_avcodec_1st_sw_pix_fmt(ffio->avCodec) : av_get_pix_fmt(ffio->codecParams->pix_fmt);
+      ffio->sw_pix_fmt = ffio->avCodecContext->pix_fmt;
+      
+      // 重新设置编码器选项
+      av_opt_set(ffio->avCodecContext->priv_data, "profile", ffio->codecParams->profile, 0);
+      av_opt_set(ffio->avCodecContext->priv_data, "preset",  ffio->codecParams->preset,  0);
+      if(!is_empty_string(ffio->codecParams->tune)){
+        av_opt_set(ffio->avCodecContext->priv_data, "tune", ffio->codecParams->tune, 0);
+      }
+      
+      // for compatibility: if GLOBAL_HEADER is needed by target format.
+      if (ffio->avFormatContext->oformat->flags & AVFMT_GLOBALHEADER){
+        ffio->avCodecContext->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
+      }
+      
+      // 尝试打开软件编码器
+      ret = avcodec_open2(ffio->avCodecContext, ffio->avCodec, NULL);
+      if(ret < 0){
+        LOG_ERROR_T("[E][init] Software encoder also failed to open.");
+        return FFIO_ERROR_AVCODEC_FAILURE;
+      }
+      
+      LOG_INFO("[E][init] Successfully fell back to software encoder: %s", sw_codec_name);
+    } else {
+      LOG_ERROR_T("[E][init] Can not open codec.");
+      return FFIO_ERROR_AVCODEC_FAILURE;
+    }
   }
 
   LOG_INFO("[E][init] succeeded to init codec ctx.");
